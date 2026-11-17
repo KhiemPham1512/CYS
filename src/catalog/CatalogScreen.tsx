@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -34,25 +34,36 @@ export function CatalogScreen({ branchId }: Props) {
   const [formVisible, setFormVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<Tables<"items"> | null>(null);
 
+  // Chỉ nhận kết quả của lần tải mới nhất; lần tải cũ về sau bị bỏ.
+  const latestRequest = useRef(0);
   const fetchCatalog = useCallback(async () => {
+    const request = ++latestRequest.current;
     setError(false);
     try {
       const data = await loadCatalog(branchId);
+      if (request !== latestRequest.current) return;
       setGroups(data.groups);
       setItems(data.items);
     } catch {
-      setError(true);
+      if (request === latestRequest.current) setError(true);
     } finally {
-      setLoading(false);
+      if (request === latestRequest.current) setLoading(false);
     }
   }, [branchId]);
 
   useEffect(() => {
     setLoading(true);
     void fetchCatalog();
-    return subscribeCatalog(branchId, () => {
-      void fetchCatalog();
+    // Gộp loạt sự kiện realtime (ví dụ script nạp N món) thành một lần tải.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const unsubscribe = subscribeCatalog(branchId, () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => void fetchCatalog(), 300);
     });
+    return () => {
+      clearTimeout(timer);
+      unsubscribe();
+    };
   }, [branchId, fetchCatalog]);
 
   const sections = useMemo<SectionData[]>(() => {

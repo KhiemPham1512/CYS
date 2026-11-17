@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Modal,
   Pressable,
@@ -94,15 +94,20 @@ export function ItemForm({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // Chỉ đặt lại form khi mở form hoặc đổi món. Không theo dõi groups: realtime tải lại
+  // Danh mục sẽ tạo mảng mới và xóa mất chữ người dùng đang gõ.
+  const defaultGroupId = sortedGroups[0]?.id ?? "";
+  const defaultGroupRef = useRef(defaultGroupId);
+  defaultGroupRef.current = defaultGroupId;
   useEffect(() => {
     if (!visible) return;
     setValues(
-      initial ? toFormValues(initial) : emptyForm(sortedGroups[0]?.id ?? "")
+      initial ? toFormValues(initial) : emptyForm(defaultGroupRef.current)
     );
     setErrors({});
     setSubmitError(null);
     setBusy(false);
-  }, [visible, initial, sortedGroups]);
+  }, [visible, initial]);
 
   function setField<K extends keyof ItemFormValues>(
     key: K,

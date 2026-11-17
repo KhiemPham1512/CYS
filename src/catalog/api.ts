@@ -55,7 +55,7 @@ export function subscribeCatalog(
   onChange: () => void
 ): () => void {
   const channel = supabase
-    .channel(`catalog-${branchId}`)
+    .channel(`catalog-${branchId}-${Math.random().toString(36).slice(2)}`) // tên riêng mỗi lần: supabase-js trả lại kênh cũ nếu trùng tên
     .on(
       "postgres_changes",
       {
