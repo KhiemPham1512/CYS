@@ -11,6 +11,7 @@ import {
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./src/lib/supabase";
 import { useOnline } from "./src/lib/useOnline";
+import { CatalogScreen } from "./src/catalog/CatalogScreen";
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>();
@@ -101,31 +102,49 @@ function LoginScreen({ online }: { online: boolean }) {
 
 function HomeScreen() {
   // undefined = đang tải; null = không có Chi nhánh (chưa là thành viên hoặc bị khóa).
-  const [branchName, setBranchName] = useState<string | null | undefined>();
+  const [branch, setBranch] = useState<
+    { branch_id: string; branch_name: string } | null | undefined
+  >();
   const [error, setError] = useState(false);
 
   useEffect(() => {
     // shortcut: lấy Chi nhánh đầu tiên; khi một người thuộc nhiều Chi nhánh thì thêm bước chọn.
     supabase
       .from("branch_settings")
-      .select("branch_name")
+      .select("branch_id, branch_name")
       .order("branch_id")
       .limit(1)
       .maybeSingle()
       .then(({ data, error }) => {
         setError(!!error);
-        setBranchName(data?.branch_name ?? null);
+        setBranch(data ?? null);
       });
   }, []);
 
+  if (branch) {
+    return (
+      <View style={styles.homeContainer}>
+        <View style={styles.topBar}>
+          <Text style={styles.branchTitle}>{branch.branch_name}</Text>
+          <Pressable
+            style={styles.linkButton}
+            onPress={() => supabase.auth.signOut()}
+            accessibilityRole="button"
+          >
+            <Text style={styles.link}>Đăng xuất</Text>
+          </Pressable>
+        </View>
+        <CatalogScreen branchId={branch.branch_id} />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.form}>
-      {branchName === undefined ? (
+      {branch === undefined ? (
         <ActivityIndicator />
       ) : error ? (
         <Text style={styles.error}>Không tải được dữ liệu. Kiểm tra mạng.</Text>
-      ) : branchName ? (
-        <Text style={styles.title}>{branchName}</Text>
       ) : (
         <Text style={styles.error}>
           Bạn chưa thuộc Chi nhánh nào hoặc đã bị khóa. Liên hệ Quản trị.
@@ -179,4 +198,13 @@ const styles = StyleSheet.create({
   buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
   linkButton: { padding: 12, alignItems: "center", minHeight: 44 },
   link: { color: "#0f766e", fontSize: 16 },
+  homeContainer: { flex: 1, width: "100%", paddingTop: 32 },
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  branchTitle: { fontSize: 18, fontWeight: "700" },
 });
