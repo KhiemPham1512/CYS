@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "devDependencies": {
+    "@types/node": "^25.9.9",
     "@types/react": "~19.3.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.6.1",
@@ -16,6 +17,7 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "import-catalog": "node --env-file=.env scripts/import-catalog.ts",
     "prepare": "husky"
   },
   "dependencies": {

@@ -33,7 +33,7 @@ Ngày sản xuất in trên hàng, do Người dùng nhập tay khi nhận hàng
 _Tránh_: NSX, hạn sử dụng (khi ý nói ngày in trên bao bì)
 
 **Thời hạn sử dụng**:
-Số ngày một Nguyên vật liệu dùng được kể từ Ngày sản xuất; ngày hết hạn của một Lô = Ngày sản xuất + Thời hạn sử dụng.
+Khoảng thời gian một Nguyên vật liệu dùng được kể từ Ngày sản xuất, ghi bằng ngày hoặc tháng đúng như trên bảng hạn (không quy đổi); ngày hết hạn của một Lô = Ngày sản xuất + Thời hạn sử dụng (tháng tính theo lịch).
 _Tránh_: HSD, shelf life
 
 **Lô**:
