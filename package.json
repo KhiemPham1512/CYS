@@ -3,11 +3,32 @@
   "version": "0.0.0",
   "private": true,
   "devDependencies": {
+    "@types/react": "~19.3.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.6.1",
-    "prettier": "^3.10.1"
+    "prettier": "^3.10.1",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.12"
   },
   "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "prepare": "husky"
-  }
+  },
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/netinfo": "12.0.1",
+    "@supabase/supabase-js": "^2.119.0",
+    "expo": "~58.0.26",
+    "expo-status-bar": "~58.0.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-native": "0.88.1",
+    "react-native-url-polyfill": "^4.0.0",
+    "react-native-web": "^0.21.4"
+  },
+  "main": "index.ts"
 }
