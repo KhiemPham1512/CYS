@@ -58,3 +58,9 @@ Không import gì ngoài TS thuần (chạy được cả trong Deno lẫn Vites
 
 - `npm test` xanh (có `src/users/adminLogic.test.ts`), `npx tsc --noEmit` sạch.
 - Không sửa `src/lib/*`, `src/catalog/*`, SQL, `.husky`, `.env*`.
+
+## Thay đổi 2 — đăng xuất ngay khi bị khóa (yêu cầu thêm của người dùng)
+
+- Trigger `members_notify_locked` (migration `20261118040000`) gửi broadcast `locked` vào topic `user-lock:<user_id>` khi `is_locked` chuyển sang true.
+- `src/lib/useLockWatch.ts`: nghe topic đó, kiểm lại khi app mở lên lại và mỗi 2 phút. Không đọc được dòng `members` của mình (RLS giấu) và vẫn còn phiên → đăng xuất trên máy, báo "không còn quyền vào Chi nhánh". Lỗi mạng hoặc phiên trống không bị coi là bị khóa.
+- Trigger giữ Quản trị cuối (`members_keep_last_admin`) được thêm trong ticket này (mục "Đã có" ở trên viết trước khi tách việc) và có khóa tư vấn theo Chi nhánh chống race (migration `20261118050000`).

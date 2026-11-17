@@ -76,8 +76,9 @@ Deno.serve(async (req) => {
     if (error) return fail(500, messageForDbError(error));
     const users = await Promise.all(
       members.map(async (m) => {
-        const { data } = await admin.auth.admin.getUserById(m.user_id);
-        return { ...m, email: data.user?.email ?? "" };
+        const { data, error } = await admin.auth.admin.getUserById(m.user_id);
+        if (error) console.error("getUserById", m.user_id, error.message);
+        return { ...m, email: data.user?.email ?? "(không đọc được email)" };
       })
     );
     users.sort((a, b) => a.email.localeCompare(b.email));
@@ -105,7 +106,16 @@ Deno.serve(async (req) => {
       is_admin: request.is_admin,
     });
     if (memberError) {
-      await admin.auth.admin.deleteUser(created.user.id); // hoàn tác
+      const { error: undoError } = await admin.auth.admin.deleteUser(
+        created.user.id
+      ); // hoàn tác
+      if (undoError) {
+        console.error(
+          "Hoàn tác tạo Người dùng lỗi",
+          created.user.id,
+          undoError.message
+        );
+      }
       return fail(500, messageForDbError(memberError));
     }
     return json(200, { data: { user_id: created.user.id } });
@@ -137,16 +147,25 @@ Deno.serve(async (req) => {
     .eq("branch_id", branchId)
     .eq("user_id", request.user_id);
   if (lockError) return fail(409, messageForDbError(lockError));
+  // shortcut: ban áp dụng cho cả hệ thống Auth, đúng khi mỗi Người dùng chỉ thuộc một Chi nhánh;
+  // khi có nhiều Chi nhánh thì chỉ gỡ cấm khi người đó không còn bị khóa ở Chi nhánh nào.
   const { error: banError } = await admin.auth.admin.updateUserById(
     request.user_id,
     { ban_duration: request.locked ? BAN_FOREVER : UNBAN }
   );
   if (banError) {
-    await admin
+    const { error: undoError } = await admin
       .from("members")
       .update({ is_locked: target.is_locked })
       .eq("branch_id", branchId)
       .eq("user_id", request.user_id);
+    if (undoError) {
+      console.error(
+        "Hoàn tác khóa lỗi, members và ban lệch nhau",
+        request.user_id,
+        undoError.message
+      );
+    }
     return fail(500, "Không cập nhật được đăng nhập. Thử lại sau.");
   }
   return json(200, { data: null });

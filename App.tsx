@@ -12,17 +12,20 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./src/lib/supabase";
 import { useOnline } from "./src/lib/useOnline";
 import { useLockWatch } from "./src/lib/useLockWatch";
-
-const LOCKED_MESSAGE = "Người dùng này đã bị khóa. Liên hệ Quản trị.";
 import { CatalogScreen } from "./src/catalog/CatalogScreen";
 import { UsersScreen } from "./src/users/UsersScreen";
+
+const LOCKED_MESSAGE = "Người dùng này đã bị khóa. Liên hệ Quản trị.";
+// RLS không phân biệt bị khóa với bị gỡ khỏi Chi nhánh.
+const NO_ACCESS_MESSAGE =
+  "Bạn không còn quyền vào Chi nhánh (bị khóa hoặc bị gỡ). Liên hệ Quản trị.";
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>();
   const [notice, setNotice] = useState<string | null>(null);
   const online = useOnline();
   const onLocked = useCallback(() => {
-    setNotice(LOCKED_MESSAGE);
+    setNotice(NO_ACCESS_MESSAGE);
     void supabase.auth.signOut({ scope: "local" }); // đã bị cấm: chỉ xóa phiên trên máy
   }, []);
 

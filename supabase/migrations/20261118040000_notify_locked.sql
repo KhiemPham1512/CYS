@@ -1,5 +1,6 @@
 -- Báo ngay cho Người dùng đang đăng nhập khi bị khóa (app nhận broadcast rồi tự kiểm lại và đăng xuất).
 -- Topic công khai chỉ mang tín hiệu, không mang dữ liệu; app luôn xác nhận bằng RLS.
+-- shortcut: topic công khai (ai biết uuid nghe/gửi được tín hiệu); chuyển sang private channel + policy realtime.messages khi cần.
 create function private.notify_locked()
 returns trigger
 language plpgsql

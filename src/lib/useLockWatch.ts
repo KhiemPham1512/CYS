@@ -11,6 +11,9 @@ export function useLockWatch(userId: string, onLocked: () => void) {
   useEffect(() => {
     let stopped = false;
     async function check() {
+      // Phiên tạm trống (đang làm mới token) thì truy vấn chạy bằng anon → không được coi là bị khóa.
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) return;
       const res = await supabase
         .from("members")
         .select("user_id")
