@@ -12,6 +12,7 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./src/lib/supabase";
 import { useOnline } from "./src/lib/useOnline";
 import { CatalogScreen } from "./src/catalog/CatalogScreen";
+import { UsersScreen } from "./src/users/UsersScreen";
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>();
@@ -36,7 +37,7 @@ export default function App() {
         {session === undefined ? (
           <ActivityIndicator />
         ) : session ? (
-          <HomeScreen />
+          <HomeScreen userId={session.user.id} />
         ) : (
           <LoginScreen online={online} />
         )}
@@ -59,7 +60,13 @@ function LoginScreen({ online }: { online: boolean }) {
       email: email.trim(),
       password,
     });
-    if (error) setError("Sai email hoặc mật khẩu, hoặc lỗi kết nối.");
+    if (error) {
+      setError(
+        error.code === "user_banned"
+          ? "Người dùng này đã bị khóa. Liên hệ Quản trị."
+          : "Sai email hoặc mật khẩu, hoặc lỗi kết nối."
+      );
+    }
     setBusy(false);
   }
 
@@ -100,12 +107,14 @@ function LoginScreen({ online }: { online: boolean }) {
   );
 }
 
-function HomeScreen() {
+function HomeScreen({ userId }: { userId: string }) {
   // undefined = đang tải; null = không có Chi nhánh (chưa là thành viên hoặc bị khóa).
   const [branch, setBranch] = useState<
     { branch_id: string; branch_name: string } | null | undefined
   >();
   const [error, setError] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [view, setView] = useState<"catalog" | "users">("catalog");
 
   useEffect(() => {
     // shortcut: lấy Chi nhánh đầu tiên; khi một người thuộc nhiều Chi nhánh thì thêm bước chọn.
@@ -115,26 +124,53 @@ function HomeScreen() {
       .order("branch_id")
       .limit(1)
       .maybeSingle()
-      .then(({ data, error }) => {
+      .then(async ({ data, error }) => {
         setError(!!error);
         setBranch(data ?? null);
+        if (!data) return;
+        const { data: me } = await supabase
+          .from("members")
+          .select("is_admin")
+          .eq("branch_id", data.branch_id)
+          .eq("user_id", userId)
+          .maybeSingle();
+        setIsAdmin(me?.is_admin ?? false);
       });
-  }, []);
+  }, [userId]);
 
   if (branch) {
     return (
       <View style={styles.homeContainer}>
         <View style={styles.topBar}>
           <Text style={styles.branchTitle}>{branch.branch_name}</Text>
-          <Pressable
-            style={styles.linkButton}
-            onPress={() => supabase.auth.signOut()}
-            accessibilityRole="button"
-          >
-            <Text style={styles.link}>Đăng xuất</Text>
-          </Pressable>
+          <View style={styles.topActions}>
+            {isAdmin && (
+              <Pressable
+                style={styles.linkButton}
+                onPress={() =>
+                  setView(view === "catalog" ? "users" : "catalog")
+                }
+                accessibilityRole="button"
+              >
+                <Text style={styles.link}>
+                  {view === "catalog" ? "Người dùng" : "Danh mục"}
+                </Text>
+              </Pressable>
+            )}
+            <Pressable
+              style={styles.linkButton}
+              onPress={() => supabase.auth.signOut()}
+              accessibilityRole="button"
+            >
+              <Text style={styles.link}>Đăng xuất</Text>
+            </Pressable>
+          </View>
         </View>
-        <CatalogScreen branchId={branch.branch_id} />
+        {isAdmin && view === "users" ? (
+          <UsersScreen currentUserId={userId} />
+        ) : (
+          <CatalogScreen branchId={branch.branch_id} />
+        )}
       </View>
     );
   }
@@ -207,4 +243,5 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   branchTitle: { fontSize: 18, fontWeight: "700" },
+  topActions: { flexDirection: "row", alignItems: "center" },
 });
