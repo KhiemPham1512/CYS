@@ -1,0 +1,58 @@
+# --- Dependencies ---
+node_modules/
+
+# --- Expo / React Native ---
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+.metro-health-check*
+*.orig.*
+# Thư mục native sinh ra bởi `expo prebuild` (Continuous Native Generation)
+/ios/
+/android/
+.kotlin/
+
+# --- Khóa ký app / chứng chỉ ---
+*.jks
+*.keystore
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# --- Biến môi trường và bí mật ---
+.env
+.env.*
+!.env.example
+
+# --- Supabase CLI ---
+supabase/.branches/
+supabase/.temp/
+supabase/.env
+
+# --- Build, test, log ---
+coverage/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# --- Hệ điều hành / trình soạn thảo ---
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# --- Cấu hình AI cá nhân / chỉ mục cục bộ ---
+CLAUDE.md
+.claude/
+.local-artifacts/
+.codegraph/
+
+# --- Dữ liệu thật của quán (repo public: KHÔNG commit) ---
+docs/local/
