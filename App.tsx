@@ -1,5 +1,5 @@
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -11,18 +11,27 @@ import {
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./src/lib/supabase";
 import { useOnline } from "./src/lib/useOnline";
+import { useLockWatch } from "./src/lib/useLockWatch";
+
+const LOCKED_MESSAGE = "Người dùng này đã bị khóa. Liên hệ Quản trị.";
 import { CatalogScreen } from "./src/catalog/CatalogScreen";
 import { UsersScreen } from "./src/users/UsersScreen";
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>();
+  const [notice, setNotice] = useState<string | null>(null);
   const online = useOnline();
+  const onLocked = useCallback(() => {
+    setNotice(LOCKED_MESSAGE);
+    void supabase.auth.signOut({ scope: "local" }); // đã bị cấm: chỉ xóa phiên trên máy
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data } = supabase.auth.onAuthStateChange((_event, s) =>
-      setSession(s)
-    );
+    const { data } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s);
+      if (s) setNotice(null);
+    });
     return () => data.subscription.unsubscribe();
   }, []);
 
@@ -37,9 +46,9 @@ export default function App() {
         {session === undefined ? (
           <ActivityIndicator />
         ) : session ? (
-          <HomeScreen userId={session.user.id} />
+          <HomeScreen userId={session.user.id} onLocked={onLocked} />
         ) : (
-          <LoginScreen online={online} />
+          <LoginScreen online={online} notice={notice} />
         )}
       </View>
       <StatusBar style="auto" />
@@ -47,11 +56,17 @@ export default function App() {
   );
 }
 
-function LoginScreen({ online }: { online: boolean }) {
+function LoginScreen({
+  online,
+  notice,
+}: {
+  online: boolean;
+  notice: string | null;
+}) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(notice);
 
   async function signIn() {
     setBusy(true);
@@ -63,7 +78,7 @@ function LoginScreen({ online }: { online: boolean }) {
     if (error) {
       setError(
         error.code === "user_banned"
-          ? "Người dùng này đã bị khóa. Liên hệ Quản trị."
+          ? LOCKED_MESSAGE
           : "Sai email hoặc mật khẩu, hoặc lỗi kết nối."
       );
     }
@@ -107,7 +122,14 @@ function LoginScreen({ online }: { online: boolean }) {
   );
 }
 
-function HomeScreen({ userId }: { userId: string }) {
+function HomeScreen({
+  userId,
+  onLocked,
+}: {
+  userId: string;
+  onLocked: () => void;
+}) {
+  useLockWatch(userId, onLocked);
   // undefined = đang tải; null = không có Chi nhánh (chưa là thành viên hoặc bị khóa).
   const [branch, setBranch] = useState<
     { branch_id: string; branch_name: string } | null | undefined
