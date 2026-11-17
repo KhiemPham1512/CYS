@@ -109,6 +109,7 @@ function HomeScreen() {
     supabase
       .from("branch_settings")
       .select("branch_name")
+      .order("branch_id")
       .limit(1)
       .maybeSingle()
       .then(({ data, error }) => {
@@ -127,7 +128,7 @@ function HomeScreen() {
         <Text style={styles.title}>{branchName}</Text>
       ) : (
         <Text style={styles.error}>
-          Tài khoản chưa thuộc Chi nhánh nào hoặc đã bị khóa. Liên hệ Quản trị.
+          Bạn chưa thuộc Chi nhánh nào hoặc đã bị khóa. Liên hệ Quản trị.
         </Text>
       )}
       <Pressable

@@ -33,11 +33,11 @@ do $$ begin
   assert not exists (select 1 from public.branch_settings where branch_name = 'x'), 'A không được sửa Cài đặt';
 end $$;
 
--- Tài khoản bị khóa không thấy gì.
+-- Người dùng bị khóa không thấy gì.
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000c"}', true);
 do $$ begin
-  assert (select count(*) from public.branch_settings) = 0, 'tài khoản khóa không đọc được Cài đặt';
-  assert (select count(*) from public.members) = 0, 'tài khoản khóa không đọc được thành viên';
+  assert (select count(*) from public.branch_settings) = 0, 'người dùng bị khóa không đọc được Cài đặt';
+  assert (select count(*) from public.members) = 0, 'người dùng bị khóa không đọc được thành viên';
 end $$;
 
 -- Người lạ (không phải thành viên) không thấy gì.

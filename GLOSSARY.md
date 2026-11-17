@@ -85,8 +85,16 @@ Người ngoài app nhận Đơn đặt hàng, đặt với nhà cung cấp rồ
 _Tránh_: người mua, purchaser
 
 **Người dùng**:
-Người đăng nhập app; mọi Người dùng có cùng quyền.
+Người đăng nhập app, là thành viên của một Chi nhánh; mọi Người dùng có cùng quyền với dữ liệu kho. Người dùng bị khóa không đọc/ghi được gì.
 _Tránh_: nhân viên, tài khoản, role
+
+**Quản trị**:
+Người dùng (chủ quán) có thêm quyền tạo/khóa Người dùng, sửa Cài đặt và xem Nhật ký thay đổi.
+_Tránh_: admin, chủ, quản lý
+
+**Cài đặt**:
+Thông tin chung của một Chi nhánh do Quản trị đặt, ví dụ tên Chi nhánh in lên ảnh xuất.
+_Tránh_: config, settings
 
 **Nhật ký thay đổi**:
 Bản ghi ai đã thay đổi gì, lúc nào, giá trị cũ và mới.
