@@ -14,6 +14,7 @@ import type { Tables } from "../lib/database.types";
 import { useOnline } from "../lib/useOnline";
 import {
   editUse,
+  type WriteResult,
   loadMemberEmails,
   loadMovements,
   saveUses,
@@ -45,6 +46,8 @@ export function UseScreen({ branchId, userId }: Props) {
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(
     null
   );
+  // Thứ tự món chốt một lần khi mở màn, không xếp lại khi vừa bấm −, tránh món nhảy lên đầu lúc đang chỉnh.
+  const [order, setOrder] = useState<Map<string, number> | null>(null);
   const busy = useRef(false); // chống bấm đôi trước khi state kịp cập nhật
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -57,6 +60,7 @@ export function UseScreen({ branchId, userId }: Props) {
       ]);
       setItems(catalog.items);
       setMovements(movs);
+      setOrder((prev) => prev ?? usageCounts(movs, userId));
       // Email chỉ để hiện "ai ghi"; lỗi thì hiện không tên, không chặn màn hình.
       loadMemberEmails(branchId).then(setEmails, () => {});
     } catch {
@@ -64,7 +68,20 @@ export function UseScreen({ branchId, userId }: Props) {
     } finally {
       setLoading(false);
     }
+  }, [branchId, userId]);
+
+  // Realtime chỉ cần sổ, không tải lại Danh mục/email.
+  const fetchMovements = useCallback(async () => {
+    try {
+      setMovements(await loadMovements(branchId));
+    } catch {
+      // giữ dữ liệu đang có; lần sự kiện sau sẽ tải lại
+    }
   }, [branchId]);
+
+  // Dòng vừa lưu vào màn hình ngay (không chờ tải lại sổ).
+  const applyRows = (rows: Tables<"stock_movements">[]) =>
+    setMovements((prev) => [...prev, ...rows]);
 
   useEffect(() => {
     setLoading(true);
@@ -72,13 +89,13 @@ export function UseScreen({ branchId, userId }: Props) {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const unsub = subscribeMovements(branchId, () => {
       clearTimeout(timer);
-      timer = setTimeout(() => void fetchData(), 300);
+      timer = setTimeout(() => void fetchMovements(), 300);
     });
     return () => {
       clearTimeout(timer);
       unsub();
     };
-  }, [branchId, fetchData]);
+  }, [branchId, fetchData, fetchMovements]);
 
   const lotsByItem = useMemo(() => stockByItem(movements), [movements]);
   const itemsById = useMemo(
@@ -100,7 +117,7 @@ export function UseScreen({ branchId, userId }: Props) {
 
   // Món hay dùng của người dùng lên đầu, còn lại theo tên.
   const list = useMemo(() => {
-    const counts = usageCounts(movements, userId);
+    const counts = order ?? new Map<string, number>();
     return items
       .filter((i) => !i.is_hidden && matchesQuery(i, query))
       .sort(
@@ -108,7 +125,7 @@ export function UseScreen({ branchId, userId }: Props) {
           (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0) ||
           a.name.localeCompare(b.name, "vi")
       );
-  }, [items, movements, userId, query]);
+  }, [items, order, query]);
 
   const parsed = useMemo(() => {
     const errors: Record<string, string> = {};
@@ -135,14 +152,14 @@ export function UseScreen({ branchId, userId }: Props) {
 
   // Nút −: trừ 1 và lưu ngay. Nút +: trả lại 1 từ lần trừ gần nhất của chính mình hôm nay
   // (qty > 1 thì sửa còn qty − 1, qty = 1 thì hủy). shortcut: bước cố định 1 đơn vị, số lớn gõ ở ô bên dưới.
-  async function runQuick(action: () => Promise<{ error: string | null }>) {
+  async function runQuick(action: () => Promise<WriteResult>) {
     if (!online || busy.current) return;
     busy.current = true;
     setSaving(true);
     try {
-      const { error: err } = await action();
+      const { error: err, rows } = await action();
       setSaveError(err);
-      if (!err) await fetchData();
+      if (!err) applyRows(rows);
     } catch {
       setSaveError("Không lưu được. Kiểm tra mạng.");
     } finally {
@@ -169,11 +186,11 @@ export function UseScreen({ branchId, userId }: Props) {
     busy.current = true;
     setSaving(true);
     setSaveError(null);
-    const { error: err } = await saveUses(branchId, parsed.rows);
+    const { error: err, rows } = await saveUses(branchId, parsed.rows);
     if (err) setSaveError(err);
     else {
       setInputs({});
-      await fetchData();
+      applyRows(rows);
     }
     busy.current = false;
     setSaving(false);
@@ -191,11 +208,11 @@ export function UseScreen({ branchId, userId }: Props) {
     }
     if (!online || busy.current) return;
     busy.current = true;
-    const { error: err } = await editUse(branchId, m, r.value);
+    const { error: err, rows } = await editUse(branchId, m, r.value);
     setSaveError(err);
     if (!err) {
       setEditing(null);
-      await fetchData();
+      applyRows(rows);
     }
     busy.current = false;
   }
@@ -203,9 +220,9 @@ export function UseScreen({ branchId, userId }: Props) {
   async function handleVoid(m: Movement) {
     if (!online || busy.current) return;
     busy.current = true;
-    const { error: err } = await voidUse(branchId, m);
+    const { error: err, rows } = await voidUse(branchId, m);
     setSaveError(err);
-    if (!err) await fetchData();
+    if (!err) applyRows(rows);
     busy.current = false;
   }
 
