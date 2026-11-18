@@ -12,6 +12,8 @@ import { loadCatalog } from "../catalog/api";
 import { matchesQuery } from "../catalog/search";
 import { compareItems } from "../catalog/sections";
 import type { Tables } from "../lib/database.types";
+import { openInUse } from "./inUseApi";
+import { tracksInUse } from "./expiry";
 import { useOnline } from "../lib/useOnline";
 import {
   editUse,
@@ -184,8 +186,22 @@ export function UseScreen({ branchId, userId }: Props) {
     }
   }
 
+  // Món có hạn sau khui dài: sau khi lưu Ghi dùng, thêm Đang dùng.
+  const openTracked = (itemIds: string[]) =>
+    openInUse(
+      branchId,
+      itemIds.filter((id) => {
+        const it = items.find((i) => i.id === id);
+        return it ? tracksInUse(it) : false;
+      })
+    );
+
   const quickUse = (item: Tables<"items">) =>
-    runQuick(() => saveUses(branchId, [{ item_id: item.id, qty: 1 }]));
+    runQuick(async () => {
+      const result = await saveUses(branchId, [{ item_id: item.id, qty: 1 }]);
+      if (!result.error) void openTracked([item.id]);
+      return result;
+    });
 
   const giveBack = (item: Tables<"items">) => {
     const last = myLastUse.get(item.id);
@@ -205,6 +221,7 @@ export function UseScreen({ branchId, userId }: Props) {
     const { error: err, rows } = await saveUses(branchId, parsed.rows);
     if (err) setSaveError(err);
     else {
+      void openTracked(parsed.rows.map((r) => r.item_id));
       setInputs({});
       applyRows(rows);
     }

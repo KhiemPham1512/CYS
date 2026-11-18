@@ -41,7 +41,7 @@ Phần Tồn kho thực tế của một Nguyên vật liệu có cùng Ngày s�
 _Tránh_: batch, mẻ
 
 **Đang dùng**:
-Đơn vị đã khui của một Nguyên vật liệu có hạn sau khi khui dài (hơn 7 ngày), được theo dõi để biết còn dùng được đến ngày nào.
+Đơn vị đã khui của một Nguyên vật liệu có hạn sau khi khui dài (hơn 7 ngày), được theo dõi để biết còn dùng được đến ngày nào. Mỗi lần Ghi dùng thêm một đơn vị (ngày khui = hôm nay); có thể khui sẵn nhiều đơn vị cùng lúc; Người dùng bấm "Hết" khi dùng xong đơn vị đó.
 _Tránh_: đang mở, đã khui
 
 **Hàng đang về**:
