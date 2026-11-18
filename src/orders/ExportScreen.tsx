@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as MediaLibrary from "expo-media-library";
+import * as MediaLibrary from "expo-media-library/legacy";
 import {
   useCallback,
   useEffect,
@@ -199,8 +199,10 @@ export function ExportScreen({ branchId, branchName }: Props) {
           ? `Đã lưu ${groups.length} ảnh vào Thư viện.`
           : "Đã lưu ảnh vào Thư viện."
       );
-    } catch {
-      setMessage("Không lưu được ảnh, thử lại.");
+    } catch (e) {
+      setMessage(
+        `Không lưu được ảnh: ${e instanceof Error ? e.message : String(e)}`
+      );
     } finally {
       if (all) setTarget(null);
       setBusy(false);
