@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  allocateReceipt,
   planGroupReceipt,
   planGroupSettle,
   planReceipt,
@@ -176,5 +177,50 @@ describe("planGroupSettle (nhận bù cho cả Nhóm trong tab Chờ nhà cung c
     expect(planGroupSettle([{ ...line, tracksMfg: true }]).ok).toBe(true);
     expect(planGroupSettle([{ ...line, stillMissing: 6 }]).ok).toBe(false);
     expect(planGroupSettle([{ ...line, stillMissing: -1 }]).ok).toBe(false);
+  });
+});
+
+describe("allocateReceipt (chia số nhận của món đã gộp về từng dòng đơn)", () => {
+  const two = [
+    { id: "a", qty: 6 },
+    { id: "b", qty: 6 },
+  ]; // đã sắp đơn cũ nhất trước
+
+  it("nhận đủ: mỗi dòng nhận đủ số đã đặt", () => {
+    expect(allocateReceipt(two, 0, 0)).toEqual([
+      { id: "a", received: 6, damaged: 0 },
+      { id: "b", received: 6, damaged: 0 },
+    ]);
+  });
+
+  it("thiếu: hàng lấp đầy đơn cũ trước, phần thiếu rơi vào đơn mới nhất", () => {
+    expect(allocateReceipt(two, 3, 0)).toEqual([
+      { id: "a", received: 6, damaged: 0 },
+      { id: "b", received: 3, damaged: 0 },
+    ]);
+    expect(allocateReceipt(two, 8, 0)).toEqual([
+      { id: "a", received: 4, damaged: 0 },
+      { id: "b", received: 0, damaged: 0 },
+    ]);
+  });
+
+  it("hàng hư tính vào phần đã nhận của đơn cũ trước", () => {
+    expect(allocateReceipt(two, 0, 8)).toEqual([
+      { id: "a", received: 6, damaged: 6 },
+      { id: "b", received: 6, damaged: 2 },
+    ]);
+  });
+
+  it("tổng chia ra luôn khớp: nhận + thiếu = đã đặt, hư không vượt nhận", () => {
+    const out = allocateReceipt(two, 5, 3);
+    expect(out.reduce((s, l) => s + l.received, 0)).toBe(7);
+    expect(out.reduce((s, l) => s + l.damaged, 0)).toBe(3);
+    for (const l of out) expect(l.damaged).toBeLessThanOrEqual(l.received);
+  });
+
+  it("một dòng duy nhất: như planReceipt thường", () => {
+    expect(allocateReceipt([{ id: "x", qty: 10 }], 3, 2)).toEqual([
+      { id: "x", received: 7, damaged: 2 },
+    ]);
   });
 });

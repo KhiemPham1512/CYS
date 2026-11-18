@@ -119,3 +119,24 @@ export function planGroupSettle(inputs: SettleLineInput[]): GroupSettlePlan {
   }
   return errors.length > 0 ? { ok: false, errors } : { ok: true, lines };
 }
+
+export type AllocLine = { id: string; qty: number };
+
+// Món cùng Nhóm đặt ở nhiều đơn được gộp một dòng khi nhận. Chia số thiếu/hư về từng dòng đơn
+// (lines đã sắp đơn cũ nhất trước): hàng về lấp đầy đơn cũ trước nên phần thiếu rơi vào đơn mới nhất;
+// hàng hư tính vào phần đã nhận của đơn cũ trước. Số đầu vào đã được planReceipt kiểm hợp lệ.
+export function allocateReceipt(
+  lines: AllocLine[],
+  short: number,
+  damaged: number
+): { id: string; received: number; damaged: number }[] {
+  let toReceive = round4(lines.reduce((s, l) => s + l.qty, 0) - short);
+  let toDamage = damaged;
+  return lines.map((l) => {
+    const received = Math.min(l.qty, toReceive);
+    toReceive = round4(toReceive - received);
+    const bad = Math.min(received, toDamage);
+    toDamage = round4(toDamage - bad);
+    return { id: l.id, received: round4(received), damaged: round4(bad) };
+  });
+}

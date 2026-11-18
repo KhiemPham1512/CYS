@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 import { loadCatalog } from "../catalog/api";
-import { compareGroups } from "../catalog/sections";
+import { compareGroups, compareItems } from "../catalog/sections";
 import type { Tables } from "../lib/database.types";
 import { useOnline } from "../lib/useOnline";
 import { formatDate, parseShortDate } from "../stock/date";
@@ -22,7 +22,11 @@ import {
   type OrderLineRow,
   type OrderRow,
 } from "./api";
-import { planGroupReceipt, type GroupLineInput } from "./receiving";
+import {
+  allocateReceipt,
+  planGroupReceipt,
+  type GroupLineInput,
+} from "./receiving";
 import {
   loadReceivingData,
   receiveLines,
@@ -30,6 +34,14 @@ import {
 } from "./receivingApi";
 
 type Props = { branchId: string };
+
+// Món cùng Nhóm đặt ở nhiều đơn gộp thành một dòng khi nhận; `parts` là các dòng đơn gốc, đơn cũ nhất trước.
+type MergedLine = {
+  id: string; // `${nhóm}|${món}`, khóa cho các ô nhập
+  item_id: string;
+  qty: number; // tổng đã đặt
+  parts: { id: string; qty: number }[];
+};
 
 type LinePlan = Extract<
   ReturnType<typeof planGroupReceipt>,
@@ -129,37 +141,60 @@ export function ReceiveScreen({ branchId }: Props) {
     [items]
   );
 
-  const linesById = useMemo(
-    () => new Map(lines.map((l) => [l.id, l])),
-    [lines]
-  );
-
   const groupedLines = useMemo(() => {
-    const placedGroupByOrder = new Map<string, string>();
+    const placedOrder = new Map<string, OrderRow>();
     for (const order of orders) {
-      if (order.placed_at !== null) {
-        placedGroupByOrder.set(order.id, order.group_id);
+      if (order.placed_at !== null) placedOrder.set(order.id, order);
+    }
+    // Dòng chưa nhận, đơn cũ nhất trước, gộp theo (Nhóm, món).
+    const pending = lines
+      .filter((l) => !receivedLineIds.has(l.id) && placedOrder.has(l.order_id))
+      .sort((a, b) =>
+        (placedOrder.get(a.order_id)?.placed_at ?? "").localeCompare(
+          placedOrder.get(b.order_id)?.placed_at ?? ""
+        )
+      );
+    const merged = new Map<string, MergedLine>();
+    const byGroup = new Map<string, MergedLine[]>();
+    for (const line of pending) {
+      const groupId = placedOrder.get(line.order_id)?.group_id ?? "";
+      const key = `${groupId}|${line.item_id}`;
+      const part = { id: line.id, qty: line.qty };
+      const existing = merged.get(key);
+      if (existing) {
+        existing.parts.push(part);
+        existing.qty += line.qty;
+        continue;
       }
-    }
-    const byGroup = new Map<string, OrderLineRow[]>();
-    for (const line of lines) {
-      if (receivedLineIds.has(line.id)) continue;
-      const groupId = placedGroupByOrder.get(line.order_id);
-      if (!groupId) continue;
+      const entry: MergedLine = {
+        id: key,
+        item_id: line.item_id,
+        qty: line.qty,
+        parts: [part],
+      };
+      merged.set(key, entry);
       const list = byGroup.get(groupId);
-      if (list) list.push(line);
-      else byGroup.set(groupId, [line]);
+      if (list) list.push(entry);
+      else byGroup.set(groupId, [entry]);
     }
-    return groups
-      .map((group) => ({
-        group,
-        groupLines: byGroup.get(group.id) ?? [],
-      }))
-      .filter((entry) => entry.groupLines.length > 0);
-  }, [groups, orders, lines, receivedLineIds]);
+    const itemOf = (m: MergedLine) => itemsById.get(m.item_id);
+    return {
+      merged,
+      list: groups
+        .map((group) => ({
+          group,
+          groupLines: (byGroup.get(group.id) ?? []).sort((a, b) => {
+            const ia = itemOf(a);
+            const ib = itemOf(b);
+            return ia && ib ? compareItems(ia, ib) : 0;
+          }),
+        }))
+        .filter((entry) => entry.groupLines.length > 0),
+    };
+  }, [groups, orders, lines, receivedLineIds, itemsById]);
 
   const editingLine = editingLineId
-    ? (linesById.get(editingLineId) ?? null)
+    ? (groupedLines.merged.get(editingLineId) ?? null)
     : null;
   const editingItem = editingLine
     ? itemsById.get(editingLine.item_id)
@@ -173,7 +208,7 @@ export function ReceiveScreen({ branchId }: Props) {
     });
 
   function formatEditedSummary(
-    line: OrderLineRow,
+    line: MergedLine,
     item: Tables<"items"> | undefined
   ): string | null {
     const rawShort = (shortInputs[line.id] ?? "").trim();
@@ -230,23 +265,38 @@ export function ReceiveScreen({ branchId }: Props) {
     lineItems: (Tables<"items"> | undefined)[]
   ) {
     await runSave(async () => {
-      const res = await receiveLines(
-        planLines.map((l) => ({
-          lineId: l.key,
-          received: l.received,
-          damaged: l.plan.damaged,
-          mfgDate: l.plan.mfgDate,
-        }))
-      );
+      // Mỗi món đã gộp chia về từng dòng đơn gốc (đơn cũ nhất lấp đầy trước) rồi nhận lần lượt.
+      const owners: string[] = [];
+      const toSave = planLines.flatMap((l) => {
+        const parts = groupedLines.merged.get(l.key)?.parts ?? [];
+        return allocateReceipt(parts, l.plan.short, l.plan.damaged).map((a) => {
+          owners.push(l.key);
+          return {
+            lineId: a.id,
+            received: a.received,
+            damaged: a.damaged,
+            mfgDate: l.plan.mfgDate,
+          };
+        });
+      });
+      const res = await receiveLines(toSave);
       if (res.error) {
-        const doneKeys = planLines.slice(0, res.done).map((l) => l.key);
+        const savedOwners = owners.slice(0, res.done);
+        // Món chỉ tính là xong khi mọi dòng đơn gốc của nó đã nhận.
+        const doneKeys = planLines
+          .filter(
+            (l) =>
+              savedOwners.filter((k) => k === l.key).length ===
+              (groupedLines.merged.get(l.key)?.parts.length ?? 0)
+          )
+          .map((l) => l.key);
         if (doneKeys.length > 0) {
           setShortInputs((p) => omitKeys(p, doneKeys));
           setDamagedInputs((p) => omitKeys(p, doneKeys));
           setMfgInputs((p) => omitKeys(p, doneKeys));
         }
         setMessage(
-          `Đã nhận ${res.done}/${planLines.length} món. Lỗi: ${res.error}`
+          `Đã nhận ${doneKeys.length}/${planLines.length} món. Lỗi: ${res.error}`
         );
         await fetchData();
         return;
@@ -279,7 +329,7 @@ export function ReceiveScreen({ branchId }: Props) {
 
   function handleGroupReceive(
     group: Tables<"item_groups">,
-    groupLines: OrderLineRow[]
+    groupLines: MergedLine[]
   ) {
     if (!online || busy.current) return;
     setMessage(null);
@@ -395,10 +445,10 @@ export function ReceiveScreen({ branchId }: Props) {
 
       <ScrollView keyboardShouldPersistTaps="handled">
         <Text style={styles.section}>Hàng đang về</Text>
-        {groupedLines.length === 0 && (
+        {groupedLines.list.length === 0 && (
           <Text style={styles.meta}>Không có hàng đang về.</Text>
         )}
-        {groupedLines.map(({ group, groupLines }) => {
+        {groupedLines.list.map(({ group, groupLines }) => {
           const errs = groupErrors[group.id] ?? [];
           return (
             <View key={group.id} style={styles.groupBlock}>
@@ -419,6 +469,9 @@ export function ReceiveScreen({ branchId }: Props) {
                     </Text>
                     <Text style={styles.metaInline}>
                       Đã đặt: {fmt(item, line.qty)}
+                      {line.parts.length > 1
+                        ? ` (gộp ${line.parts.length} đơn)`
+                        : ""}
                     </Text>
                     {summary && (
                       <Text style={styles.summaryText}>{summary}</Text>
