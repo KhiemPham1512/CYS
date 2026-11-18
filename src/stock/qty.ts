@@ -107,3 +107,19 @@ export function formatQty(qty: number, opts: FormatQtyOptions): string {
 
   return formatRest(q, unitLower, opts.byPercent);
 }
+
+// Ô Điều chỉnh tồn kho: số không dấu = số mới; "+x" / "-x" = cộng/trừ vào số đang có.
+export function parseAdjust(
+  input: string,
+  current: number,
+  opts: ParseQtyOptions
+): ParseQtyResult {
+  const trimmed = input.trim();
+  const sign = trimmed[0] === "+" ? 1 : /^[-−]/.test(trimmed) ? -1 : 0;
+  const parsed = parseQty(sign ? trimmed.slice(1) : trimmed, opts);
+  if (!parsed.ok || !sign) return parsed;
+  const value = round4(current + sign * parsed.value);
+  return value < 0
+    ? { ok: false, error: "Không đủ để trừ" }
+    : { ok: true, value };
+}

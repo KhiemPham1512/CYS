@@ -22,7 +22,7 @@ import {
 } from "./api";
 import { formatDate, parseShortDate } from "./date";
 import { stockByItem, totalQty, type Lot } from "./ledger";
-import { formatQty, parseQty } from "./qty";
+import { formatQty, parseAdjust, parseQty } from "./qty";
 
 type Props = {
   branchId: string;
@@ -152,6 +152,19 @@ export function StockScreen({ branchId }: Props) {
     [selectedLots]
   );
 
+  // Gõ "+2" / "-1" thì hiện số sau khi lưu để người dùng chắc chắn trước khi bấm.
+  const adjustPreview = useMemo(() => {
+    if (!selectedItem || !/^[+\-−]/.test(adjustInput.trim())) return null;
+    const opts = {
+      caseSize: selectedItem.case_size,
+      byPercent: selectedItem.record_by_percent,
+    };
+    const r = parseAdjust(adjustInput, totalQty(selectedLots), opts);
+    return r.ok
+      ? formatQty(r.value, { ...opts, unit: selectedItem.unit })
+      : null;
+  }, [adjustInput, selectedItem, selectedLots]);
+
   const parsedDatePreview = useMemo(() => {
     if (!mfgDateInput.trim()) return null;
     return parseShortDate(mfgDateInput, new Date());
@@ -177,7 +190,7 @@ export function StockScreen({ branchId }: Props) {
 
   async function handleSaveAdjust() {
     if (!selectedItem || !online || savingAdjust) return;
-    const parsed = parseQty(adjustInput, {
+    const parsed = parseAdjust(adjustInput, totalQty(selectedLots), {
       caseSize: selectedItem.case_size,
       byPercent: selectedItem.record_by_percent,
     });
@@ -434,18 +447,19 @@ export function StockScreen({ branchId }: Props) {
                   {mode === "adjust" && (
                     <View style={styles.cardSection}>
                       <Text style={styles.metaText}>
-                        Nhập Tồn kho thực tế mới. Ngày sản xuất đã nhập được
-                        giữ: phần tăng vào "Chưa có Ngày sản xuất", phần giảm
-                        trừ Lô cũ nhất trước.
+                        Nhập Tồn kho thực tế mới, hoặc gõ +2 / -1 để cộng trừ
+                        vào số đang có. Ngày sản xuất đã nhập được giữ: phần
+                        tăng vào "Chưa có Ngày sản xuất", phần giảm trừ Lô cũ
+                        nhất trước.
                       </Text>
                       <TextInput
                         style={styles.input}
                         placeholder={
                           selectedItem.case_size !== null
-                            ? "Ví dụ: 1T+3 hoặc 5"
+                            ? "Ví dụ: 15, 1T+3, +2 hoặc -1"
                             : selectedItem.record_by_percent
-                              ? "Ví dụ: 2+95%"
-                              : "Nhập số lượng"
+                              ? "Ví dụ: 2+95%, +1 hoặc -50%"
+                              : "Ví dụ: 15, +2 hoặc -1"
                         }
                         value={adjustInput}
                         onChangeText={(t) => {
@@ -453,6 +467,11 @@ export function StockScreen({ branchId }: Props) {
                           setAdjustError(null);
                         }}
                       />
+                      {adjustPreview && (
+                        <Text style={styles.datePreview}>
+                          Sau khi lưu: {adjustPreview}
+                        </Text>
+                      )}
                       {adjustError && (
                         <Text style={styles.fieldError}>{adjustError}</Text>
                       )}

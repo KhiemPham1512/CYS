@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatQty, parseQty } from "./qty";
+import { formatQty, parseAdjust, parseQty } from "./qty";
 
 describe("parseQty", () => {
   it("đọc các ví dụ hợp lệ trong đặc tả", () => {
@@ -118,5 +118,39 @@ describe("formatQty", () => {
       });
       expect(parsed).toEqual({ ok: true, value: x });
     }
+  });
+});
+
+describe("parseAdjust", () => {
+  const box = { caseSize: 12, byPercent: false };
+
+  it("số không dấu = Tồn kho thực tế mới", () => {
+    expect(parseAdjust("15", 19, box)).toEqual({ ok: true, value: 15 });
+    expect(parseAdjust("1T+3", 0, box)).toEqual({ ok: true, value: 15 });
+  });
+
+  it("+ / - cộng trừ vào số hiện có", () => {
+    expect(parseAdjust("+1", 19, box)).toEqual({ ok: true, value: 20 });
+    expect(parseAdjust("-1", 19, box)).toEqual({ ok: true, value: 18 });
+    expect(parseAdjust("−1T", 19, box)).toEqual({ ok: true, value: 7 });
+    expect(parseAdjust("+1T+2", 3, box)).toEqual({ ok: true, value: 17 });
+    expect(parseAdjust("-50%", 2, { caseSize: null, byPercent: true })).toEqual(
+      { ok: true, value: 1.5 }
+    );
+  });
+
+  it("trừ quá số đang có thì báo lỗi", () => {
+    expect(parseAdjust("-20", 19, box)).toEqual({
+      ok: false,
+      error: "Không đủ để trừ",
+    });
+  });
+
+  it("lỗi cú pháp giữ thông báo của parseQty", () => {
+    expect(parseAdjust("+", 19, box).ok).toBe(false);
+    expect(parseAdjust("-abc", 19, box)).toEqual({
+      ok: false,
+      error: "Số lượng không hợp lệ",
+    });
   });
 });
