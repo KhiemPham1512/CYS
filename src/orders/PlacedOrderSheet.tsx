@@ -1,4 +1,3 @@
-import { useEffect, useMemo, useState } from "react";
 import {
   Modal,
   Pressable,
@@ -9,17 +8,16 @@ import {
 } from "react-native";
 import type { Tables } from "../lib/database.types";
 import { formatDate } from "../stock/date";
-import { localDate, localTime } from "../stock/ledger";
+import { localDate } from "../stock/ledger";
 import { formatSheetQty } from "../stock/qty";
-import type { OrderLineRow, OrderRow } from "./api";
 
 type Props = {
   visible: boolean;
   onClose: () => void;
   groupName: string;
   items: Tables<"items">[]; // đủ món của Nhóm, đã xếp theo thứ tự tờ
-  placed: OrderRow[]; // các Đơn đặt hàng đã đặt của Nhóm
-  lines: OrderLineRow[];
+  qtyByItem: Map<string, number>; // số đã đặt từng món, đã gộp mọi đơn (sheetQtyByItem)
+  placedAt: string | null; // giờ đặt của đơn mới nhất; null = chưa có đơn
 };
 
 // Bảng đơn đã đặt viết lại y như tờ "ĐẶT HÀNG" giấy: đủ món theo thứ tự, món không đặt để trống số lượng.
@@ -28,72 +26,21 @@ export function PlacedOrderSheet({
   onClose,
   groupName,
   items,
-  placed,
-  lines,
+  qtyByItem,
+  placedAt,
 }: Props) {
-  const sorted = useMemo(
-    () =>
-      [...placed].sort((a, b) =>
-        (b.placed_at ?? "").localeCompare(a.placed_at ?? "")
-      ),
-    [placed]
-  );
-  const [pickedId, setPickedId] = useState<string | null>(null);
-  // Mỗi lần mở lại hoặc đổi Nhóm thì về đơn mới nhất.
-  useEffect(() => {
-    if (visible) setPickedId(null);
-  }, [visible, groupName]);
-
-  const order = sorted.find((o) => o.id === pickedId) ?? sorted[0] ?? null;
-  const qtyByItem = useMemo(
-    () =>
-      new Map(
-        lines.filter((l) => l.order_id === order?.id).map((l) => [l.item_id, l])
-      ),
-    [lines, order]
-  );
-
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={styles.container}>
         <Text style={styles.title}>ĐẶT HÀNG</Text>
         <Text style={styles.sub}>{groupName}</Text>
 
-        {sorted.length === 0 || !order ? (
+        {!placedAt ? (
           <Text style={styles.empty}>Nhóm này chưa có đơn đã đặt.</Text>
         ) : (
           <>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.chips}
-              contentContainerStyle={styles.chipsContent}
-            >
-              {sorted.map((o) => {
-                const selected = o.id === order.id;
-                const when = o.placed_at ?? o.created_at;
-                return (
-                  <Pressable
-                    key={o.id}
-                    style={[styles.chip, selected && styles.chipSelected]}
-                    onPress={() => setPickedId(o.id)}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected }}
-                  >
-                    <Text
-                      style={[
-                        styles.chipText,
-                        selected && styles.chipTextSelected,
-                      ]}
-                    >
-                      {formatDate(localDate(when))} {localTime(when)}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
             <Text style={styles.date}>
-              Ngày: {formatDate(localDate(order.placed_at ?? order.created_at))}
+              Ngày: {formatDate(localDate(placedAt))}
             </Text>
 
             <View style={[styles.tr, styles.thRow]}>
@@ -106,7 +53,7 @@ export function PlacedOrderSheet({
             </View>
             <ScrollView>
               {items.map((item, idx) => {
-                const line = qtyByItem.get(item.id);
+                const qty = qtyByItem.get(item.id);
                 return (
                   <View key={item.id} style={styles.tr}>
                     <Text style={[styles.cell, styles.stt]}>{idx + 1}</Text>
@@ -116,8 +63,8 @@ export function PlacedOrderSheet({
                     </Text>
                     <Text style={[styles.cell, styles.unit]}>{item.unit}</Text>
                     <Text style={[styles.cell, styles.qty, styles.qtyText]}>
-                      {line
-                        ? formatSheetQty(line.qty, {
+                      {qty !== undefined
+                        ? formatSheetQty(qty, {
                             caseSize: item.case_size,
                             byPercent: item.record_by_percent,
                           })
@@ -159,18 +106,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   empty: { padding: 24, textAlign: "center", color: "#52525b", fontSize: 15 },
-  chips: { flexGrow: 0 },
-  chipsContent: { paddingHorizontal: 12, paddingBottom: 8, gap: 8 },
-  chip: {
-    paddingHorizontal: 12,
-    minHeight: 40,
-    justifyContent: "center",
-    borderRadius: 20,
-    backgroundColor: "#f4f4f5",
-  },
-  chipSelected: { backgroundColor: "#0f766e" },
-  chipText: { fontSize: 14, color: "#18181b" },
-  chipTextSelected: { color: "#fff", fontWeight: "600" },
   date: { paddingHorizontal: 16, paddingBottom: 6, fontSize: 14 },
   tr: {
     flexDirection: "row",

@@ -3,6 +3,7 @@ import {
   incomingByItem,
   isEditable,
   projectedQty,
+  sheetQtyByItem,
   type Order,
   type OrderLine,
 } from "./orders";
@@ -52,5 +53,40 @@ describe("projectedQty", () => {
     expect(projectedQty(10, 3)).toBe(13);
     expect(projectedQty(0.1, 0.2)).toBe(0.3);
     expect(projectedQty(0, 0)).toBe(0);
+  });
+});
+
+describe("sheetQtyByItem (bảng đơn đã đặt gộp một)", () => {
+  const o1: Order = { id: "o1", placed_at: "2026-11-17T03:00:00Z" };
+  const o2: Order = { id: "o2", placed_at: "2026-11-18T03:00:00Z" };
+  const lines: OrderLine[] = [
+    { id: "l1", order_id: "o1", item_id: "x", qty: 6 },
+    { id: "l2", order_id: "o2", item_id: "x", qty: 6 },
+    { id: "l3", order_id: "o2", item_id: "y", qty: 2 },
+  ];
+
+  it("đặt thêm lần nữa thì cộng dồn; ngày là của đơn mới nhất", () => {
+    const r = sheetQtyByItem([o1, o2], lines, new Set());
+    expect(r.qty.get("x")).toBe(12);
+    expect(r.qty.get("y")).toBe(2);
+    expect(r.placedAt).toBe("2026-11-18T03:00:00Z");
+  });
+
+  it("dòng đã nhận hàng không còn tính", () => {
+    const r = sheetQtyByItem([o1, o2], lines, new Set(["l1"]));
+    expect(r.qty.get("x")).toBe(6);
+  });
+
+  it("nhận hết thì hiện lại đơn gần nhất để không trống", () => {
+    const r = sheetQtyByItem([o1, o2], lines, new Set(["l1", "l2", "l3"]));
+    expect(r.qty.get("x")).toBe(6);
+    expect(r.qty.get("y")).toBe(2);
+    expect(r.placedAt).toBe("2026-11-18T03:00:00Z");
+  });
+
+  it("chưa đặt đơn nào: rỗng", () => {
+    const r = sheetQtyByItem([], lines, new Set());
+    expect(r.qty.size).toBe(0);
+    expect(r.placedAt).toBeNull();
   });
 });

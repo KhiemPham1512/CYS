@@ -25,7 +25,7 @@ import {
   type OrderLineRow,
   type OrderRow,
 } from "./api";
-import { incomingByItem, projectedQty } from "./orders";
+import { incomingByItem, projectedQty, sheetQtyByItem } from "./orders";
 import { PlacedOrderSheet } from "./PlacedOrderSheet";
 import { loadReceivingData, subscribeReceiving } from "./receivingApi";
 
@@ -123,6 +123,10 @@ export function OrderScreen({ branchId }: Props) {
   const placedOrders = useMemo(
     () => orders.filter((o) => o.group_id === groupId && o.placed_at !== null),
     [orders, groupId]
+  );
+  const sheetData = useMemo(
+    () => sheetQtyByItem(placedOrders, lines, receivedLineIds),
+    [placedOrders, lines, receivedLineIds]
   );
   const itemsById = useMemo(
     () => new Map(items.map((i) => [i.id, i])),
@@ -341,10 +345,7 @@ export function OrderScreen({ branchId }: Props) {
         onPress={() => setSheetOpen(true)}
         accessibilityRole="button"
       >
-        <Text style={styles.viewBtnText}>
-          Xem đơn đã đặt
-          {placedOrders.length > 0 ? ` (${placedOrders.length})` : ""}
-        </Text>
+        <Text style={styles.viewBtnText}>Xem đơn đã đặt</Text>
       </Pressable>
       {!online && <Text style={styles.error}>Mất mạng — không lưu được</Text>}
       {message && <Text style={styles.message}>{message}</Text>}
@@ -430,8 +431,8 @@ export function OrderScreen({ branchId }: Props) {
         onClose={() => setSheetOpen(false)}
         groupName={groups.find((g) => g.id === groupId)?.name ?? ""}
         items={groupItems}
-        placed={placedOrders}
-        lines={lines}
+        qtyByItem={sheetData.qty}
+        placedAt={sheetData.placedAt}
       />
       <ItemQtyModal
         visible={editingItem !== null}
