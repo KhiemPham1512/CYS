@@ -23,6 +23,7 @@ import {
 import { formatDate, parseShortDate } from "./date";
 import { loadOrders, subscribeOrders } from "../orders/api";
 import { incomingByItem, projectedQty } from "../orders/orders";
+import { loadReceivingData, subscribeReceiving } from "../orders/receivingApi";
 import { stockByItem, totalQty, type Lot } from "./ledger";
 import { formatQty, parseAdjust, parseQty } from "./qty";
 
@@ -107,13 +108,14 @@ export function StockScreen({ branchId }: Props) {
     const request = ++latestRequest.current;
     setError(false);
     try {
-      const [catalog, movs, ord] = await Promise.all([
+      const [catalog, movs, ord, rec] = await Promise.all([
         loadCatalog(branchId),
         loadMovements(branchId),
         loadOrders(branchId),
+        loadReceivingData(branchId),
       ]);
       if (request !== latestRequest.current) return;
-      setIncoming(incomingByItem(ord.orders, ord.lines));
+      setIncoming(incomingByItem(ord.orders, ord.lines, rec.receivedLineIds));
       setGroups(catalog.groups);
       setItems(catalog.items);
       setMovements(movs);
@@ -135,11 +137,13 @@ export function StockScreen({ branchId }: Props) {
     const unsubCatalog = subscribeCatalog(branchId, scheduleReload);
     const unsubMovements = subscribeMovements(branchId, scheduleReload);
     const unsubOrders = subscribeOrders(branchId, scheduleReload);
+    const unsubReceiving = subscribeReceiving(branchId, scheduleReload);
     return () => {
       clearTimeout(timer);
       unsubCatalog();
       unsubMovements();
       unsubOrders();
+      unsubReceiving();
     };
   }, [branchId, fetchData]);
 

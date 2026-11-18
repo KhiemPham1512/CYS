@@ -26,6 +26,7 @@ import {
   type OrderRow,
 } from "./api";
 import { incomingByItem, projectedQty } from "./orders";
+import { loadReceivingData, subscribeReceiving } from "./receivingApi";
 
 type Props = { branchId: string };
 
@@ -36,6 +37,9 @@ export function OrderScreen({ branchId }: Props) {
   const [movements, setMovements] = useState<Tables<"stock_movements">[]>([]);
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [lines, setLines] = useState<OrderLineRow[]>([]);
+  const [receivedLineIds, setReceivedLineIds] = useState<Set<string>>(
+    () => new Set()
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [groupId, setGroupId] = useState<string | null>(null);
@@ -51,10 +55,11 @@ export function OrderScreen({ branchId }: Props) {
     const request = ++latestRequest.current;
     setError(false);
     try {
-      const [catalog, movs, ord] = await Promise.all([
+      const [catalog, movs, ord, rec] = await Promise.all([
         loadCatalog(branchId),
         loadMovements(branchId),
         loadOrders(branchId),
+        loadReceivingData(branchId),
       ]);
       if (request !== latestRequest.current) return;
       setGroups(catalog.groups);
@@ -62,6 +67,7 @@ export function OrderScreen({ branchId }: Props) {
       setMovements(movs);
       setOrders(ord.orders);
       setLines(ord.lines);
+      setReceivedLineIds(rec.receivedLineIds);
       setGroupId((g) => g ?? catalog.groups[0]?.id ?? null);
     } catch {
       if (request === latestRequest.current) setError(true);
@@ -80,17 +86,19 @@ export function OrderScreen({ branchId }: Props) {
     };
     const unsubOrders = subscribeOrders(branchId, reload);
     const unsubMovements = subscribeMovements(branchId, reload);
+    const unsubReceiving = subscribeReceiving(branchId, reload);
     return () => {
       clearTimeout(timer);
       unsubOrders();
       unsubMovements();
+      unsubReceiving();
     };
   }, [branchId, fetchData]);
 
   const lotsByItem = useMemo(() => stockByItem(movements), [movements]);
   const incoming = useMemo(
-    () => incomingByItem(orders, lines),
-    [orders, lines]
+    () => incomingByItem(orders, lines, receivedLineIds),
+    [orders, lines, receivedLineIds]
   );
   const draft = useMemo(
     () =>

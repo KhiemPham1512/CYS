@@ -16,6 +16,7 @@ import { CatalogScreen } from "./src/catalog/CatalogScreen";
 import { CountScreen } from "./src/stock/CountScreen";
 import { StockScreen } from "./src/stock/StockScreen";
 import { OrderScreen } from "./src/orders/OrderScreen";
+import { ReceiveScreen } from "./src/orders/ReceiveScreen";
 import { UseScreen } from "./src/stock/UseScreen";
 import { UsersScreen } from "./src/users/UsersScreen";
 
@@ -129,12 +130,14 @@ function LoginScreen({
   );
 }
 
-type HomeView = "stock" | "use" | "order" | "count" | "catalog" | "users";
+type HomeView =
+  "stock" | "use" | "order" | "receive" | "count" | "catalog" | "users";
 
 const NAV_TABS: { key: HomeView; label: string; adminOnly?: boolean }[] = [
   { key: "stock", label: "Tồn kho" },
   { key: "use", label: "Ghi dùng" },
   { key: "order", label: "Đặt hàng" },
+  { key: "receive", label: "Nhận hàng" },
   { key: "count", label: "Kiểm kho" },
   { key: "catalog", label: "Danh mục" },
   { key: "users", label: "Người dùng", adminOnly: true },
@@ -222,6 +225,8 @@ function HomeScreen({
           <UseScreen branchId={branch.branch_id} userId={userId} />
         ) : view === "order" ? (
           <OrderScreen branchId={branch.branch_id} />
+        ) : view === "receive" ? (
+          <ReceiveScreen branchId={branch.branch_id} />
         ) : view === "count" ? (
           <CountScreen
             branchId={branch.branch_id}
