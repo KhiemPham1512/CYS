@@ -84,6 +84,7 @@ export function StockScreen({ branchId }: Props) {
   const [selectedItem, setSelectedItem] = useState<Tables<"items"> | null>(
     null
   );
+  const busy = useRef(false); // chống bấm đôi trước khi state kịp cập nhật
   const [mode, setMode] = useState<"adjust" | "mfg">("adjust");
   const [adjustInput, setAdjustInput] = useState("");
   const [adjustNote, setAdjustNote] = useState("");
@@ -197,18 +198,31 @@ export function StockScreen({ branchId }: Props) {
   }
 
   async function handleSaveAdjust() {
-    if (!selectedItem || !online || savingAdjust) return;
-    const parsed = parseAdjust(adjustInput, totalQty(selectedLots), {
+    if (!selectedItem || !online || busy.current) return;
+    busy.current = true;
+    setSavingAdjust(true);
+    setAdjustError(null);
+    // Số hiện có lấy từ sổ mới nhất (máy khác có thể vừa ghi), để +x / -x và "lệch" không dựa trên bản cũ.
+    let expected: number;
+    try {
+      const latest = stockByItem(await loadMovements(branchId));
+      expected = totalQty(latest.get(selectedItem.id) ?? []);
+    } catch {
+      busy.current = false;
+      setSavingAdjust(false);
+      setAdjustError("Không lưu được. Kiểm tra mạng.");
+      return;
+    }
+    const parsed = parseAdjust(adjustInput, expected, {
       caseSize: selectedItem.case_size,
       byPercent: selectedItem.record_by_percent,
     });
-    if (!parsed.ok) {
-      setAdjustError(parsed.error);
+    if (!parsed.ok || parsed.value === expected) {
+      busy.current = false;
+      setSavingAdjust(false);
+      setAdjustError(parsed.ok ? "Số lượng không đổi" : parsed.error);
       return;
     }
-    setAdjustError(null);
-    setSavingAdjust(true);
-    const expected = totalQty(selectedLots);
     const { error: err } = await saveAdjust(
       branchId,
       selectedItem.id,
@@ -216,6 +230,7 @@ export function StockScreen({ branchId }: Props) {
       expected,
       adjustNote || null
     );
+    busy.current = false;
     setSavingAdjust(false);
     if (err) {
       setAdjustError(err);
@@ -226,7 +241,7 @@ export function StockScreen({ branchId }: Props) {
   }
 
   async function handleAssignMfg() {
-    if (!selectedItem || !unassignedLot || !online || savingMfg) return;
+    if (!selectedItem || !unassignedLot || !online || busy.current) return;
     const parsedQty = parseQty(mfgQtyInput, {
       caseSize: selectedItem.case_size,
       byPercent: selectedItem.record_by_percent,
@@ -262,6 +277,7 @@ export function StockScreen({ branchId }: Props) {
 
     if (hasErr || !parsedQty.ok || !parsedDate.ok) return;
 
+    busy.current = true;
     setSavingMfg(true);
     const { error: err } = await assignMfg(
       branchId,
@@ -270,6 +286,7 @@ export function StockScreen({ branchId }: Props) {
       parsedDate.value,
       unassignedLot.enteredOn ?? null
     );
+    busy.current = false;
     setSavingMfg(false);
     if (err) {
       setMfgDateError(err);

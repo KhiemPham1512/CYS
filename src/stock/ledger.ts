@@ -1,4 +1,5 @@
 import type { Tables } from "../lib/database.types";
+import { round4 } from "./qty";
 
 export type Movement = Pick<
   Tables<"stock_movements">,
@@ -28,17 +29,13 @@ export type CountDiff = {
   diff: number;
 };
 
-function round4(n: number): number {
-  const rounded = Math.round(n * 10000) / 10000;
-  return rounded === 0 ? 0 : rounded;
-}
+// shortcut: múi giờ cố định giờ Việt Nam (UTC+7) để mọi máy ra cùng "ngày vào kho";
+// khi có Chi nhánh ở múi giờ khác thì lưu múi giờ theo Chi nhánh.
+const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
 
-const pad2 = (n: number) => String(n).padStart(2, "0");
-
-// Ngày (giờ địa phương của máy) của một thời điểm ISO, dạng yyyy-mm-dd.
+// Ngày (giờ Việt Nam) của một thời điểm ISO, dạng yyyy-mm-dd.
 export function localDate(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  return new Date(Date.parse(iso) + VN_OFFSET_MS).toISOString().slice(0, 10);
 }
 
 function add(map: Map<string, number>, key: string, qty: number) {

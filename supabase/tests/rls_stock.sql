@@ -1,5 +1,5 @@
 -- Kiểm RLS sổ Biến động kho. Chạy cả file (SQL editor hoặc MCP execute_sql); rollback ở cuối. Lỗi = assert sai.
--- Sổ chỉ ghi thêm: không có policy update/delete (xóa không test ở đây vì không có policy nào mở).
+-- Sổ chỉ ghi thêm: quyền update/delete bị thu hồi (xóa không test ở đây; xem migration 20261118080000).
 begin;
 
 insert into auth.users (id, email) values
@@ -55,10 +55,38 @@ do $$ begin
   end;
 end $$;
 
--- Chỉ ghi thêm: update không có tác dụng.
-update public.stock_movements set qty = 999 where kind = 'count';
+-- Chỉ ghi thêm: quyền update bị thu hồi; không tự đặt created_at/seq; ràng buộc dữ liệu.
 do $$ begin
-  assert (select qty from public.stock_movements where kind = 'count') = 10, 'không sửa được dòng đã ghi';
+  begin
+    update public.stock_movements set qty = 999 where kind = 'count';
+    assert false, 'không được sửa dòng đã ghi';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into public.stock_movements (branch_id, item_id, kind, qty, created_at)
+      values ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000a3', 'adjust', 1, '2020-01-01');
+    assert false, 'không được tự đặt created_at';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into public.stock_movements (branch_id, item_id, kind, qty)
+      values ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000a3', 'adjust', -1);
+    assert false, 'qty không được âm';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into public.stock_movements (branch_id, item_id, kind, qty)
+      values ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000a3', 'assign_mfg', 1);
+    assert false, 'assign_mfg phải có mfg_date';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into public.stock_movements (branch_id, item_id, kind, qty, entered_on)
+      values ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000a3', 'count', 1, '2026-11-17');
+    assert false, 'entered_on chỉ dành cho assign_mfg';
+  exception when check_violation then null;
+  end;
+  assert (select qty from public.stock_movements where kind = 'count') = 10, 'dòng đã ghi không đổi';
 end $$;
 
 -- Người dùng bị khóa không đọc/ghi được.

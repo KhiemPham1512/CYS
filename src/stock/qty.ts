@@ -12,7 +12,7 @@ export type FormatQtyOptions = {
   byPercent: boolean;
 };
 
-function round4(n: number): number {
+export function round4(n: number): number {
   const rounded = Math.round(n * 10000) / 10000;
   return rounded === 0 ? 0 : rounded;
 }

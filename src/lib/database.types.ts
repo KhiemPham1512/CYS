@@ -162,7 +162,6 @@ export type Database = {
         Insert: {
           batch_id?: string | null;
           branch_id: string;
-          created_by?: string;
           entered_on?: string | null;
           expected_qty?: number | null;
           item_id: string;

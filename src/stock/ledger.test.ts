@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   countDiffs,
+  localDate,
   stockByItem,
   stockLots,
   totalQty,
@@ -284,5 +285,13 @@ describe("countDiffs", () => {
       { item_id: "a", expected: 8, actual: 10, diff: 2 },
       { item_id: "c", expected: 5, actual: 3, diff: -2 },
     ]);
+  });
+});
+
+describe("localDate", () => {
+  it("tính ngày theo giờ Việt Nam (UTC+7), không phụ thuộc múi giờ của máy", () => {
+    expect(localDate("2026-11-17T16:59:00Z")).toBe("2026-11-17");
+    expect(localDate("2026-11-17T17:00:00Z")).toBe("2026-11-18");
+    expect(localDate("2026-12-31T20:00:00Z")).toBe("2027-01-01");
   });
 });

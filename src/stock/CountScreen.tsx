@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -15,7 +15,7 @@ import type { Tables } from "../lib/database.types";
 import { useOnline } from "../lib/useOnline";
 import { loadMovements, saveCount } from "./api";
 import { countDiffs, stockByItem, totalQty, type CountDiff } from "./ledger";
-import { formatQty, parseQty } from "./qty";
+import { formatQty, parseQty, round4 } from "./qty";
 
 type Props = {
   branchId: string;
@@ -38,6 +38,7 @@ export function CountScreen({ branchId, onDone }: Props) {
   const [query, setQuery] = useState("");
   const [inputs, setInputs] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false); // chống bấm đôi trước khi state kịp cập nhật
   const [saveError, setSaveError] = useState<string | null>(null);
   const [diffs, setDiffs] = useState<CountDiff[] | null>(null);
 
@@ -117,17 +118,35 @@ export function CountScreen({ branchId, onDone }: Props) {
   async function handleSave() {
     if (
       !online ||
-      saving ||
+      savingRef.current ||
       validation.rows.length === 0 ||
       validation.hasError
     ) {
       return;
     }
+    savingRef.current = true;
     setSaving(true);
     setSaveError(null);
-    const { batchId, error: err } = await saveCount(branchId, validation.rows);
+
+    // expected_qty lấy từ sổ mới nhất (máy khác có thể vừa ghi), không từ bản tải lúc mở màn.
+    let rows = validation.rows;
+    try {
+      const latest = stockByItem(await loadMovements(branchId));
+      rows = rows.map((r) => ({
+        ...r,
+        expected_qty: totalQty(latest.get(r.item_id) ?? []),
+      }));
+    } catch {
+      setSaveError("Không lưu được. Kiểm tra mạng.");
+      savingRef.current = false;
+      setSaving(false);
+      return;
+    }
+
+    const { batchId, error: err } = await saveCount(branchId, rows);
     if (err) {
       setSaveError(err);
+      savingRef.current = false;
       setSaving(false);
       return;
     }
@@ -138,19 +157,31 @@ export function CountScreen({ branchId, onDone }: Props) {
     } catch {
       // Đã lưu nhưng tải lại lỗi: tính lệch từ chính các dòng vừa lưu, không báo "không lệch" sai.
       setDiffs(
-        validation.rows
+        rows
           .filter((r) => r.qty !== r.expected_qty)
           .map((r) => ({
             item_id: r.item_id,
             expected: r.expected_qty,
             actual: r.qty,
-            diff: Math.round((r.qty - r.expected_qty) * 1e4) / 1e4,
+            diff: round4(r.qty - r.expected_qty),
           }))
       );
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }
+
+  // Lần Kiểm kho gần nhất (dòng count có batch_id, seq lớn nhất) để xem lại món lệch.
+  const latestBatchId = useMemo(() => {
+    let best: { seq: number; id: string } | null = null;
+    for (const m of movements) {
+      if (m.kind === "count" && m.batch_id && (!best || m.seq > best.seq)) {
+        best = { seq: m.seq, id: m.batch_id };
+      }
+    }
+    return best?.id ?? null;
+  }, [movements]);
 
   if (loading) {
     return (
@@ -232,6 +263,17 @@ export function CountScreen({ branchId, onDone }: Props) {
           value={query}
           onChangeText={setQuery}
         />
+        {latestBatchId && (
+          <Pressable
+            style={styles.linkButton}
+            onPress={() => setDiffs(countDiffs(movements, latestBatchId))}
+            accessibilityRole="button"
+          >
+            <Text style={styles.link}>
+              Xem món lệch của lần Kiểm kho gần nhất
+            </Text>
+          </Pressable>
+        )}
         {!online && <Text style={styles.error}>Mất mạng — không lưu được</Text>}
         {saveError && <Text style={styles.error}>{saveError}</Text>}
       </View>
@@ -303,6 +345,8 @@ export function CountScreen({ branchId, onDone }: Props) {
 }
 
 const styles = StyleSheet.create({
+  linkButton: { minHeight: 44, justifyContent: "center" },
+  link: { color: "#0f766e", fontSize: 15, fontWeight: "600" },
   container: { flex: 1, width: "100%" },
   center: {
     flex: 1,
