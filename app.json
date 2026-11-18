@@ -1,4 +1,4 @@
-{
+﻿{
   "expo": {
     "name": "CYS",
     "slug": "cys",
@@ -22,6 +22,6 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-sharing"]
+    "plugins": ["expo-media-library"]
   }
 }

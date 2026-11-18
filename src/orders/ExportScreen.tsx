@@ -1,5 +1,5 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Sharing from "expo-sharing";
+﻿import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as MediaLibrary from "expo-media-library";
 import {
   useCallback,
   useEffect,
@@ -40,8 +40,8 @@ type Kind = "order" | "stock";
 
 const NAMES_KEY = "cys.orderer-names";
 
-// Xuất ảnh theo mẫu tờ giấy: mỗi Nhóm một ảnh, chia sẻ qua bảng chia sẻ của máy (Zalo, Thư viện...).
-// shortcut: chỉ Android/iOS qua bảng chia sẻ, chưa tải PNG trên web; chưa ghi người xuất.
+// Xuáº¥t áº£nh theo máº«u tá» giáº¥y: má»—i NhÃ³m má»™t áº£nh, chia sáº» qua báº£ng chia sáº» cá»§a mÃ¡y (Zalo, ThÆ° viá»‡n...).
+// shortcut: chá»‰ Android/iOS qua báº£ng chia sáº», chÆ°a táº£i PNG trÃªn web; chÆ°a ghi ngÆ°á»i xuáº¥t.
 export function ExportScreen({ branchId, branchName }: Props) {
   const [groups, setGroups] = useState<Tables<"item_groups">[]>([]);
   const [items, setItems] = useState<Tables<"items">[]>([]);
@@ -54,7 +54,7 @@ export function ExportScreen({ branchId, branchName }: Props) {
   const [kind, setKind] = useState<Kind>("order");
   const [orderer, setOrderer] = useState("");
   const [names, setNames] = useState<string[]>([]);
-  const [target, setTarget] = useState<string | null>(null); // Nhóm đang mở bản xem trước
+  const [target, setTarget] = useState<string | null>(null); // NhÃ³m Ä‘ang má»Ÿ báº£n xem trÆ°á»›c
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const shot = useRef<ComponentRef<typeof View>>(null);
@@ -156,27 +156,53 @@ export function ExportScreen({ branchId, branchName }: Props) {
     today,
   ]);
 
-  const share = async () => {
-    if (!shot.current || busy) return;
+  // Chá»¥p báº£ng Ä‘ang má»Ÿ trong khung vÃ  lÆ°u vÃ o ThÆ° viá»‡n áº£nh.
+  const captureAndSave = async () => {
+    if (!shot.current) throw new Error("no sheet");
+    const uri = await captureRef(shot, { format: "png", quality: 1 });
+    await MediaLibrary.saveToLibraryAsync(uri);
+  };
+
+  const rememberName = () => {
+    if (kind !== "order") return;
+    const next = rememberOrdererName(names, orderer);
+    setNames(next);
+    AsyncStorage.setItem(NAMES_KEY, JSON.stringify(next)).catch(
+      () => undefined
+    );
+  };
+
+  // count = sá»‘ áº£nh cáº§n lÆ°u: má»™t NhÃ³m Ä‘ang xem, hoáº·c láº§n lÆ°á»£t má»i NhÃ³m (má»—i NhÃ³m má»™t áº£nh).
+  const save = async (all: boolean) => {
+    if (busy) return;
     setBusy(true);
     setMessage(null);
     try {
-      const uri = await captureRef(shot, { format: "png", quality: 1 });
-      if (!(await Sharing.isAvailableAsync())) {
-        setMessage("Máy này không hỗ trợ chia sẻ ảnh.");
+      const perm = await MediaLibrary.requestPermissionsAsync(true);
+      if (!perm.granted) {
+        setMessage("Cáº§n cho phÃ©p lÆ°u áº£nh vÃ o ThÆ° viá»‡n.");
         return;
       }
-      await Sharing.shareAsync(uri, { mimeType: "image/png" });
-      if (kind === "order") {
-        const next = rememberOrdererName(names, orderer);
-        setNames(next);
-        AsyncStorage.setItem(NAMES_KEY, JSON.stringify(next)).catch(
-          () => undefined
-        );
+      if (all) {
+        for (const g of groups) {
+          setTarget(g.id);
+          // shortcut: chá» cá»‘ Ä‘á»‹nh Ä‘á»ƒ báº£ng cá»§a NhÃ³m má»›i váº½ xong trÆ°á»›c khi chá»¥p.
+          await new Promise((r) => setTimeout(r, 500));
+          await captureAndSave();
+        }
+      } else {
+        await captureAndSave();
       }
+      rememberName();
+      setMessage(
+        all
+          ? `ÄÃ£ lÆ°u ${groups.length} áº£nh vÃ o ThÆ° viá»‡n.`
+          : "ÄÃ£ lÆ°u áº£nh vÃ o ThÆ° viá»‡n."
+      );
     } catch {
-      setMessage("Không xuất được ảnh, thử lại.");
+      setMessage("KhÃ´ng lÆ°u Ä‘Æ°á»£c áº£nh, thá»­ láº¡i.");
     } finally {
+      if (all) setTarget(null);
       setBusy(false);
     }
   };
@@ -185,14 +211,14 @@ export function ExportScreen({ branchId, branchName }: Props) {
   if (error)
     return (
       <View style={styles.center}>
-        <Text style={styles.error}>Không tải được dữ liệu.</Text>
+        <Text style={styles.error}>KhÃ´ng táº£i Ä‘Æ°á»£c dá»¯ liá»‡u.</Text>
         <Pressable style={styles.primary} onPress={() => void fetchData()}>
-          <Text style={styles.primaryText}>Thử lại</Text>
+          <Text style={styles.primaryText}>Thá»­ láº¡i</Text>
         </Pressable>
       </View>
     );
 
-  const title = kind === "order" ? "ĐẶT HÀNG" : "TỒN KHO DỰ TÍNH";
+  const title = kind === "order" ? "Äáº¶T HÃ€NG" : "Tá»’N KHO Dá»° TÃNH";
   return (
     <View style={styles.container}>
       <View style={styles.kindRow}>
@@ -204,7 +230,7 @@ export function ExportScreen({ branchId, branchName }: Props) {
             accessibilityRole="button"
           >
             <Text style={[styles.kindText, kind === k && styles.kindTextOn]}>
-              {k === "order" ? "Đơn đặt hàng" : "Tồn kho dự tính"}
+              {k === "order" ? "ÄÆ¡n Ä‘áº·t hÃ ng" : "Tá»“n kho dá»± tÃ­nh"}
             </Text>
           </Pressable>
         ))}
@@ -212,12 +238,12 @@ export function ExportScreen({ branchId, branchName }: Props) {
 
       {kind === "order" ? (
         <View style={styles.pad}>
-          <Text style={styles.label}>Người đặt hàng</Text>
+          <Text style={styles.label}>NgÆ°á»i Ä‘áº·t hÃ ng</Text>
           <TextInput
             style={styles.input}
             value={orderer}
             onChangeText={setOrderer}
-            placeholder="Tên người đặt hàng"
+            placeholder="TÃªn ngÆ°á»i Ä‘áº·t hÃ ng"
           />
           <View style={styles.chips}>
             {names.map((n) => (
@@ -233,6 +259,22 @@ export function ExportScreen({ branchId, branchName }: Props) {
         </View>
       ) : null}
 
+      <View style={styles.pad}>
+        <Pressable
+          style={styles.primary}
+          onPress={() => void save(true)}
+          disabled={busy}
+          accessibilityRole="button"
+        >
+          <Text style={styles.primaryText}>
+            {busy
+              ? "Äang lÆ°u..."
+              : `Xuáº¥t ${groups.length} áº£nh ${kind === "order" ? "ÄÆ¡n Ä‘áº·t hÃ ng" : "Tá»“n kho dá»± tÃ­nh"} vÃ o ThÆ° viá»‡n`}
+          </Text>
+        </Pressable>
+        {message && !group ? <Text style={styles.error}>{message}</Text> : null}
+      </View>
+
       <ScrollView contentContainerStyle={styles.pad}>
         {groups.map((g) => (
           <Pressable
@@ -244,7 +286,7 @@ export function ExportScreen({ branchId, branchName }: Props) {
             }}
             accessibilityRole="button"
           >
-            <Text style={styles.groupText}>Xuất ảnh: {g.name}</Text>
+            <Text style={styles.groupText}>Xuáº¥t áº£nh: {g.name}</Text>
           </Pressable>
         ))}
       </ScrollView>
@@ -261,21 +303,21 @@ export function ExportScreen({ branchId, branchName }: Props) {
               <Text style={styles.paperTitle}>{title}</Text>
               <Text style={styles.paperSub}>{group?.name}</Text>
               <Text style={styles.paperMeta}>
-                Ngày: {date}
+                NgÃ y: {date}
                 {kind === "order" && orderer.trim()
-                  ? `    Người đặt hàng: ${orderer.trim()}`
+                  ? `    NgÆ°á»i Ä‘áº·t hÃ ng: ${orderer.trim()}`
                   : ""}
               </Text>
               <View style={[styles.tr, styles.thRow]}>
                 <Text style={[styles.cell, styles.stt, styles.th]}>STT</Text>
                 <Text style={[styles.cell, styles.name, styles.th]}>
-                  Tên nguyên vật liệu
+                  TÃªn nguyÃªn váº­t liá»‡u
                 </Text>
                 <Text style={[styles.cell, styles.unit, styles.th]}>
-                  Đơn vị
+                  ÄÆ¡n vá»‹
                 </Text>
                 <Text style={[styles.cell, styles.qty, styles.th]}>
-                  {kind === "order" ? "Số lượng" : "Tồn"}
+                  {kind === "order" ? "Sá»‘ lÆ°á»£ng" : "Tá»“n"}
                 </Text>
               </View>
               {rows.map((r) => (
@@ -299,15 +341,15 @@ export function ExportScreen({ branchId, branchName }: Props) {
               style={[styles.secondary, styles.half]}
               onPress={() => setTarget(null)}
             >
-              <Text style={styles.secondaryText}>Đóng</Text>
+              <Text style={styles.secondaryText}>ÄÃ³ng</Text>
             </Pressable>
             <Pressable
               style={[styles.primary, styles.half]}
-              onPress={() => void share()}
+              onPress={() => void save(false)}
               disabled={busy}
             >
               <Text style={styles.primaryText}>
-                {busy ? "Đang xuất..." : "Xuất ảnh & chia sẻ"}
+                {busy ? "Äang lÆ°u..." : "LÆ°u áº£nh nÃ y"}
               </Text>
             </Pressable>
           </View>
