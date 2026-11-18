@@ -115,6 +115,10 @@ export function stockLots(movements: Movement[]): Lot[] {
       // thì tổng đã đặt lại nên không lệch. Vượt tồn thì về 0, cảnh báo ở màn hình.
       if (!voided.has(m.id))
         takeOldestFirst(undated, takeOldestFirst(dated, m.qty));
+    } else if (m.kind === "receive" && m.qty > 0) {
+      // Nhận hàng: cộng vào Lô đúng Ngày sản xuất; không có ngày thì vào phần chưa có ngày (ngày vào kho).
+      if (m.mfg_date) add(dated, m.mfg_date, m.qty);
+      else add(undated, localDate(m.created_at), m.qty);
     } else if (m.kind === "assign_mfg" && m.mfg_date && m.qty > 0) {
       let moved: number;
       if (m.entered_on) {

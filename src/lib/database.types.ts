@@ -173,6 +173,36 @@ export type Database = {
         Update: { qty?: number };
         Relationships: [];
       };
+      purchase_receipts: {
+        Row: {
+          id: string;
+          branch_id: string;
+          order_line_id: string;
+          good_qty: number;
+          short_qty: number;
+          damaged_qty: number;
+          created_by: string;
+          created_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      supplier_owed: {
+        Row: {
+          id: string;
+          branch_id: string;
+          item_id: string;
+          kind: "short" | "damaged" | "settled";
+          qty: number;
+          receipt_id: string | null;
+          created_by: string;
+          created_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
       stock_movements: {
         Row: {
           batch_id: string | null;
@@ -186,6 +216,7 @@ export type Database = {
           kind: MovementKind;
           mfg_date: string | null;
           note: string | null;
+          order_line_id: string | null;
           qty: number;
           seq: number;
           voids_id: string | null;
@@ -244,6 +275,23 @@ export type Database = {
         Args: { p_branch_id: string };
         Returns: { user_id: string; email: string }[];
       };
+      receive_order_line: {
+        Args: {
+          p_line_id: string;
+          p_received: number;
+          p_damaged: number;
+          p_mfg: string | null;
+        };
+        Returns: void;
+      };
+      settle_owed: {
+        Args: {
+          p_item_id: string;
+          p_qty: number;
+          p_mfg: string | null;
+        };
+        Returns: void;
+      };
     };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
@@ -255,6 +303,7 @@ export type Tables<T extends keyof PublicTables> = PublicTables[T]["Row"];
 export type TablesInsert<T extends keyof PublicTables> =
   PublicTables[T]["Insert"];
 export type ShelfLifeUnit = "day" | "month";
-export type MovementKind = "count" | "adjust" | "assign_mfg" | "use" | "void";
+export type MovementKind =
+  "count" | "adjust" | "assign_mfg" | "use" | "void" | "receive";
 export type TablesUpdate<T extends keyof PublicTables> =
   PublicTables[T]["Update"];

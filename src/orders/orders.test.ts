@@ -20,16 +20,26 @@ describe("isEditable", () => {
 
 describe("incomingByItem", () => {
   const lines: OrderLine[] = [
-    { order_id: "d", item_id: "x", qty: 5 },
-    { order_id: "p1", item_id: "x", qty: 2.5 },
-    { order_id: "p2", item_id: "x", qty: 1 },
-    { order_id: "p2", item_id: "y", qty: 4 },
+    { id: "a", order_id: "d", item_id: "x", qty: 5 },
+    { id: "b", order_id: "p1", item_id: "x", qty: 2.5 },
+    { id: "c", order_id: "p2", item_id: "x", qty: 1 },
+    { id: "d2", order_id: "p2", item_id: "y", qty: 4 },
   ];
 
   it("cộng các đơn đã đặt, bỏ đơn nháp", () => {
     const m = incomingByItem([draft, placed1, placed2], lines);
     expect(m.get("x")).toBe(3.5);
     expect(m.get("y")).toBe(4);
+  });
+
+  it("bỏ các dòng đã nhận (kể cả nhận thiếu): Hàng đang về hết hẳn", () => {
+    const received = new Set(["l-p2-x"]);
+    const withIds: OrderLine[] = [
+      { id: "l-p1-x", order_id: "p1", item_id: "x", qty: 2.5 },
+      { id: "l-p2-x", order_id: "p2", item_id: "x", qty: 1 },
+    ];
+    const m = incomingByItem([placed1, placed2], withIds, received);
+    expect(m.get("x")).toBe(2.5);
   });
 
   it("món không có Hàng đang về thì không có khóa", () => {

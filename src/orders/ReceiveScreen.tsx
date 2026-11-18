@@ -1,0 +1,633 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { loadCatalog } from "../catalog/api";
+import type { Tables } from "../lib/database.types";
+import { useOnline } from "../lib/useOnline";
+import { formatDate, parseShortDate } from "../stock/date";
+import { formatQty, parseQty } from "../stock/qty";
+import {
+  loadOrders,
+  subscribeOrders,
+  type OrderLineRow,
+  type OrderRow,
+} from "./api";
+import { planGroupReceipt, type GroupLineInput } from "./receiving";
+import {
+  loadReceivingData,
+  receiveLines,
+  subscribeReceiving,
+} from "./receivingApi";
+
+type Props = { branchId: string };
+
+type LinePlan = Extract<
+  ReturnType<typeof planGroupReceipt>,
+  { ok: true }
+>["lines"][number];
+
+function omitKeys<T>(
+  record: Record<string, T>,
+  keys: string[]
+): Record<string, T> {
+  const next = { ...record };
+  for (const key of keys) delete next[key];
+  return next;
+}
+
+function sameUnitKind(items: (Tables<"items"> | undefined)[]): boolean {
+  if (items.length === 0) return false;
+  const first = items[0];
+  if (!first) return false;
+  const unit = first.unit.trim().toLowerCase();
+  if (!unit) return false;
+  return items.every(
+    (item) =>
+      item !== undefined &&
+      item.unit.trim().toLowerCase() === unit &&
+      item.case_size === first.case_size &&
+      item.record_by_percent === first.record_by_percent
+  );
+}
+
+export function ReceiveScreen({ branchId }: Props) {
+  const online = useOnline();
+  const [groups, setGroups] = useState<Tables<"item_groups">[]>([]);
+  const [items, setItems] = useState<Tables<"items">[]>([]);
+  const [orders, setOrders] = useState<OrderRow[]>([]);
+  const [lines, setLines] = useState<OrderLineRow[]>([]);
+  const [receivedLineIds, setReceivedLineIds] = useState<Set<string>>(
+    () => new Set()
+  );
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const busy = useRef(false); // chống bấm đôi trước khi state kịp cập nhật
+  const [message, setMessage] = useState<string | null>(null);
+
+  const [shortInputs, setShortInputs] = useState<Record<string, string>>({});
+  const [damagedInputs, setDamagedInputs] = useState<Record<string, string>>(
+    {}
+  );
+  const [mfgInputs, setMfgInputs] = useState<Record<string, string>>({});
+  const [groupErrors, setGroupErrors] = useState<Record<string, string[]>>({});
+  const [editingLineId, setEditingLineId] = useState<string | null>(null);
+
+  // Chỉ nhận kết quả của lần tải mới nhất; lần tải cũ về sau bị bỏ.
+  const latestRequest = useRef(0);
+  const fetchData = useCallback(async () => {
+    const request = ++latestRequest.current;
+    setError(false);
+    try {
+      const [catalog, ord, rec] = await Promise.all([
+        loadCatalog(branchId),
+        loadOrders(branchId),
+        loadReceivingData(branchId),
+      ]);
+      if (request !== latestRequest.current) return;
+      setGroups(catalog.groups);
+      setItems(catalog.items);
+      setOrders(ord.orders);
+      setLines(ord.lines);
+      setReceivedLineIds(rec.receivedLineIds);
+    } catch {
+      if (request === latestRequest.current) setError(true);
+    } finally {
+      if (request === latestRequest.current) setLoading(false);
+    }
+  }, [branchId]);
+
+  useEffect(() => {
+    setLoading(true);
+    void fetchData();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const reload = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => void fetchData(), 300);
+    };
+    const unsubOrders = subscribeOrders(branchId, reload);
+    const unsubReceiving = subscribeReceiving(branchId, reload);
+    return () => {
+      clearTimeout(timer);
+      unsubOrders();
+      unsubReceiving();
+    };
+  }, [branchId, fetchData]);
+
+  const itemsById = useMemo(
+    () => new Map(items.map((i) => [i.id, i])),
+    [items]
+  );
+
+  const linesById = useMemo(
+    () => new Map(lines.map((l) => [l.id, l])),
+    [lines]
+  );
+
+  const groupedLines = useMemo(() => {
+    const placedGroupByOrder = new Map<string, string>();
+    for (const order of orders) {
+      if (order.placed_at !== null) {
+        placedGroupByOrder.set(order.id, order.group_id);
+      }
+    }
+    const byGroup = new Map<string, OrderLineRow[]>();
+    for (const line of lines) {
+      if (receivedLineIds.has(line.id)) continue;
+      const groupId = placedGroupByOrder.get(line.order_id);
+      if (!groupId) continue;
+      const list = byGroup.get(groupId);
+      if (list) list.push(line);
+      else byGroup.set(groupId, [line]);
+    }
+    return groups
+      .map((group) => ({
+        group,
+        groupLines: byGroup.get(group.id) ?? [],
+      }))
+      .filter((entry) => entry.groupLines.length > 0);
+  }, [groups, orders, lines, receivedLineIds]);
+
+  const editingLine = editingLineId
+    ? (linesById.get(editingLineId) ?? null)
+    : null;
+  const editingItem = editingLine
+    ? itemsById.get(editingLine.item_id)
+    : undefined;
+
+  const fmt = (item: Tables<"items"> | undefined, qty: number) =>
+    formatQty(qty, {
+      caseSize: item?.case_size ?? null,
+      unit: item?.unit ?? "",
+      byPercent: item?.record_by_percent ?? false,
+    });
+
+  function formatEditedSummary(
+    line: OrderLineRow,
+    item: Tables<"items"> | undefined
+  ): string | null {
+    const rawShort = (shortInputs[line.id] ?? "").trim();
+    const rawDamaged = (damagedInputs[line.id] ?? "").trim();
+    const rawMfg = (mfgInputs[line.id] ?? "").trim();
+    if (!rawShort && !rawDamaged && !rawMfg) return null;
+
+    const qtyOpts = {
+      caseSize: item?.case_size ?? null,
+      byPercent: item?.record_by_percent ?? false,
+    };
+
+    const shortParsed = rawShort ? parseQty(rawShort, qtyOpts) : null;
+    const shortText = !rawShort
+      ? fmt(item, 0)
+      : shortParsed?.ok
+        ? fmt(item, shortParsed.value)
+        : rawShort;
+
+    const damagedParsed = rawDamaged ? parseQty(rawDamaged, qtyOpts) : null;
+    const damagedText = !rawDamaged
+      ? fmt(item, 0)
+      : damagedParsed?.ok
+        ? fmt(item, damagedParsed.value)
+        : rawDamaged;
+
+    const mfgParsed = rawMfg ? parseShortDate(rawMfg, new Date()) : null;
+    const mfgText = !rawMfg
+      ? null
+      : mfgParsed?.ok
+        ? formatDate(mfgParsed.value)
+        : rawMfg;
+
+    const parts = [`Thiếu ${shortText}`, `Hư ${damagedText}`];
+    if (mfgText) parts.push(`Ngày sản xuất ${mfgText}`);
+    return parts.join(" · ");
+  }
+
+  async function runSave(action: () => Promise<void>) {
+    if (!online || busy.current) return;
+    busy.current = true;
+    setSaving(true);
+    try {
+      await action();
+    } finally {
+      busy.current = false;
+      setSaving(false);
+    }
+  }
+
+  async function commitGroupReceive(
+    groupId: string,
+    planLines: LinePlan[],
+    lineItems: (Tables<"items"> | undefined)[]
+  ) {
+    await runSave(async () => {
+      const res = await receiveLines(
+        planLines.map((l) => ({
+          lineId: l.key,
+          received: l.received,
+          damaged: l.plan.damaged,
+          mfgDate: l.plan.mfgDate,
+        }))
+      );
+      if (res.error) {
+        const doneKeys = planLines.slice(0, res.done).map((l) => l.key);
+        if (doneKeys.length > 0) {
+          setShortInputs((p) => omitKeys(p, doneKeys));
+          setDamagedInputs((p) => omitKeys(p, doneKeys));
+          setMfgInputs((p) => omitKeys(p, doneKeys));
+        }
+        setMessage(
+          `Đã nhận ${res.done}/${planLines.length} món. Lỗi: ${res.error}`
+        );
+        await fetchData();
+        return;
+      }
+
+      const allKeys = planLines.map((l) => l.key);
+      setShortInputs((p) => omitKeys(p, allKeys));
+      setDamagedInputs((p) => omitKeys(p, allKeys));
+      setMfgInputs((p) => omitKeys(p, allKeys));
+      setGroupErrors((p) => omitKeys(p, [groupId]));
+
+      if (sameUnitKind(lineItems)) {
+        const refItem = lineItems[0];
+        const totalGood = planLines.reduce((s, l) => s + l.plan.good, 0);
+        const totalShort = planLines.reduce((s, l) => s + l.plan.short, 0);
+        const totalDamaged = planLines.reduce((s, l) => s + l.plan.damaged, 0);
+        setMessage(
+          `Đã nhận ${planLines.length} món: vào kho ${fmt(refItem, totalGood)} · Thiếu ${fmt(refItem, totalShort)} · Hư ${fmt(refItem, totalDamaged)}`
+        );
+      } else {
+        const shortCount = planLines.filter((l) => l.plan.short > 0).length;
+        const damagedCount = planLines.filter((l) => l.plan.damaged > 0).length;
+        setMessage(
+          `Đã nhận ${planLines.length} món (thiếu ${shortCount} món · hư ${damagedCount} món)`
+        );
+      }
+      await fetchData();
+    });
+  }
+
+  function handleGroupReceive(
+    group: Tables<"item_groups">,
+    groupLines: OrderLineRow[]
+  ) {
+    if (!online || busy.current) return;
+    setMessage(null);
+    setGroupErrors((p) => omitKeys(p, [group.id]));
+
+    const today = new Date();
+    const parseErrors: string[] = [];
+    const inputs: GroupLineInput[] = [];
+    const lineItems: (Tables<"items"> | undefined)[] = [];
+
+    for (const line of groupLines) {
+      const item = itemsById.get(line.item_id);
+      const name = item?.name ?? "?";
+      const qtyOpts = {
+        caseSize: item?.case_size ?? null,
+        byPercent: item?.record_by_percent ?? false,
+      };
+      const lineErrs: string[] = [];
+
+      let short = 0;
+      const rawShort = (shortInputs[line.id] ?? "").trim();
+      if (rawShort) {
+        const parsed = parseQty(rawShort, qtyOpts);
+        if (!parsed.ok) lineErrs.push(`Số hàng thiếu: ${parsed.error}`);
+        else short = parsed.value;
+      }
+
+      let damaged = 0;
+      const rawDamaged = (damagedInputs[line.id] ?? "").trim();
+      if (rawDamaged) {
+        const parsed = parseQty(rawDamaged, qtyOpts);
+        if (!parsed.ok) lineErrs.push(`Hàng hư: ${parsed.error}`);
+        else damaged = parsed.value;
+      }
+
+      let mfgDate: string | null = null;
+      const rawMfg = (mfgInputs[line.id] ?? "").trim();
+      if (rawMfg) {
+        const parsed = parseShortDate(rawMfg, today);
+        if (!parsed.ok) lineErrs.push(`Ngày sản xuất: ${parsed.error}`);
+        else mfgDate = parsed.value;
+      }
+
+      if (lineErrs.length > 0) {
+        parseErrors.push(`${name}: ${lineErrs.join("; ")}`);
+      } else {
+        inputs.push({
+          key: line.id,
+          name,
+          ordered: line.qty,
+          short,
+          damaged,
+          mfgDate,
+          tracksMfg: item?.track_mfg_date ?? false,
+        });
+        lineItems.push(item);
+      }
+    }
+
+    const plan = planGroupReceipt(inputs);
+    if (parseErrors.length > 0 || !plan.ok) {
+      const planErrs = plan.ok
+        ? []
+        : plan.errors.map((e) => `${e.name}: ${e.error}`);
+      setGroupErrors((p) => ({
+        ...p,
+        [group.id]: [...parseErrors, ...planErrs],
+      }));
+      return;
+    }
+
+    Alert.alert(`Nhận ${plan.lines.length} món của ${group.name}?`, undefined, [
+      { text: "Hủy", style: "cancel" },
+      {
+        text: "Đã nhận hàng",
+        onPress: () => void commitGroupReceive(group.id, plan.lines, lineItems),
+      },
+    ]);
+  }
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.error}>Không tải được dữ liệu. Kiểm tra mạng.</Text>
+        <Pressable
+          style={styles.primary}
+          onPress={() => {
+            setLoading(true);
+            void fetchData();
+          }}
+          accessibilityRole="button"
+        >
+          <Text style={styles.primaryText}>Thử lại</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  const actionDisabled = !online || saving;
+
+  return (
+    <View style={styles.container}>
+      {!online && <Text style={styles.error}>Mất mạng — không lưu được</Text>}
+      {message && <Text style={styles.message}>{message}</Text>}
+
+      <ScrollView keyboardShouldPersistTaps="handled">
+        <Text style={styles.section}>Hàng đang về</Text>
+        {groupedLines.length === 0 && (
+          <Text style={styles.meta}>Không có hàng đang về.</Text>
+        )}
+        {groupedLines.map(({ group, groupLines }) => {
+          const errs = groupErrors[group.id] ?? [];
+          return (
+            <View key={group.id} style={styles.groupBlock}>
+              <Text style={styles.groupHeader}>{group.name}</Text>
+              {groupLines.map((line) => {
+                const item = itemsById.get(line.item_id);
+                const summary = formatEditedSummary(line, item);
+                return (
+                  <Pressable
+                    key={line.id}
+                    style={styles.row}
+                    onPress={() => setEditingLineId(line.id)}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.name}>
+                      {item?.name ?? "?"}
+                      {item?.name_zh ? ` · ${item.name_zh}` : ""}
+                    </Text>
+                    <Text style={styles.metaInline}>
+                      Đã đặt: {fmt(item, line.qty)}
+                    </Text>
+                    {summary && (
+                      <Text style={styles.summaryText}>{summary}</Text>
+                    )}
+                  </Pressable>
+                );
+              })}
+              {errs.length > 0 && (
+                <View style={styles.errorBox}>
+                  {errs.map((err, idx) => (
+                    <Text key={idx} style={styles.fieldError}>
+                      {err}
+                    </Text>
+                  ))}
+                </View>
+              )}
+              <View style={styles.groupFooter}>
+                <Pressable
+                  style={[styles.primary, actionDisabled && styles.disabled]}
+                  disabled={actionDisabled}
+                  onPress={() => handleGroupReceive(group, groupLines)}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.primaryText}>Đã nhận hàng</Text>
+                </Pressable>
+              </View>
+            </View>
+          );
+        })}
+      </ScrollView>
+
+      <Modal
+        visible={editingLine !== null}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setEditingLineId(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <ScrollView keyboardShouldPersistTaps="handled">
+              {editingLine && (
+                <View style={styles.modalContent}>
+                  <Text style={styles.modalTitle}>
+                    {editingItem?.name ?? "?"}
+                    {editingItem?.name_zh ? ` · ${editingItem.name_zh}` : ""}
+                  </Text>
+                  <Text style={styles.metaInline}>
+                    Đã đặt: {fmt(editingItem, editingLine.qty)}
+                  </Text>
+
+                  <Text style={styles.label}>Số hàng thiếu</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="0"
+                    value={shortInputs[editingLine.id] ?? ""}
+                    onChangeText={(t) =>
+                      setShortInputs((p) => ({ ...p, [editingLine.id]: t }))
+                    }
+                  />
+
+                  <Text style={styles.label}>Hàng hư</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="0"
+                    value={damagedInputs[editingLine.id] ?? ""}
+                    onChangeText={(t) =>
+                      setDamagedInputs((p) => ({ ...p, [editingLine.id]: t }))
+                    }
+                  />
+
+                  <Text style={styles.label}>
+                    {editingItem?.track_mfg_date
+                      ? "Ngày sản xuất (bắt buộc)"
+                      : "Ngày sản xuất"}
+                  </Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder={
+                      editingItem?.track_mfg_date ? "bắt buộc, vd 28" : "vd 28"
+                    }
+                    value={mfgInputs[editingLine.id] ?? ""}
+                    onChangeText={(t) =>
+                      setMfgInputs((p) => ({ ...p, [editingLine.id]: t }))
+                    }
+                  />
+
+                  <View style={styles.btnRow}>
+                    <Pressable
+                      style={[styles.secondary, styles.btnHalf]}
+                      onPress={() => {
+                        const id = editingLine.id;
+                        setShortInputs((p) => omitKeys(p, [id]));
+                        setDamagedInputs((p) => omitKeys(p, [id]));
+                        setMfgInputs((p) => omitKeys(p, [id]));
+                      }}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.secondaryText}>Đặt lại</Text>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.primary, styles.btnHalf]}
+                      onPress={() => setEditingLineId(null)}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.primaryText}>Xong</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, width: "100%" },
+  center: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+    gap: 12,
+  },
+  section: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#0f766e",
+    padding: 16,
+    backgroundColor: "#f4f4f5",
+  },
+  groupBlock: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#e4e4e7",
+    backgroundColor: "#fff",
+  },
+  groupHeader: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#18181b",
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 6,
+    backgroundColor: "#fafafa",
+    borderBottomWidth: 1,
+    borderBottomColor: "#f4f4f5",
+  },
+  row: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f4f4f5",
+    backgroundColor: "#fff",
+    gap: 4,
+  },
+  name: { fontSize: 16, fontWeight: "600", color: "#18181b" },
+  meta: { fontSize: 13, color: "#52525b", padding: 16 },
+  metaInline: { fontSize: 13, color: "#52525b" },
+  summaryText: { fontSize: 13, color: "#0f766e", fontWeight: "600" },
+  errorBox: { paddingHorizontal: 16, paddingTop: 10, gap: 4 },
+  groupFooter: { padding: 16 },
+  input: {
+    borderWidth: 1,
+    borderColor: "#d4d4d8",
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 16,
+    backgroundColor: "#fff",
+  },
+  label: { fontSize: 14, fontWeight: "600", color: "#27272a", marginTop: 4 },
+  btnRow: { flexDirection: "row", gap: 8, marginTop: 12 },
+  btnHalf: { flex: 1 },
+  error: { color: "#b91c1c", fontSize: 14, textAlign: "center", padding: 8 },
+  fieldError: { color: "#b91c1c", fontSize: 14 },
+  message: { color: "#0f766e", fontSize: 14, textAlign: "center", padding: 8 },
+  primary: {
+    backgroundColor: "#0f766e",
+    borderRadius: 8,
+    padding: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 44,
+  },
+  secondary: {
+    borderWidth: 1,
+    borderColor: "#d4d4d8",
+    borderRadius: 8,
+    padding: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 44,
+    backgroundColor: "#fff",
+  },
+  disabled: { opacity: 0.5 },
+  primaryText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  secondaryText: { color: "#18181b", fontSize: 16, fontWeight: "600" },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    justifyContent: "center",
+    padding: 16,
+  },
+  modalCard: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    maxHeight: "85%",
+    padding: 16,
+  },
+  modalContent: { gap: 8 },
+  modalTitle: { fontSize: 18, fontWeight: "700", color: "#18181b" },
+});

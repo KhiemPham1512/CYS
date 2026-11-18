@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -16,6 +17,8 @@ import { CatalogScreen } from "./src/catalog/CatalogScreen";
 import { CountScreen } from "./src/stock/CountScreen";
 import { StockScreen } from "./src/stock/StockScreen";
 import { OrderScreen } from "./src/orders/OrderScreen";
+import { OwedScreen } from "./src/orders/OwedScreen";
+import { ReceiveScreen } from "./src/orders/ReceiveScreen";
 import { UseScreen } from "./src/stock/UseScreen";
 import { UsersScreen } from "./src/users/UsersScreen";
 
@@ -129,12 +132,22 @@ function LoginScreen({
   );
 }
 
-type HomeView = "stock" | "use" | "order" | "count" | "catalog" | "users";
+type HomeView =
+  | "stock"
+  | "use"
+  | "order"
+  | "receive"
+  | "owed"
+  | "count"
+  | "catalog"
+  | "users";
 
 const NAV_TABS: { key: HomeView; label: string; adminOnly?: boolean }[] = [
   { key: "stock", label: "Tồn kho" },
   { key: "use", label: "Ghi dùng" },
   { key: "order", label: "Đặt hàng" },
+  { key: "receive", label: "Nhận hàng" },
+  { key: "owed", label: "Hàng thiếu" },
   { key: "count", label: "Kiểm kho" },
   { key: "catalog", label: "Danh mục" },
   { key: "users", label: "Người dùng", adminOnly: true },
@@ -193,7 +206,12 @@ function HomeScreen({
             </Pressable>
           </View>
         </View>
-        <View style={styles.navBar}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.navScroll}
+          contentContainerStyle={styles.navBar}
+        >
           {NAV_TABS.filter((tab) => !tab.adminOnly || isAdmin).map((tab) => {
             const selected = view === tab.key;
             return (
@@ -215,13 +233,17 @@ function HomeScreen({
               </Pressable>
             );
           })}
-        </View>
+        </ScrollView>
         {view === "stock" ? (
           <StockScreen branchId={branch.branch_id} />
         ) : view === "use" ? (
           <UseScreen branchId={branch.branch_id} userId={userId} />
         ) : view === "order" ? (
           <OrderScreen branchId={branch.branch_id} />
+        ) : view === "receive" ? (
+          <ReceiveScreen branchId={branch.branch_id} />
+        ) : view === "owed" ? (
+          <OwedScreen branchId={branch.branch_id} />
         ) : view === "count" ? (
           <CountScreen
             branchId={branch.branch_id}
@@ -304,6 +326,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   branchTitle: { fontSize: 18, fontWeight: "700" },
+  navScroll: { flexGrow: 0 },
   navBar: {
     flexDirection: "row",
     paddingHorizontal: 16,
@@ -311,14 +334,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   navTab: {
-    flex: 1,
     minHeight: 44,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: "#d4d4d8",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 8,
+    paddingHorizontal: 12,
   },
   navTabSelected: {
     backgroundColor: "#0f766e",
