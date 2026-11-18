@@ -73,6 +73,7 @@ export function PlacedOrderSheet({
                   </View>
                 );
               })}
+              <View style={styles.tableEnd} />
             </ScrollView>
           </>
         )}
@@ -114,6 +115,7 @@ const styles = StyleSheet.create({
     borderColor: BORDER,
     marginHorizontal: 8,
   },
+  tableEnd: { borderTopWidth: 1, borderColor: BORDER, marginHorizontal: 8 },
   thRow: { backgroundColor: "#e4e4e7" },
   cell: {
     borderRightWidth: 1,
