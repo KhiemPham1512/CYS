@@ -171,6 +171,28 @@ describe("stockLots", () => {
     ]);
   });
 
+  it("tất cả chưa có ngày: trừ 1 thì mất bao vào kho sớm nhất", () => {
+    const movements: Movement[] = [
+      mv({ seq: 1, kind: "count", qty: 1, created_at: "2026-11-17T05:00:00Z" }),
+      mv({
+        seq: 2,
+        kind: "adjust",
+        qty: 6,
+        created_at: "2026-11-18T05:00:00Z",
+      }),
+      mv({
+        seq: 3,
+        kind: "adjust",
+        qty: 5,
+        created_at: "2026-11-19T05:00:00Z",
+      }),
+    ];
+
+    expect(stockLots(movements)).toEqual([
+      { mfgDate: null, qty: 5, enteredOn: "2026-11-18" },
+    ]);
+  });
+
   it("về 0 thì hết mọi Lô", () => {
     const movements: Movement[] = [
       mv({ seq: 1, kind: "count", qty: 10 }),
