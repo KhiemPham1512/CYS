@@ -1,5 +1,5 @@
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -11,17 +11,30 @@ import {
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./src/lib/supabase";
 import { useOnline } from "./src/lib/useOnline";
+import { useLockWatch } from "./src/lib/useLockWatch";
 import { CatalogScreen } from "./src/catalog/CatalogScreen";
+import { UsersScreen } from "./src/users/UsersScreen";
+
+const LOCKED_MESSAGE = "Người dùng này đã bị khóa. Liên hệ Quản trị.";
+// RLS không phân biệt bị khóa với bị gỡ khỏi Chi nhánh.
+const NO_ACCESS_MESSAGE =
+  "Bạn không còn quyền vào Chi nhánh (bị khóa hoặc bị gỡ). Liên hệ Quản trị.";
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>();
+  const [notice, setNotice] = useState<string | null>(null);
   const online = useOnline();
+  const onLocked = useCallback(() => {
+    setNotice(NO_ACCESS_MESSAGE);
+    void supabase.auth.signOut({ scope: "local" }); // đã bị cấm: chỉ xóa phiên trên máy
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data } = supabase.auth.onAuthStateChange((_event, s) =>
-      setSession(s)
-    );
+    const { data } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s);
+      if (s) setNotice(null);
+    });
     return () => data.subscription.unsubscribe();
   }, []);
 
@@ -36,9 +49,9 @@ export default function App() {
         {session === undefined ? (
           <ActivityIndicator />
         ) : session ? (
-          <HomeScreen />
+          <HomeScreen userId={session.user.id} onLocked={onLocked} />
         ) : (
-          <LoginScreen online={online} />
+          <LoginScreen online={online} notice={notice} />
         )}
       </View>
       <StatusBar style="auto" />
@@ -46,11 +59,17 @@ export default function App() {
   );
 }
 
-function LoginScreen({ online }: { online: boolean }) {
+function LoginScreen({
+  online,
+  notice,
+}: {
+  online: boolean;
+  notice: string | null;
+}) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(notice);
 
   async function signIn() {
     setBusy(true);
@@ -59,7 +78,13 @@ function LoginScreen({ online }: { online: boolean }) {
       email: email.trim(),
       password,
     });
-    if (error) setError("Sai email hoặc mật khẩu, hoặc lỗi kết nối.");
+    if (error) {
+      setError(
+        error.code === "user_banned"
+          ? LOCKED_MESSAGE
+          : "Sai email hoặc mật khẩu, hoặc lỗi kết nối."
+      );
+    }
     setBusy(false);
   }
 
@@ -100,12 +125,21 @@ function LoginScreen({ online }: { online: boolean }) {
   );
 }
 
-function HomeScreen() {
+function HomeScreen({
+  userId,
+  onLocked,
+}: {
+  userId: string;
+  onLocked: () => void;
+}) {
+  useLockWatch(userId, onLocked);
   // undefined = đang tải; null = không có Chi nhánh (chưa là thành viên hoặc bị khóa).
   const [branch, setBranch] = useState<
     { branch_id: string; branch_name: string } | null | undefined
   >();
   const [error, setError] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [view, setView] = useState<"catalog" | "users">("catalog");
 
   useEffect(() => {
     // shortcut: lấy Chi nhánh đầu tiên; khi một người thuộc nhiều Chi nhánh thì thêm bước chọn.
@@ -115,26 +149,53 @@ function HomeScreen() {
       .order("branch_id")
       .limit(1)
       .maybeSingle()
-      .then(({ data, error }) => {
+      .then(async ({ data, error }) => {
         setError(!!error);
         setBranch(data ?? null);
+        if (!data) return;
+        const { data: me } = await supabase
+          .from("members")
+          .select("is_admin")
+          .eq("branch_id", data.branch_id)
+          .eq("user_id", userId)
+          .maybeSingle();
+        setIsAdmin(me?.is_admin ?? false);
       });
-  }, []);
+  }, [userId]);
 
   if (branch) {
     return (
       <View style={styles.homeContainer}>
         <View style={styles.topBar}>
           <Text style={styles.branchTitle}>{branch.branch_name}</Text>
-          <Pressable
-            style={styles.linkButton}
-            onPress={() => supabase.auth.signOut()}
-            accessibilityRole="button"
-          >
-            <Text style={styles.link}>Đăng xuất</Text>
-          </Pressable>
+          <View style={styles.topActions}>
+            {isAdmin && (
+              <Pressable
+                style={styles.linkButton}
+                onPress={() =>
+                  setView(view === "catalog" ? "users" : "catalog")
+                }
+                accessibilityRole="button"
+              >
+                <Text style={styles.link}>
+                  {view === "catalog" ? "Người dùng" : "Danh mục"}
+                </Text>
+              </Pressable>
+            )}
+            <Pressable
+              style={styles.linkButton}
+              onPress={() => supabase.auth.signOut()}
+              accessibilityRole="button"
+            >
+              <Text style={styles.link}>Đăng xuất</Text>
+            </Pressable>
+          </View>
         </View>
-        <CatalogScreen branchId={branch.branch_id} />
+        {isAdmin && view === "users" ? (
+          <UsersScreen currentUserId={userId} />
+        ) : (
+          <CatalogScreen branchId={branch.branch_id} />
+        )}
       </View>
     );
   }
@@ -207,4 +268,5 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   branchTitle: { fontSize: 18, fontWeight: "700" },
+  topActions: { flexDirection: "row", alignItems: "center" },
 });
