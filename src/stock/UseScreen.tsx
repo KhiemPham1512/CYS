@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { loadCatalog } from "../catalog/api";
 import { matchesQuery } from "../catalog/search";
+import { compareItems } from "../catalog/sections";
 import type { Tables } from "../lib/database.types";
 import { useOnline } from "../lib/useOnline";
 import {
@@ -134,7 +135,7 @@ export function UseScreen({ branchId, userId }: Props) {
       .sort(
         (a, b) =>
           (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0) ||
-          a.name.localeCompare(b.name, "vi")
+          compareItems(a, b)
       );
   }, [items, order, query]);
 

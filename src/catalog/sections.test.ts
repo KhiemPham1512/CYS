@@ -15,6 +15,7 @@ const items = [
     name: "Trà xanh",
     name_zh: "綠茶",
     is_hidden: false,
+    sort_order: 1000,
   },
   {
     id: "i2",
@@ -22,14 +23,23 @@ const items = [
     name: "Hồng trà",
     name_zh: "紅茶",
     is_hidden: false,
+    sort_order: 1000,
   },
-  { id: "i3", group_id: "g2", name: "Trà ẩn", name_zh: null, is_hidden: true },
+  {
+    id: "i3",
+    group_id: "g2",
+    name: "Trà ẩn",
+    name_zh: null,
+    is_hidden: true,
+    sort_order: 1000,
+  },
   {
     id: "i4",
     group_id: "g1b",
     name: "Ly nhựa",
     name_zh: null,
     is_hidden: false,
+    sort_order: 1000,
   },
 ];
 
@@ -68,5 +78,31 @@ describe("buildSections", () => {
     expect(sections).toHaveLength(1);
     expect(sections[0].group.id).toBe("g2");
     expect(sections[0].items.map((i) => i.name)).toEqual(["Hồng trà"]);
+  });
+});
+
+describe("buildSections — thứ tự món như trên tờ", () => {
+  const g = [{ id: "g", name: "Thạch", sort_order: 1 }];
+  const mk = (id: string, name: string, sort_order: number) => ({
+    id,
+    group_id: "g",
+    name,
+    name_zh: null,
+    is_hidden: false,
+    sort_order,
+  });
+
+  it("món xếp theo sort_order trước, cùng sort_order thì theo tên", () => {
+    const sections = buildSections(
+      g,
+      [
+        mk("c", "Cà", 3),
+        mk("a", "Zebra", 1),
+        mk("b", "Bánh", 2),
+        mk("d", "An", 2),
+      ],
+      { query: "", showHidden: false }
+    );
+    expect(sections[0].items.map((i) => i.id)).toEqual(["a", "d", "b", "c"]);
   });
 });

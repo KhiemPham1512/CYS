@@ -8,8 +8,14 @@ export type SectionGroup = Pick<
 
 export type SectionItem = Pick<
   Tables<"items">,
-  "id" | "group_id" | "name" | "name_zh" | "is_hidden"
+  "id" | "group_id" | "name" | "name_zh" | "is_hidden" | "sort_order"
 >;
+
+// Thứ tự món như trên tờ giấy (sort_order), cùng số thì theo tên tiếng Việt.
+export const compareItems = (
+  a: Pick<SectionItem, "name" | "sort_order">,
+  b: Pick<SectionItem, "name" | "sort_order">
+): number => a.sort_order - b.sort_order || a.name.localeCompare(b.name, "vi");
 
 export function buildSections<G extends SectionGroup, I extends SectionItem>(
   groups: readonly G[],
@@ -34,7 +40,7 @@ export function buildSections<G extends SectionGroup, I extends SectionItem>(
   for (const group of sortedGroups) {
     const groupItems = itemsByGroup.get(group.id) ?? [];
     if (hasQuery && groupItems.length === 0) continue;
-    groupItems.sort((a, b) => a.name.localeCompare(b.name, "vi"));
+    groupItems.sort(compareItems);
     sections.push({ group, items: groupItems });
   }
   return sections;

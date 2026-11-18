@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { loadCatalog } from "../catalog/api";
+import { compareItems } from "../catalog/sections";
 import type { Tables } from "../lib/database.types";
 import { useOnline } from "../lib/useOnline";
 import { loadMovements, subscribeMovements } from "../stock/api";
@@ -106,7 +107,7 @@ export function OrderScreen({ branchId }: Props) {
     () =>
       items
         .filter((i) => i.group_id === groupId && !i.is_hidden)
-        .sort((a, b) => a.name.localeCompare(b.name, "vi")),
+        .sort(compareItems),
     [items, groupId]
   );
   const placedOrders = useMemo(
