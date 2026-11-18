@@ -45,7 +45,10 @@ export function OrderScreen({ branchId }: Props) {
   const busy = useRef(false); // chống bấm đôi trước khi state kịp cập nhật
   const [message, setMessage] = useState<string | null>(null);
 
+  // Chỉ nhận kết quả của lần tải mới nhất; lần tải cũ về sau bị bỏ.
+  const latestRequest = useRef(0);
   const fetchData = useCallback(async () => {
+    const request = ++latestRequest.current;
     setError(false);
     try {
       const [catalog, movs, ord] = await Promise.all([
@@ -53,6 +56,7 @@ export function OrderScreen({ branchId }: Props) {
         loadMovements(branchId),
         loadOrders(branchId),
       ]);
+      if (request !== latestRequest.current) return;
       setGroups(catalog.groups);
       setItems(catalog.items);
       setMovements(movs);
@@ -60,9 +64,9 @@ export function OrderScreen({ branchId }: Props) {
       setLines(ord.lines);
       setGroupId((g) => g ?? catalog.groups[0]?.id ?? null);
     } catch {
-      setError(true);
+      if (request === latestRequest.current) setError(true);
     } finally {
-      setLoading(false);
+      if (request === latestRequest.current) setLoading(false);
     }
   }, [branchId]);
 
@@ -146,6 +150,20 @@ export function OrderScreen({ branchId }: Props) {
       byPercent: item?.record_by_percent ?? false,
     });
 
+  // Alert xác nhận giữ closure cũ; đọc dữ liệu mới nhất từ ref khi thực sự lưu/đặt.
+  const latest = useRef({
+    draft,
+    draftLines,
+    wanted: parsed.wanted,
+    scope: new Set<string>(),
+  });
+  latest.current = {
+    draft,
+    draftLines,
+    wanted: parsed.wanted,
+    scope: new Set(groupItems.map((i) => i.id)),
+  };
+
   const hasErrors = Object.keys(parsed.errors).length > 0;
 
   async function run(action: () => Promise<string | null>) {
@@ -168,11 +186,13 @@ export function OrderScreen({ branchId }: Props) {
   const handleSave = () =>
     run(async () => {
       if (!groupId) return null;
+      const cur = latest.current;
       const { error: err } = await saveDraft(
         branchId,
         groupId,
-        { order: draft, lines: draftLines },
-        parsed.wanted
+        { order: cur.draft, lines: cur.draftLines },
+        cur.wanted,
+        cur.scope
       );
       return err ?? "Đã lưu nháp";
     });
@@ -191,11 +211,13 @@ export function OrderScreen({ branchId }: Props) {
           text: "Đã đặt",
           onPress: () =>
             void run(async () => {
+              const cur = latest.current;
               const saved = await saveDraft(
                 branchId,
                 groupId,
-                { order: draft, lines: draftLines },
-                parsed.wanted
+                { order: cur.draft, lines: cur.draftLines },
+                cur.wanted,
+                cur.scope
               );
               if (saved.error || !saved.orderId) return saved.error;
               const placed = await placeOrder(saved.orderId);

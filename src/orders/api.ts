@@ -28,7 +28,8 @@ export async function saveDraft(
   branchId: string,
   groupId: string,
   existing: { order: OrderRow | null; lines: OrderLineRow[] },
-  wanted: Map<string, number>
+  wanted: Map<string, number>,
+  scope: Set<string> // món đang hiển thị: chỉ xóa dòng của các món này, giữ dòng món đã ẩn/đổi Nhóm
 ): Promise<{ orderId: string | null; error: string | null }> {
   let orderId = existing.order?.id ?? null;
   if (!orderId) {
@@ -51,7 +52,7 @@ export async function saveDraft(
       qty,
     }));
   const toDelete = existing.lines
-    .filter((l) => !wanted.has(l.item_id))
+    .filter((l) => scope.has(l.item_id) && !wanted.has(l.item_id))
     .map((l) => l.id);
   const toUpdate = existing.lines.filter(
     (l) => wanted.has(l.item_id) && wanted.get(l.item_id) !== l.qty
