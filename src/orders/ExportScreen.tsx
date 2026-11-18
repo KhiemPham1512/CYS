@@ -304,12 +304,14 @@ export function ExportScreen({ branchId, branchName }: Props) {
               <Text style={styles.paperBranch}>{branchName}</Text>
               <Text style={styles.paperTitle}>{title}</Text>
               <Text style={styles.paperSub}>{group?.name}</Text>
-              <Text style={styles.paperMeta}>
-                Ngày: {date}
-                {kind === "order" && orderer.trim()
-                  ? `    Người đặt hàng: ${orderer.trim()}`
-                  : ""}
-              </Text>
+              <View style={styles.paperMetaRow}>
+                <Text style={styles.paperMeta}>Ngày: {date}</Text>
+                {kind === "order" && orderer.trim() ? (
+                  <Text style={styles.paperMeta}>
+                    Người đặt hàng: {orderer.trim()}
+                  </Text>
+                ) : null}
+              </View>
               <View style={[styles.tr, styles.thRow]}>
                 <Text style={[styles.cell, styles.stt, styles.th]}>STT</Text>
                 <Text style={[styles.cell, styles.name, styles.th]}>
@@ -393,7 +395,7 @@ const styles = StyleSheet.create({
     borderColor: "#d4d4d8",
     borderRadius: 16,
     paddingVertical: 6,
-    paddingHorizontal: 12,
+    paddingHorizontal: 0,
   },
   chipText: { fontSize: 14, color: "#18181b" },
   groupBtn: {
@@ -425,7 +427,12 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 6,
   },
-  paperMeta: { fontSize: 14, paddingHorizontal: 8, paddingBottom: 6 },
+  paperMetaRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 8,
+  },
+  paperMeta: { fontSize: 14, paddingBottom: 6 },
   tr: {
     flexDirection: "row",
     borderTopWidth: 1,
