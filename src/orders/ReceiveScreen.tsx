@@ -282,21 +282,24 @@ export function ReceiveScreen({ branchId }: Props) {
       const res = await receiveLines(toSave);
       if (res.error) {
         const savedOwners = owners.slice(0, res.done);
-        // Món chỉ tính là xong khi mọi dòng đơn gốc của nó đã nhận.
-        const doneKeys = planLines
-          .filter(
-            (l) =>
-              savedOwners.filter((k) => k === l.key).length ===
-              (groupedLines.merged.get(l.key)?.parts.length ?? 0)
-          )
+        // Món đã lưu được ít nhất một dòng đơn gốc thì xóa ô nhập (phần còn lại phải nhập lại),
+        // nếu giữ thì lần nhận sau tính hàng hư/thiếu hai lần.
+        const touchedKeys = planLines
+          .filter((l) => savedOwners.includes(l.key))
           .map((l) => l.key);
-        if (doneKeys.length > 0) {
-          setShortInputs((p) => omitKeys(p, doneKeys));
-          setDamagedInputs((p) => omitKeys(p, doneKeys));
-          setMfgInputs((p) => omitKeys(p, doneKeys));
+        if (touchedKeys.length > 0) {
+          setShortInputs((p) => omitKeys(p, touchedKeys));
+          setDamagedInputs((p) => omitKeys(p, touchedKeys));
+          setMfgInputs((p) => omitKeys(p, touchedKeys));
         }
+        // Món chỉ tính là xong khi mọi dòng đơn gốc của nó đã nhận.
+        const doneCount = planLines.filter(
+          (l) =>
+            savedOwners.filter((k) => k === l.key).length ===
+            (groupedLines.merged.get(l.key)?.parts.length ?? 0)
+        ).length;
         setMessage(
-          `Đã nhận ${doneKeys.length}/${planLines.length} món. Lỗi: ${res.error}`
+          `Đã nhận ${doneCount}/${planLines.length} món. Lỗi: ${res.error}${touchedKeys.length > doneCount ? ". Có món mới nhận một phần, hãy nhập lại số thiếu/hư cho phần còn lại." : ""}`
         );
         await fetchData();
         return;
