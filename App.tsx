@@ -15,6 +15,7 @@ import { useLockWatch } from "./src/lib/useLockWatch";
 import { CatalogScreen } from "./src/catalog/CatalogScreen";
 import { CountScreen } from "./src/stock/CountScreen";
 import { StockScreen } from "./src/stock/StockScreen";
+import { UseScreen } from "./src/stock/UseScreen";
 import { UsersScreen } from "./src/users/UsersScreen";
 
 const LOCKED_MESSAGE = "Người dùng này đã bị khóa. Liên hệ Quản trị.";
@@ -127,10 +128,11 @@ function LoginScreen({
   );
 }
 
-type HomeView = "stock" | "count" | "catalog" | "users";
+type HomeView = "stock" | "use" | "count" | "catalog" | "users";
 
 const NAV_TABS: { key: HomeView; label: string; adminOnly?: boolean }[] = [
   { key: "stock", label: "Tồn kho" },
+  { key: "use", label: "Ghi dùng" },
   { key: "count", label: "Kiểm kho" },
   { key: "catalog", label: "Danh mục" },
   { key: "users", label: "Người dùng", adminOnly: true },
@@ -214,6 +216,8 @@ function HomeScreen({
         </View>
         {view === "stock" ? (
           <StockScreen branchId={branch.branch_id} />
+        ) : view === "use" ? (
+          <UseScreen branchId={branch.branch_id} userId={userId} />
         ) : view === "count" ? (
           <CountScreen
             branchId={branch.branch_id}

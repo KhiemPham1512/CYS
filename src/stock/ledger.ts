@@ -12,6 +12,9 @@ export type Movement = Pick<
   | "batch_id"
   | "created_at"
   | "entered_on"
+  | "id"
+  | "voids_id"
+  | "created_by"
 >;
 
 // Lô có Ngày sản xuất: mfgDate. Phần chưa có Ngày sản xuất tách theo ngày vào kho (enteredOn)
@@ -38,6 +41,11 @@ export function localDate(iso: string): string {
   return new Date(Date.parse(iso) + VN_OFFSET_MS).toISOString().slice(0, 10);
 }
 
+// Giờ:phút (giờ Việt Nam) của một thời điểm ISO, khớp ranh giới "hôm nay".
+export function localTime(iso: string): string {
+  return new Date(Date.parse(iso) + VN_OFFSET_MS).toISOString().slice(11, 16);
+}
+
 function add(map: Map<string, number>, key: string, qty: number) {
   map.set(key, round4((map.get(key) ?? 0) + qty));
 }
@@ -58,8 +66,39 @@ function takeOldestFirst(map: Map<string, number>, amount: number): number {
 const sum = (map: Map<string, number>) =>
   [...map.values()].reduce((s, q) => s + q, 0);
 
+const voidedIds = (movements: Movement[]) =>
+  new Set(movements.flatMap((m) => (m.voids_id ? [m.voids_id] : [])));
+
+// Ghi dùng trong ngày hôm nay (giờ Việt Nam) chưa bị hủy, theo thứ tự ghi.
+export function todaysUses(movements: Movement[], nowIso: string): Movement[] {
+  const voided = voidedIds(movements);
+  const today = localDate(nowIso);
+  return movements
+    .filter(
+      (m) =>
+        m.kind === "use" &&
+        !voided.has(m.id) &&
+        localDate(m.created_at) === today
+    )
+    .sort((a, b) => a.seq - b.seq);
+}
+
+// Số lần người dùng đã Ghi dùng từng món, để món hay dùng lên đầu.
+export function usageCounts(
+  movements: Movement[],
+  userId: string
+): Map<string, number> {
+  const voided = voidedIds(movements);
+  const counts = new Map<string, number>();
+  for (const m of movements)
+    if (m.kind === "use" && m.created_by === userId && !voided.has(m.id))
+      counts.set(m.item_id, (counts.get(m.item_id) ?? 0) + 1);
+  return counts;
+}
+
 export function stockLots(movements: Movement[]): Lot[] {
   const sorted = [...movements].sort((a, b) => a.seq - b.seq);
+  const voided = voidedIds(sorted);
   const dated = new Map<string, number>(); // Ngày sản xuất → số lượng
   const undated = new Map<string, number>(); // ngày vào kho → số lượng chưa có Ngày sản xuất
 
@@ -71,6 +110,11 @@ export function stockLots(movements: Movement[]): Lot[] {
       if (diff > 0) add(undated, localDate(m.created_at), diff);
       else if (diff < 0)
         takeOldestFirst(undated, takeOldestFirst(dated, -diff));
+    } else if (m.kind === "use") {
+      // shortcut: Ghi dùng bị hủy thì bỏ qua khi tính lại; nếu giữa chừng có Kiểm kho/Điều chỉnh
+      // thì tổng đã đặt lại nên không lệch. Vượt tồn thì về 0, cảnh báo ở màn hình.
+      if (!voided.has(m.id))
+        takeOldestFirst(undated, takeOldestFirst(dated, m.qty));
     } else if (m.kind === "assign_mfg" && m.mfg_date && m.qty > 0) {
       let moved: number;
       if (m.entered_on) {
