@@ -40,8 +40,8 @@ type Kind = "order" | "stock";
 
 const NAMES_KEY = "cys.orderer-names";
 
-// Xuất ảnh theo mẫu tờ giấy: mỗi Nhóm một ảnh, chia sẻ qua bảng chia sẻ của máy (Zalo, Thư viện...).
-// shortcut: chỉ Android/iOS qua bảng chia sẻ, chưa tải PNG trên web; chưa ghi người xuất.
+// Xuất ảnh theo mẫu tờ giấy: mỗi Nhóm một ảnh, lưu thẳng vào Thư viện ảnh của máy.
+// shortcut: chỉ Android/iOS (chưa tải PNG trên web); chưa ghi người xuất.
 export function ExportScreen({ branchId, branchName }: Props) {
   const [groups, setGroups] = useState<Tables<"item_groups">[]>([]);
   const [items, setItems] = useState<Tables<"items">[]>([]);
