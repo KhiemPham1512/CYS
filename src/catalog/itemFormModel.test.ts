@@ -124,6 +124,7 @@ describe("toFormValues", () => {
         is_hidden: false,
         created_at: "",
         updated_at: "",
+        sort_order: 1000,
       })
     ).toEqual({
       name: "Sữa tươi",
