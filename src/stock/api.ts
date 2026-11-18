@@ -93,6 +93,48 @@ export async function assignMfg(
   return { error: null };
 }
 
+export async function saveUses(
+  branchId: string,
+  rows: { item_id: string; qty: number }[]
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.from("stock_movements").insert(
+    rows.map((r) => ({
+      branch_id: branchId,
+      item_id: r.item_id,
+      kind: "use" as const,
+      qty: r.qty,
+    }))
+  );
+  return { error: error ? "Không lưu được. Kiểm tra mạng." : null };
+}
+
+// Hủy Ghi dùng (sổ chỉ ghi thêm): thêm dòng void; DB chỉ cho hủy Ghi dùng hôm nay.
+export async function voidUse(
+  branchId: string,
+  use: { id: string; item_id: string }
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.from("stock_movements").insert({
+    branch_id: branchId,
+    item_id: use.item_id,
+    kind: "void",
+    qty: 0,
+    voids_id: use.id,
+  });
+  return {
+    error: error ? "Không hủy được (có thể đã hủy hoặc qua ngày)." : null,
+  };
+}
+
+export async function loadMemberEmails(
+  branchId: string
+): Promise<Map<string, string>> {
+  const { data, error } = await supabase.rpc("branch_member_emails", {
+    p_branch_id: branchId,
+  });
+  if (error) throw error;
+  return new Map((data ?? []).map((r) => [r.user_id, r.email]));
+}
+
 export function subscribeMovements(
   branchId: string,
   onChange: () => void

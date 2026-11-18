@@ -4,7 +4,9 @@ import {
   localDate,
   stockByItem,
   stockLots,
+  todaysUses,
   totalQty,
+  usageCounts,
   type Movement,
 } from "./ledger";
 
@@ -19,6 +21,9 @@ function mv(
     batch_id: null,
     created_at: "2026-11-17T05:00:00Z",
     entered_on: null,
+    id: `id-${overrides.seq}`,
+    voids_id: null,
+    created_by: "user-1",
     ...overrides,
   };
 }
@@ -293,5 +298,101 @@ describe("localDate", () => {
     expect(localDate("2026-11-17T16:59:00Z")).toBe("2026-11-17");
     expect(localDate("2026-11-17T17:00:00Z")).toBe("2026-11-18");
     expect(localDate("2026-12-31T20:00:00Z")).toBe("2027-01-01");
+  });
+});
+
+describe("Ghi dùng", () => {
+  const base = [
+    mv({ seq: 1, kind: "count", qty: 20 }),
+    mv({ seq: 2, kind: "assign_mfg", qty: 5, mfg_date: "2026-10-30" }),
+    mv({ seq: 3, kind: "assign_mfg", qty: 5, mfg_date: "2026-10-20" }),
+  ];
+
+  it("trừ Lô Ngày sản xuất sớm nhất trước, phần chưa có ngày sau cùng", () => {
+    const lots = stockLots([...base, mv({ seq: 4, kind: "use", qty: 7 })]);
+    expect(lots).toEqual([
+      { mfgDate: "2026-10-30", qty: 3 },
+      { mfgDate: null, qty: 10, enteredOn: "2026-11-17" },
+    ]);
+    const more = stockLots([...base, mv({ seq: 4, kind: "use", qty: 13 })]);
+    expect(more).toEqual([{ mfgDate: null, qty: 7, enteredOn: "2026-11-17" }]);
+  });
+
+  it("vượt tồn thì tồn về 0, không âm", () => {
+    const lots = stockLots([...base, mv({ seq: 4, kind: "use", qty: 99 })]);
+    expect(lots).toEqual([]);
+  });
+
+  it("Ghi dùng bị hủy thì như chưa ghi", () => {
+    const lots = stockLots([
+      ...base,
+      mv({ seq: 4, kind: "use", qty: 7, id: "u1" }),
+      mv({ seq: 5, kind: "void", voids_id: "u1" }),
+    ]);
+    expect(totalQty(lots)).toBe(20);
+  });
+
+  it("todaysUses: chỉ Ghi dùng hôm nay (giờ VN), bỏ dòng đã hủy", () => {
+    const now = "2026-11-18T03:00:00Z"; // 10h sáng 18/11 VN
+    const rows = [
+      mv({
+        seq: 1,
+        kind: "use",
+        qty: 1,
+        id: "old",
+        created_at: "2026-11-17T16:00:00Z",
+      }), // 23h 17/11 VN
+      mv({
+        seq: 2,
+        kind: "use",
+        qty: 2,
+        id: "a",
+        created_at: "2026-11-17T17:30:00Z",
+      }), // 0h30 18/11 VN
+      mv({
+        seq: 3,
+        kind: "use",
+        qty: 3,
+        id: "b",
+        created_at: "2026-11-18T01:00:00Z",
+      }),
+      mv({
+        seq: 4,
+        kind: "void",
+        voids_id: "b",
+        created_at: "2026-11-18T02:00:00Z",
+      }),
+    ];
+    expect(todaysUses(rows, now).map((m) => m.id)).toEqual(["a"]);
+  });
+
+  it("usageCounts: số lần dùng của người dùng theo món", () => {
+    const rows = [
+      mv({ seq: 1, kind: "use", qty: 1, item_id: "x" }),
+      mv({ seq: 2, kind: "use", qty: 1, item_id: "x" }),
+      mv({ seq: 3, kind: "use", qty: 1, item_id: "y" }),
+      mv({ seq: 4, kind: "use", qty: 1, item_id: "y", created_by: "user-2" }),
+    ];
+    const counts = usageCounts(rows, "user-1");
+    expect(counts.get("x")).toBe(2);
+    expect(counts.get("y")).toBe(1);
+  });
+
+  it("usageCounts bỏ Ghi dùng đã hủy", () => {
+    const rows = [
+      mv({ seq: 1, kind: "use", qty: 1, item_id: "x", id: "u1" }),
+      mv({ seq: 2, kind: "void", voids_id: "u1", item_id: "x" }),
+    ];
+    expect(usageCounts(rows, "user-1").get("x")).toBeUndefined();
+  });
+
+  it("hủy sau Kiểm kho: tổng giữ theo Kiểm kho (shortcut đã ghi)", () => {
+    const lots = stockLots([
+      mv({ seq: 1, kind: "count", qty: 10 }),
+      mv({ seq: 2, kind: "use", qty: 4, id: "u1" }),
+      mv({ seq: 3, kind: "count", qty: 6 }),
+      mv({ seq: 4, kind: "void", voids_id: "u1" }),
+    ]);
+    expect(totalQty(lots)).toBe(6);
   });
 });

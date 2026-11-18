@@ -158,9 +158,11 @@ export type Database = {
           note: string | null;
           qty: number;
           seq: number;
+          voids_id: string | null;
         };
         Insert: {
           batch_id?: string | null;
+          voids_id?: string | null;
           branch_id: string;
           entered_on?: string | null;
           expected_qty?: number | null;
@@ -207,7 +209,12 @@ export type Database = {
       };
     };
     Views: { [_ in never]: never };
-    Functions: { [_ in never]: never };
+    Functions: {
+      branch_member_emails: {
+        Args: { p_branch_id: string };
+        Returns: { user_id: string; email: string }[];
+      };
+    };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };
@@ -218,6 +225,6 @@ export type Tables<T extends keyof PublicTables> = PublicTables[T]["Row"];
 export type TablesInsert<T extends keyof PublicTables> =
   PublicTables[T]["Insert"];
 export type ShelfLifeUnit = "day" | "month";
-export type MovementKind = "count" | "adjust" | "assign_mfg";
+export type MovementKind = "count" | "adjust" | "assign_mfg" | "use" | "void";
 export type TablesUpdate<T extends keyof PublicTables> =
   PublicTables[T]["Update"];
