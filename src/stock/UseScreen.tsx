@@ -70,21 +70,32 @@ export function UseScreen({ branchId, userId }: Props) {
     }
   }, [branchId, userId]);
 
-  // Realtime chỉ cần sổ, không tải lại Danh mục/email.
+  // Realtime chỉ cần sổ, không tải lại Danh mục/email. Chỉ nhận kết quả của lần tải mới nhất:
+  // applyRows cũng tăng bộ đếm nên lần tải bắt đầu trước lúc lưu không ghi đè dòng vừa lưu.
+  const movementsRequest = useRef(0);
   const fetchMovements = useCallback(async () => {
+    const request = ++movementsRequest.current;
     try {
-      setMovements(await loadMovements(branchId));
+      const movs = await loadMovements(branchId);
+      if (request === movementsRequest.current) setMovements(movs);
     } catch {
       // giữ dữ liệu đang có; lần sự kiện sau sẽ tải lại
     }
   }, [branchId]);
 
-  // Dòng vừa lưu vào màn hình ngay (không chờ tải lại sổ).
-  const applyRows = (rows: Tables<"stock_movements">[]) =>
-    setMovements((prev) => [...prev, ...rows]);
+  // Dòng vừa lưu vào màn hình ngay (không chờ tải lại sổ); bỏ dòng đã có (trùng id) để không trừ đôi.
+  const applyRows = (rows: Tables<"stock_movements">[]) => {
+    if (rows.length === 0) return void fetchMovements(); // server không trả dòng: tải lại cho chắc
+    movementsRequest.current++;
+    setMovements((prev) => {
+      const have = new Set(prev.map((m) => m.id));
+      return [...prev, ...rows.filter((r) => !have.has(r.id))];
+    });
+  };
 
   useEffect(() => {
     setLoading(true);
+    setOrder(null); // đổi Chi nhánh/người dùng thì chốt lại thứ tự
     void fetchData();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const unsub = subscribeMovements(branchId, () => {
