@@ -16,6 +16,7 @@ import { useLockWatch } from "./src/lib/useLockWatch";
 import { CatalogScreen } from "./src/catalog/CatalogScreen";
 import { CountScreen } from "./src/stock/CountScreen";
 import { StockScreen } from "./src/stock/StockScreen";
+import { ExportScreen } from "./src/orders/ExportScreen";
 import { OrderScreen } from "./src/orders/OrderScreen";
 import { OwedScreen } from "./src/orders/OwedScreen";
 import { ReceiveScreen } from "./src/orders/ReceiveScreen";
@@ -138,6 +139,7 @@ type HomeView =
   | "order"
   | "receive"
   | "owed"
+  | "export"
   | "count"
   | "catalog"
   | "users";
@@ -148,6 +150,7 @@ const NAV_TABS: { key: HomeView; label: string; adminOnly?: boolean }[] = [
   { key: "order", label: "Đặt hàng" },
   { key: "receive", label: "Nhận hàng" },
   { key: "owed", label: "Hàng thiếu" },
+  { key: "export", label: "Xuất ảnh" },
   { key: "count", label: "Kiểm kho" },
   { key: "catalog", label: "Danh mục" },
   { key: "users", label: "Người dùng", adminOnly: true },
@@ -244,6 +247,11 @@ function HomeScreen({
           <ReceiveScreen branchId={branch.branch_id} />
         ) : view === "owed" ? (
           <OwedScreen branchId={branch.branch_id} />
+        ) : view === "export" ? (
+          <ExportScreen
+            branchId={branch.branch_id}
+            branchName={branch.branch_name}
+          />
         ) : view === "count" ? (
           <CountScreen
             branchId={branch.branch_id}
