@@ -86,7 +86,10 @@ export function ExportScreen({ branchId, branchName }: Props) {
     void fetchData();
     AsyncStorage.getItem(NAMES_KEY)
       .then((raw) => {
-        const saved: string[] = raw ? JSON.parse(raw) : [];
+        const parsed: unknown = raw ? JSON.parse(raw) : [];
+        const saved = Array.isArray(parsed)
+          ? parsed.filter((n): n is string => typeof n === "string")
+          : [];
         setNames(saved);
         setOrderer((o) => o || saved[0] || "");
       })
@@ -158,6 +161,12 @@ export function ExportScreen({ branchId, branchName }: Props) {
     setBusy(true);
     setMessage(null);
     try {
+      const uri = await captureRef(shot, { format: "png", quality: 1 });
+      if (!(await Sharing.isAvailableAsync())) {
+        setMessage("Máy này không hỗ trợ chia sẻ ảnh.");
+        return;
+      }
+      await Sharing.shareAsync(uri, { mimeType: "image/png" });
       if (kind === "order") {
         const next = rememberOrdererName(names, orderer);
         setNames(next);
@@ -165,12 +174,6 @@ export function ExportScreen({ branchId, branchName }: Props) {
           () => undefined
         );
       }
-      const uri = await captureRef(shot, { format: "png", quality: 1 });
-      if (!(await Sharing.isAvailableAsync())) {
-        setMessage("Máy này không hỗ trợ chia sẻ ảnh.");
-        return;
-      }
-      await Sharing.shareAsync(uri, { mimeType: "image/png" });
     } catch {
       setMessage("Không xuất được ảnh, thử lại.");
     } finally {
