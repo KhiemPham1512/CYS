@@ -38,10 +38,8 @@ do $$ begin
   update public.in_use set ended_at = now()
     where id = (select id from public.in_use order by created_at limit 1);
   assert (select count(*) from public.in_use where ended_at is null) = 1, 'còn 1 chai đang dùng';
-  begin
-    update public.in_use set ended_at = null where ended_at is not null;
-    assert (select count(*) from public.in_use where ended_at is null) = 1, 'không mở lại dòng đã hết';
-  end;
+  update public.in_use set ended_at = null where ended_at is not null;
+  assert (select count(*) from public.in_use where ended_at is null) = 1, 'không mở lại dòng đã hết';
   begin
     delete from public.in_use;
     assert false, 'không xóa';
@@ -59,8 +57,13 @@ do $$ begin
     assert false, 'Chi nhánh B không khui được';
   exception when insufficient_privilege then null;
   end;
-  update public.in_use set ended_at = now();
-  assert (select count(*) from public.in_use) = 0, 'Chi nhánh B không Hết được';
+  update public.in_use set ended_at = now(); -- không thấy dòng nào của Chi nhánh A nên không đổi gì
+end $$;
+
+-- Quay lại người Chi nhánh A: dòng chưa Hết vẫn nguyên.
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000a"}', true);
+do $$ begin
+  assert (select count(*) from public.in_use where ended_at is null) = 1, 'Chi nhánh B không Hết được dòng của A';
 end $$;
 
 rollback;

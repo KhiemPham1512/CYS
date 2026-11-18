@@ -65,6 +65,7 @@ export function expiryAlerts<T extends { expiry: string }>(
 }
 
 // Chỉ món có hạn sau khui dài (> 7 ngày; tháng luôn dài hơn) mới vào Đang dùng.
+// shortcut: mốc 7 ngày cố định theo ticket #10, đưa vào cấu hình khi quán cần đổi.
 export function tracksInUse(item: ExpiryItem): boolean {
   const n = item.shelf_life_after_open;
   if (!n) return false;

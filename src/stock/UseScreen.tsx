@@ -187,14 +187,17 @@ export function UseScreen({ branchId, userId }: Props) {
   }
 
   // Món có hạn sau khui dài: sau khi lưu Ghi dùng, thêm Đang dùng.
-  const openTracked = (itemIds: string[]) =>
-    openInUse(
+  const openTracked = async (itemIds: string[]) => {
+    const { error: err } = await openInUse(
       branchId,
       itemIds.filter((id) => {
         const it = items.find((i) => i.id === id);
         return it ? tracksInUse(it) : false;
       })
     );
+    // shortcut: Ghi dùng đã lưu mà Đang dùng lỗi thì chỉ báo, không hoàn tác Ghi dùng.
+    if (err) setSaveError(err);
+  };
 
   const quickUse = (item: Tables<"items">) =>
     runQuick(async () => {

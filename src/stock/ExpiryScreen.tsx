@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -40,25 +40,30 @@ export function ExpiryScreen({ branchId }: Props) {
   const [thresholdText, setThresholdText] = useState(String(DEFAULT_THRESHOLD));
   const [message, setMessage] = useState<string | null>(null);
 
+  // Chỉ nhận kết quả của lần tải mới nhất; lần tải cũ về sau bị bỏ.
+  const latestRequest = useRef(0);
   const fetchData = useCallback(async () => {
+    const request = ++latestRequest.current;
     try {
       const [catalog, movs, use] = await Promise.all([
         loadCatalog(branchId),
         loadMovements(branchId),
         loadInUse(branchId),
       ]);
+      if (request !== latestRequest.current) return;
       setItems(catalog.items);
       setMovements(movs);
       setInUse(use);
       setError(false);
     } catch {
-      setError(true);
+      if (request === latestRequest.current) setError(true);
     } finally {
-      setLoading(false);
+      if (request === latestRequest.current) setLoading(false);
     }
   }, [branchId]);
 
   useEffect(() => {
+    setLoading(true);
     void fetchData();
     AsyncStorage.getItem(THRESHOLD_KEY)
       .then((raw) => {
@@ -80,12 +85,29 @@ export function ExpiryScreen({ branchId }: Props) {
   }, [branchId, fetchData]);
 
   const today = localDate(new Date().toISOString());
-  const threshold = /^\d+$/.test(thresholdText) ? Number(thresholdText) : 0;
+  const threshold = /^\d+$/.test(thresholdText)
+    ? Number(thresholdText)
+    : DEFAULT_THRESHOLD; // ô trống/sai: dùng mặc định thay vì 0
   const itemsById = useMemo(
     () => new Map(items.map((i) => [i.id, i])),
     [items]
   );
   const lotsByItem = useMemo(() => stockByItem(movements), [movements]);
+
+  // Đang dùng của món có trong danh mục; xếp theo ngày khui, dòng mới nhất của mỗi món.
+  const shownInUse = useMemo(
+    () =>
+      inUse.flatMap((row) => {
+        const item = itemsById.get(row.item_id);
+        return item ? [{ row, item }] : [];
+      }),
+    [inUse, itemsById]
+  );
+  const newestByItem = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const { row } of shownInUse) m.set(row.item_id, row.id); // đã xếp theo opened_on tăng dần
+    return m;
+  }, [shownInUse]);
 
   const alerts = useMemo(() => {
     const rows: LotRow[] = [];
@@ -173,19 +195,19 @@ export function ExpiryScreen({ branchId }: Props) {
         ))
       )}
 
-      <Text style={styles.heading}>Đang dùng ({inUse.length})</Text>
+      <Text style={styles.heading}>Đang dùng ({shownInUse.length})</Text>
       {message ? <Text style={styles.red}>{message}</Text> : null}
-      {inUse.length === 0 ? (
+      {shownInUse.length === 0 ? (
         <Text style={styles.meta}>Chưa có món nào đang dùng.</Text>
       ) : (
-        inUse.map((u) => {
-          const item = itemsById.get(u.item_id);
-          if (!item) return null;
+        shownInUse.map(({ row: u, item }) => {
           const until = inUseExpiry(u.opened_on, item);
           const overdue = until !== null && until < today;
           // Món ghi theo %: phần lẻ của tồn kho là phần còn lại của đơn vị đang dùng.
           const stock = totalQty(lotsByItem.get(item.id) ?? []);
           const rest = round4(stock - Math.floor(stock));
+          // Khui sẵn nhiều chai: chỉ hiện phần còn lại ở dòng khui mới nhất của món.
+          const isNewest = newestByItem.get(item.id) === u.id;
           return (
             <View key={u.id} style={styles.useRow}>
               <View style={styles.useText}>
@@ -194,7 +216,7 @@ export function ExpiryScreen({ branchId }: Props) {
                   {until ? `, dùng được đến ${formatDate(until)}` : ""}
                   {overdue ? " (quá hạn)" : ""}
                 </Text>
-                {item.record_by_percent && rest > 0 ? (
+                {item.record_by_percent && rest > 0 && isNewest ? (
                   <Text style={styles.meta}>
                     Còn lại: {Math.round(rest * 100)}%
                   </Text>
