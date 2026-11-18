@@ -13,6 +13,7 @@ import { matchesQuery } from "../catalog/search";
 import type { Tables } from "../lib/database.types";
 import { useOnline } from "../lib/useOnline";
 import {
+  editUse,
   loadMemberEmails,
   loadMovements,
   saveUses,
@@ -41,6 +42,9 @@ export function UseScreen({ branchId, userId }: Props) {
   const [query, setQuery] = useState("");
   const [inputs, setInputs] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState<{ id: string; text: string } | null>(
+    null
+  );
   const busy = useRef(false); // chống bấm đôi trước khi state kịp cập nhật
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -143,6 +147,27 @@ export function UseScreen({ branchId, userId }: Props) {
     }
     busy.current = false;
     setSaving(false);
+  }
+
+  async function handleEdit(m: Movement, raw: string) {
+    const item = itemsById.get(m.item_id);
+    const r = parseQty(raw, {
+      caseSize: item?.case_size ?? null,
+      byPercent: item?.record_by_percent ?? false,
+    });
+    if (!r.ok || r.value <= 0) {
+      setSaveError(r.ok ? "Số lượng phải lớn hơn 0" : r.error);
+      return;
+    }
+    if (!online || busy.current) return;
+    busy.current = true;
+    const { error: err } = await editUse(branchId, m, r.value);
+    setSaveError(err);
+    if (!err) {
+      setEditing(null);
+      await fetchData();
+    }
+    busy.current = false;
   }
 
   async function handleVoid(m: Movement) {
@@ -250,6 +275,32 @@ export function UseScreen({ branchId, userId }: Props) {
               {fmt(itemsById.get(m.item_id), m.qty)} ·{" "}
               {emails.get(m.created_by) ?? "—"} · {localTime(m.created_at)}
             </Text>
+            {editing?.id === m.id ? (
+              <>
+                <TextInput
+                  style={[styles.input, styles.editInput]}
+                  autoFocus
+                  value={editing.text}
+                  onChangeText={(text) => setEditing({ id: m.id, text })}
+                  onSubmitEditing={() => void handleEdit(m, editing.text)}
+                />
+                <Pressable
+                  style={styles.voidBtn}
+                  onPress={() => void handleEdit(m, editing.text)}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.okLink}>Lưu</Text>
+                </Pressable>
+              </>
+            ) : (
+              <Pressable
+                style={styles.voidBtn}
+                onPress={() => setEditing({ id: m.id, text: String(m.qty) })}
+                accessibilityRole="button"
+              >
+                <Text style={styles.okLink}>Sửa</Text>
+              </Pressable>
+            )}
             <Pressable
               style={styles.voidBtn}
               onPress={() => void handleVoid(m)}
@@ -260,7 +311,7 @@ export function UseScreen({ branchId, userId }: Props) {
           </View>
         ))}
         <Text style={styles.meta}>
-          Muốn sửa: bấm Hủy rồi ghi lại số đúng (người hủy được lưu lại).
+          Sửa/Hủy chỉ được trong ngày; người sửa được lưu lại.
         </Text>
       </ScrollView>
 
@@ -348,6 +399,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  editInput: { width: 90 },
+  okLink: { color: "#0f766e", fontSize: 15, fontWeight: "600" },
   link: { color: "#b91c1c", fontSize: 15, fontWeight: "600" },
   footer: {
     padding: 16,

@@ -1,18 +1,24 @@
 import type { Tables, TablesInsert } from "../lib/database.types";
 import { supabase } from "../lib/supabase";
 
+const PAGE = 1000; // giới hạn dòng mỗi lần của PostgREST
+
 export async function loadMovements(
   branchId: string
 ): Promise<Tables<"stock_movements">[]> {
-  // shortcut: tải toàn bộ sổ, đủ cho quy mô nhỏ; đổi sang chỉ tải từ mốc chốt khi sổ lớn.
-  const { data, error } = await supabase
-    .from("stock_movements")
-    .select("*")
-    .eq("branch_id", branchId)
-    .order("seq", { ascending: true });
-
-  if (error) throw error;
-  return data ?? [];
+  // shortcut: tải toàn bộ sổ theo trang, đủ cho quy mô nhỏ; đổi sang chỉ tải từ mốc chốt khi sổ lớn.
+  const all: Tables<"stock_movements">[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from("stock_movements")
+      .select("*")
+      .eq("branch_id", branchId)
+      .order("seq", { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+    all.push(...data);
+    if (data.length < PAGE) return all;
+  }
 }
 
 export function newBatchId(): string {
@@ -122,6 +128,27 @@ export async function voidUse(
   });
   return {
     error: error ? "Không hủy được (có thể đã hủy hoặc qua ngày)." : null,
+  };
+}
+
+// Sửa = hủy dòng cũ + ghi dòng mới trong MỘT lệnh insert (nguyên tử): lỗi thì giữ nguyên dòng cũ.
+export async function editUse(
+  branchId: string,
+  use: { id: string; item_id: string },
+  qty: number
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.from("stock_movements").insert([
+    {
+      branch_id: branchId,
+      item_id: use.item_id,
+      kind: "void" as const,
+      qty: 0,
+      voids_id: use.id,
+    },
+    { branch_id: branchId, item_id: use.item_id, kind: "use" as const, qty },
+  ]);
+  return {
+    error: error ? "Không sửa được (có thể đã hủy hoặc qua ngày)." : null,
   };
 }
 
