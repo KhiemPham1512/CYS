@@ -37,6 +37,7 @@ type Props = { branchId: string; userId: string };
 export function UseScreen({ branchId, userId }: Props) {
   const online = useOnline();
   const [items, setItems] = useState<Tables<"items">[]>([]);
+  const [groupOrder, setGroupOrder] = useState<Map<string, number>>(new Map());
   const [movements, setMovements] = useState<Tables<"stock_movements">[]>([]);
   const [emails, setEmails] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -60,6 +61,7 @@ export function UseScreen({ branchId, userId }: Props) {
         loadMovements(branchId),
       ]);
       setItems(catalog.items);
+      setGroupOrder(new Map(catalog.groups.map((g) => [g.id, g.sort_order])));
       setMovements(movs);
       setOrder((prev) => prev ?? usageCounts(movs, userId));
       // Email chỉ để hiện "ai ghi"; lỗi thì hiện không tên, không chặn màn hình.
@@ -127,7 +129,7 @@ export function UseScreen({ branchId, userId }: Props) {
     return map;
   }, [uses, userId]);
 
-  // Món hay dùng của người dùng lên đầu, còn lại theo tên.
+  // Món hay dùng của người dùng lên đầu; cùng số lần thì theo thứ tự tờ giấy (Nhóm rồi món).
   const list = useMemo(() => {
     const counts = order ?? new Map<string, number>();
     return items
@@ -135,9 +137,11 @@ export function UseScreen({ branchId, userId }: Props) {
       .sort(
         (a, b) =>
           (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0) ||
+          (groupOrder.get(a.group_id) ?? 0) -
+            (groupOrder.get(b.group_id) ?? 0) ||
           compareItems(a, b)
       );
-  }, [items, order, query]);
+  }, [items, groupOrder, order, query]);
 
   const parsed = useMemo(() => {
     const errors: Record<string, string> = {};
