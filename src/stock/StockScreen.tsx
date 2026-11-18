@@ -21,6 +21,8 @@ import {
   subscribeMovements,
 } from "./api";
 import { formatDate, parseShortDate } from "./date";
+import { loadOrders, subscribeOrders } from "../orders/api";
+import { incomingByItem, projectedQty } from "../orders/orders";
 import { stockByItem, totalQty, type Lot } from "./ledger";
 import { formatQty, parseAdjust, parseQty } from "./qty";
 
@@ -77,6 +79,7 @@ export function StockScreen({ branchId }: Props) {
   const [groups, setGroups] = useState<Tables<"item_groups">[]>([]);
   const [items, setItems] = useState<Tables<"items">[]>([]);
   const [movements, setMovements] = useState<Tables<"stock_movements">[]>([]);
+  const [incoming, setIncoming] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [query, setQuery] = useState("");
@@ -104,11 +107,13 @@ export function StockScreen({ branchId }: Props) {
     const request = ++latestRequest.current;
     setError(false);
     try {
-      const [catalog, movs] = await Promise.all([
+      const [catalog, movs, ord] = await Promise.all([
         loadCatalog(branchId),
         loadMovements(branchId),
+        loadOrders(branchId),
       ]);
       if (request !== latestRequest.current) return;
+      setIncoming(incomingByItem(ord.orders, ord.lines));
       setGroups(catalog.groups);
       setItems(catalog.items);
       setMovements(movs);
@@ -129,10 +134,12 @@ export function StockScreen({ branchId }: Props) {
     };
     const unsubCatalog = subscribeCatalog(branchId, scheduleReload);
     const unsubMovements = subscribeMovements(branchId, scheduleReload);
+    const unsubOrders = subscribeOrders(branchId, scheduleReload);
     return () => {
       clearTimeout(timer);
       unsubCatalog();
       unsubMovements();
+      unsubOrders();
     };
   }, [branchId, fetchData]);
 
@@ -358,6 +365,7 @@ export function StockScreen({ branchId }: Props) {
           const headerLine = lots
             ? `${item.name} — ${formatQty(totalQty(lots), qtyOpts)}`
             : `${item.name} — Chưa kiểm`;
+          const coming = incoming.get(item.id) ?? 0;
 
           return (
             <Pressable
@@ -366,6 +374,15 @@ export function StockScreen({ branchId }: Props) {
               accessibilityRole="button"
             >
               <Text style={styles.itemTitle}>{headerLine}</Text>
+              {coming > 0 && (
+                <Text style={styles.lotLine}>
+                  Hàng đang về: {formatQty(coming, qtyOpts)} · Tồn kho dự tính:{" "}
+                  {formatQty(
+                    projectedQty(totalQty(lots ?? []), coming),
+                    qtyOpts
+                  )}
+                </Text>
+              )}
               {lots &&
                 lots.map((lot, idx) => (
                   <Text

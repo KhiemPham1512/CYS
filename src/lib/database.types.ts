@@ -143,6 +143,36 @@ export type Database = {
           },
         ];
       };
+      purchase_orders: {
+        Row: {
+          branch_id: string;
+          created_at: string;
+          created_by: string;
+          group_id: string;
+          id: string;
+          placed_at: string | null;
+        };
+        Insert: { branch_id: string; group_id: string };
+        Update: { placed_at?: string };
+        Relationships: [];
+      };
+      purchase_order_lines: {
+        Row: {
+          branch_id: string;
+          id: string;
+          item_id: string;
+          order_id: string;
+          qty: number;
+        };
+        Insert: {
+          branch_id: string;
+          item_id: string;
+          order_id: string;
+          qty: number;
+        };
+        Update: { qty?: number };
+        Relationships: [];
+      };
       stock_movements: {
         Row: {
           batch_id: string | null;
