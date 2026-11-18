@@ -13,6 +13,7 @@ import {
 import { loadCatalog, subscribeCatalog } from "../catalog/api";
 import { buildSections } from "../catalog/sections";
 import type { Tables } from "../lib/database.types";
+import { useNow } from "../lib/useNow";
 import { useOnline } from "../lib/useOnline";
 import {
   assignMfg,
@@ -24,7 +25,7 @@ import { formatDate, parseShortDate } from "./date";
 import { loadOrders, subscribeOrders } from "../orders/api";
 import { incomingByItem, projectedQty } from "../orders/orders";
 import { loadReceivingData, subscribeReceiving } from "../orders/receivingApi";
-import { stockByItem, totalQty, type Lot } from "./ledger";
+import { checkedSince, stockByItem, totalQty, type Lot } from "./ledger";
 import { ReturnDamagedPanel } from "./ReturnDamagedPanel";
 import { formatQty, formatSheetQty, parseAdjust, parseQty } from "./qty";
 
@@ -113,6 +114,8 @@ export function StockScreen({ branchId }: Props) {
   }, [branchId, fetchData]);
 
   const lotsByItem = useMemo(() => stockByItem(movements), [movements]);
+  const now = useNow();
+  const checked = useMemo(() => checkedSince(movements, now), [movements, now]);
 
   const sections = useMemo<SectionData[]>(() => {
     return buildSections(groups, items, { query, showHidden: false }).map(
@@ -336,7 +339,7 @@ export function StockScreen({ branchId }: Props) {
           };
           const headerLine = lots
             ? `${item.name} — ${formatQty(totalQty(lots), qtyOpts)}`
-            : `${item.name} — Chưa kiểm`;
+            : `${item.name} — 0`;
           const coming = incoming.get(item.id) ?? 0;
 
           return (
@@ -346,6 +349,9 @@ export function StockScreen({ branchId }: Props) {
               accessibilityRole="button"
             >
               <Text style={styles.itemTitle}>{headerLine}</Text>
+              {!checked.has(item.id) && (
+                <Text style={styles.uncheckedTag}>Chưa kiểm</Text>
+              )}
               {coming > 0 && (
                 <Text style={styles.lotLine}>
                   Hàng đang về: {formatQty(coming, qtyOpts)} · Tồn kho dự tính:{" "}
@@ -706,6 +712,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     gap: 4,
   },
+  uncheckedTag: { fontSize: 12, fontWeight: "700", color: "#b45309" },
   itemTitle: { fontSize: 16, fontWeight: "600", color: "#18181b" },
   lotLine: { fontSize: 14, color: "#52525b", paddingLeft: 8 },
   error: { color: "#b91c1c", textAlign: "center", fontSize: 15 },

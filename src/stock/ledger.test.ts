@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  checkedSince,
+  checkResetAt,
   countDiffs,
   localDate,
   stockByItem,
@@ -454,5 +456,101 @@ describe("Nhận hàng (kind receive)", () => {
       mv({ seq: 3, kind: "return_damaged", qty: 3, entered_on: "2026-11-12" }),
     ]);
     expect(lots).toEqual([{ mfgDate: null, qty: 4, enteredOn: "2026-11-10" }]);
+  });
+});
+
+describe("checkResetAt: mốc reset nhãn Chưa kiểm là 7h sáng giờ Việt Nam", () => {
+  it("sau 7h sáng: mốc là 7h sáng hôm nay", () => {
+    expect(checkResetAt("2026-11-19T03:00:00Z")).toBe(
+      "2026-11-19T00:00:00.000Z"
+    ); // 10h VN
+    expect(checkResetAt("2026-11-19T00:00:00Z")).toBe(
+      "2026-11-19T00:00:00.000Z"
+    ); // đúng 7h VN
+  });
+  it("trước 7h sáng (kể cả quá nửa đêm): vẫn là mốc 7h sáng hôm qua", () => {
+    expect(checkResetAt("2026-11-18T23:59:00Z")).toBe(
+      "2026-11-18T00:00:00.000Z"
+    ); // 6h59 VN ngày 19
+    expect(checkResetAt("2026-11-18T18:00:00Z")).toBe(
+      "2026-11-18T00:00:00.000Z"
+    ); // 1h VN ngày 19
+  });
+});
+
+describe("checkedSince: món đã Kiểm kho kể từ mốc reset", () => {
+  const now = "2026-11-19T10:00:00Z"; // 17h VN, mốc reset 2026-11-19T00:00Z
+  it("chỉ Kiểm kho (count) sau mốc mới tính là đã kiểm", () => {
+    const r = checkedSince(
+      [
+        mv({
+          seq: 1,
+          kind: "count",
+          item_id: "a",
+          qty: 3,
+          created_at: "2026-11-19T01:00:00Z",
+        }),
+        mv({
+          seq: 2,
+          kind: "count",
+          item_id: "b",
+          qty: 3,
+          created_at: "2026-11-18T23:00:00Z",
+        }),
+      ],
+      now
+    );
+    expect([...r]).toEqual(["a"]);
+  });
+  it("Ghi dùng, Điều chỉnh, Nhận hàng không làm món thành đã kiểm", () => {
+    const r = checkedSince(
+      [
+        mv({
+          seq: 1,
+          kind: "use",
+          item_id: "a",
+          qty: 1,
+          created_at: "2026-11-19T02:00:00Z",
+        }),
+        mv({
+          seq: 2,
+          kind: "adjust",
+          item_id: "b",
+          qty: 5,
+          created_at: "2026-11-19T02:00:00Z",
+        }),
+        mv({
+          seq: 3,
+          kind: "receive",
+          item_id: "c",
+          qty: 5,
+          created_at: "2026-11-19T02:00:00Z",
+        }),
+      ],
+      now
+    );
+    expect(r.size).toBe(0);
+  });
+  it("sau Ghi dùng món vẫn giữ trạng thái đã kiểm của lần Kiểm kho trước đó", () => {
+    const r = checkedSince(
+      [
+        mv({
+          seq: 1,
+          kind: "count",
+          item_id: "a",
+          qty: 3,
+          created_at: "2026-11-19T01:00:00Z",
+        }),
+        mv({
+          seq: 2,
+          kind: "use",
+          item_id: "a",
+          qty: 1,
+          created_at: "2026-11-19T03:00:00Z",
+        }),
+      ],
+      now
+    );
+    expect(r.has("a")).toBe(true);
   });
 });
