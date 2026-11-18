@@ -4,6 +4,7 @@ import {
   planGroupReceipt,
   planGroupSettle,
   planReceipt,
+  planReturn,
   waitingByItem,
 } from "./receiving";
 
@@ -222,5 +223,36 @@ describe("allocateReceipt (chia số nhận của món đã gộp về từng d�
     expect(allocateReceipt([{ id: "x", qty: 10 }], 3, 2)).toEqual([
       { id: "x", received: 7, damaged: 2 },
     ]);
+  });
+});
+
+describe("planReturn", () => {
+  const dated = { mfgDate: "2026-11-12", qty: 5 };
+  const undated = { mfgDate: null, qty: 4, enteredOn: "2026-11-10" };
+
+  it("trả trong số của Lô: ra khóa Lô và số lượng", () => {
+    expect(planReturn(dated, 2)).toEqual({
+      ok: true,
+      qty: 2,
+      mfgDate: "2026-11-12",
+      enteredOn: null,
+    });
+    expect(planReturn(undated, 4)).toEqual({
+      ok: true,
+      qty: 4,
+      mfgDate: null,
+      enteredOn: "2026-11-10",
+    });
+  });
+  it("chặn chưa chọn Lô, số ≤ 0, vượt số của Lô", () => {
+    expect(planReturn(undefined, 1)).toEqual({
+      ok: false,
+      error: "Chưa chọn Lô",
+    });
+    expect(planReturn(dated, 0).ok).toBe(false);
+    expect(planReturn(dated, 5.5)).toEqual({
+      ok: false,
+      error: "Trả nhiều hơn số của Lô",
+    });
   });
 });

@@ -49,6 +49,22 @@ export async function receiveLine(
   return { error: mapRpcError(error) };
 }
 
+// Trả hàng hư sau khi đã vào kho: trừ đúng một Lô (mfgDate hoặc enteredOn) và ghi vào Chờ nhà cung cấp.
+export async function returnDamaged(
+  itemId: string,
+  qty: number,
+  mfgDate: string | null,
+  enteredOn: string | null
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc("return_damaged", {
+    p_item_id: itemId,
+    p_qty: qty,
+    p_mfg: mfgDate,
+    p_entered_on: enteredOn,
+  });
+  return { error: mapRpcError(error) };
+}
+
 export async function settleOwed(
   itemId: string,
   qty: number,

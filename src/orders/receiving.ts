@@ -1,3 +1,4 @@
+import type { Lot } from "../stock/ledger";
 import { round4 } from "../stock/qty";
 
 export type ReceiptInput = {
@@ -139,4 +140,22 @@ export function allocateReceipt(
     toDamage = round4(toDamage - bad);
     return { id: l.id, received: round4(received), damaged: round4(bad) };
   });
+}
+
+export type ReturnPlan =
+  | { ok: true; qty: number; mfgDate: string | null; enteredOn: string | null }
+  | { ok: false; error: string };
+
+// Trả hàng hư sau khi đã vào kho: trừ đúng một Lô, không vượt số của Lô đó.
+// shortcut: số của Lô tính lúc đọc sổ ở app; máy chủ chỉ kiểm số > 0 (hai máy trả cùng lúc có thể vượt, sổ cắt về 0).
+export function planReturn(lot: Lot | undefined, qty: number): ReturnPlan {
+  if (!lot) return { ok: false, error: "Chưa chọn Lô" };
+  if (!(qty > 0)) return { ok: false, error: "Số lượng phải lớn hơn 0" };
+  if (qty > lot.qty) return { ok: false, error: "Trả nhiều hơn số của Lô" };
+  return {
+    ok: true,
+    qty: round4(qty),
+    mfgDate: lot.mfgDate,
+    enteredOn: lot.mfgDate ? null : (lot.enteredOn ?? null),
+  };
 }
