@@ -1,0 +1,115 @@
+import { describe, expect, it } from "vitest";
+import {
+  canActOn,
+  messageForDbError,
+  parseAdminRequest,
+  validateNewUser,
+} from "../../supabase/functions/admin-users/logic.ts";
+
+const UID = "11111111-1111-4111-8111-111111111111";
+
+describe("parseAdminRequest", () => {
+  it("nhận đúng các action", () => {
+    expect(parseAdminRequest({ action: "list" })).toEqual({
+      ok: true,
+      value: { action: "list" },
+    });
+    expect(
+      parseAdminRequest({ action: "set_locked", user_id: UID, locked: true })
+    ).toEqual({
+      ok: true,
+      value: { action: "set_locked", user_id: UID, locked: true },
+    });
+    expect(
+      parseAdminRequest({ action: "set_admin", user_id: UID, is_admin: false })
+    ).toEqual({
+      ok: true,
+      value: { action: "set_admin", user_id: UID, is_admin: false },
+    });
+  });
+
+  it("create: trim + chữ thường email, kiểm mật khẩu", () => {
+    expect(
+      parseAdminRequest({
+        action: "create",
+        email: "  Nv@Example.Test ",
+        password: "12345678",
+        is_admin: false,
+      })
+    ).toEqual({
+      ok: true,
+      value: {
+        action: "create",
+        email: "nv@example.test",
+        password: "12345678",
+        is_admin: false,
+      },
+    });
+    expect(
+      parseAdminRequest({
+        action: "create",
+        email: "nv@example.test",
+        password: "123",
+        is_admin: false,
+      })
+    ).toEqual({ ok: false, error: "Mật khẩu ít nhất 8 ký tự" });
+  });
+
+  it("từ chối dữ liệu sai kiểu", () => {
+    const bad = { ok: false, error: "Yêu cầu không hợp lệ" };
+    expect(parseAdminRequest(null)).toEqual(bad);
+    expect(parseAdminRequest({ action: "drop" })).toEqual(bad);
+    expect(
+      parseAdminRequest({ action: "set_locked", user_id: "x", locked: true })
+    ).toEqual(bad);
+    expect(
+      parseAdminRequest({ action: "set_admin", user_id: UID, is_admin: "yes" })
+    ).toEqual(bad);
+    expect(
+      parseAdminRequest({ action: "create", email: 1, password: "12345678" })
+    ).toEqual(bad);
+  });
+});
+
+describe("validateNewUser", () => {
+  it("báo lỗi email và mật khẩu", () => {
+    expect(validateNewUser("abc", "short")).toEqual({
+      email: "Email không hợp lệ",
+      password: "Mật khẩu ít nhất 8 ký tự",
+    });
+    expect(validateNewUser("a@b.co", "12345678")).toEqual({});
+  });
+});
+
+describe("canActOn", () => {
+  it("không tự khóa / tự bỏ Quản trị", () => {
+    expect(
+      canActOn(UID, { action: "set_locked", user_id: UID, locked: true })
+    ).toBe("Không thể tự khóa chính mình");
+    expect(
+      canActOn(UID, { action: "set_admin", user_id: UID, is_admin: false })
+    ).toBe("Không thể tự bỏ quyền Quản trị của mình");
+  });
+
+  it("cho phép thao tác lên người khác", () => {
+    const other = "22222222-2222-4222-8222-222222222222";
+    expect(
+      canActOn(UID, { action: "set_locked", user_id: other, locked: true })
+    ).toBeNull();
+    expect(canActOn(UID, { action: "list" })).toBeNull();
+  });
+});
+
+describe("messageForDbError", () => {
+  it("dịch lỗi database", () => {
+    expect(messageForDbError({ code: "P0001", hint: "last_admin" })).toBe(
+      "Không thể bỏ hoặc khóa Quản trị cuối cùng"
+    );
+    expect(messageForDbError({ code: "23505" })).toBe(
+      "Người dùng đã thuộc Chi nhánh"
+    );
+    expect(messageForDbError({ code: "XX000" })).toBe(
+      "Không thực hiện được. Thử lại sau."
+    );
+  });
+});
