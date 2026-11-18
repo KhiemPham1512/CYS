@@ -21,7 +21,6 @@ import {
   voidUse,
 } from "./api";
 import {
-  lastUseToday,
   localTime,
   stockByItem,
   todaysUses,
@@ -91,6 +90,14 @@ export function UseScreen({ branchId, userId }: Props) {
     [movements]
   );
 
+  // Lần trừ hôm nay mới nhất của mình theo món (nút + trả lại từ đây); `uses` đã sắp mới → cũ.
+  const myLastUse = useMemo(() => {
+    const map = new Map<string, Movement>();
+    for (const m of uses)
+      if (m.created_by === userId && !map.has(m.item_id)) map.set(m.item_id, m);
+    return map;
+  }, [uses, userId]);
+
   // Món hay dùng của người dùng lên đầu, còn lại theo tên.
   const list = useMemo(() => {
     const counts = usageCounts(movements, userId);
@@ -119,9 +126,6 @@ export function UseScreen({ branchId, userId }: Props) {
     return { errors, rows };
   }, [inputs, items]);
 
-  const canGiveBack = (item: Tables<"items">) =>
-    lastUseToday(movements, new Date().toISOString(), userId, item.id) !== null;
-
   const fmt = (item: Tables<"items"> | undefined, qty: number) =>
     formatQty(qty, {
       caseSize: item?.case_size ?? null,
@@ -131,34 +135,34 @@ export function UseScreen({ branchId, userId }: Props) {
 
   // Nút −: trừ 1 và lưu ngay. Nút +: trả lại 1 từ lần trừ gần nhất của chính mình hôm nay
   // (qty > 1 thì sửa còn qty − 1, qty = 1 thì hủy). shortcut: bước cố định 1 đơn vị, số lớn gõ ở ô bên dưới.
-  async function quickUse(item: Tables<"items">) {
+  async function runQuick(action: () => Promise<{ error: string | null }>) {
     if (!online || busy.current) return;
     busy.current = true;
-    const { error: err } = await saveUses(branchId, [
-      { item_id: item.id, qty: 1 },
-    ]);
-    setSaveError(err);
-    if (!err) await fetchData();
-    busy.current = false;
+    setSaving(true);
+    try {
+      const { error: err } = await action();
+      setSaveError(err);
+      if (!err) await fetchData();
+    } catch {
+      setSaveError("Không lưu được. Kiểm tra mạng.");
+    } finally {
+      busy.current = false;
+      setSaving(false);
+    }
   }
 
-  async function giveBack(item: Tables<"items">) {
-    const last = lastUseToday(
-      movements,
-      new Date().toISOString(),
-      userId,
-      item.id
-    );
-    if (!last || !online || busy.current) return;
-    busy.current = true;
-    const { error: err } =
+  const quickUse = (item: Tables<"items">) =>
+    runQuick(() => saveUses(branchId, [{ item_id: item.id, qty: 1 }]));
+
+  const giveBack = (item: Tables<"items">) => {
+    const last = myLastUse.get(item.id);
+    if (!last) return;
+    return runQuick(() =>
       last.qty <= 1
-        ? await voidUse(branchId, last)
-        : await editUse(branchId, last, round4(last.qty - 1));
-    setSaveError(err);
-    if (!err) await fetchData();
-    busy.current = false;
-  }
+        ? voidUse(branchId, last)
+        : editUse(branchId, last, round4(last.qty - 1))
+    );
+  };
 
   async function handleSave() {
     if (!online || busy.current || parsed.rows.length === 0) return;
@@ -253,7 +257,7 @@ export function UseScreen({ branchId, userId }: Props) {
               <View style={styles.stepper}>
                 <Pressable
                   style={[styles.stepBtn, stock <= 0 && styles.disabled]}
-                  disabled={stock <= 0 || !online}
+                  disabled={stock <= 0 || saving || !online}
                   onPress={() => void quickUse(item)}
                   accessibilityRole="button"
                   accessibilityLabel={`Trừ 1 ${item.name}`}
@@ -266,9 +270,9 @@ export function UseScreen({ branchId, userId }: Props) {
                 <Pressable
                   style={[
                     styles.stepBtn,
-                    !canGiveBack(item) && styles.disabled,
+                    !myLastUse.has(item.id) && styles.disabled,
                   ]}
-                  disabled={!canGiveBack(item) || !online}
+                  disabled={!myLastUse.has(item.id) || saving || !online}
                   onPress={() => void giveBack(item)}
                   accessibilityRole="button"
                   accessibilityLabel={`Trả lại 1 ${item.name}`}

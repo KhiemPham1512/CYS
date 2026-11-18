@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   countDiffs,
-  lastUseToday,
   localDate,
   stockByItem,
   stockLots,
@@ -395,49 +394,5 @@ describe("Ghi dùng", () => {
       mv({ seq: 4, kind: "void", voids_id: "u1" }),
     ]);
     expect(totalQty(lots)).toBe(6);
-  });
-});
-
-describe("lastUseToday", () => {
-  const now = "2026-11-18T03:00:00Z"; // 10h sáng 18/11 VN
-  const today = "2026-11-18T01:00:00Z";
-
-  it("lấy Ghi dùng mới nhất hôm nay của đúng người và đúng món", () => {
-    const rows = [
-      mv({ seq: 1, kind: "use", qty: 1, id: "a", created_at: today }),
-      mv({ seq: 2, kind: "use", qty: 1, id: "b", created_at: today }),
-      mv({
-        seq: 3,
-        kind: "use",
-        qty: 1,
-        id: "c",
-        created_at: today,
-        created_by: "user-2",
-      }),
-      mv({
-        seq: 4,
-        kind: "use",
-        qty: 1,
-        id: "d",
-        created_at: today,
-        item_id: "item-2",
-      }),
-    ];
-    expect(lastUseToday(rows, now, "user-1", "item-1")?.id).toBe("b");
-  });
-
-  it("bỏ dòng đã hủy và dòng của ngày trước; không có thì null", () => {
-    const rows = [
-      mv({ seq: 1, kind: "use", qty: 1, id: "a", created_at: today }),
-      mv({ seq: 2, kind: "void", voids_id: "a", created_at: today }),
-      mv({
-        seq: 3,
-        kind: "use",
-        qty: 1,
-        id: "old",
-        created_at: "2026-11-17T01:00:00Z",
-      }),
-    ];
-    expect(lastUseToday(rows, now, "user-1", "item-1")).toBeNull();
   });
 });
