@@ -143,6 +143,35 @@ export type Database = {
           },
         ];
       };
+      stock_movements: {
+        Row: {
+          batch_id: string | null;
+          branch_id: string;
+          created_at: string;
+          created_by: string;
+          expected_qty: number | null;
+          id: string;
+          item_id: string;
+          kind: MovementKind;
+          mfg_date: string | null;
+          note: string | null;
+          qty: number;
+          seq: number;
+        };
+        Insert: {
+          batch_id?: string | null;
+          branch_id: string;
+          created_by?: string;
+          expected_qty?: number | null;
+          item_id: string;
+          kind: MovementKind;
+          mfg_date?: string | null;
+          note?: string | null;
+          qty: number;
+        };
+        Update: never;
+        Relationships: [];
+      };
       members: {
         Row: {
           branch_id: string;
@@ -188,5 +217,6 @@ export type Tables<T extends keyof PublicTables> = PublicTables[T]["Row"];
 export type TablesInsert<T extends keyof PublicTables> =
   PublicTables[T]["Insert"];
 export type ShelfLifeUnit = "day" | "month";
+export type MovementKind = "count" | "adjust" | "assign_mfg";
 export type TablesUpdate<T extends keyof PublicTables> =
   PublicTables[T]["Update"];

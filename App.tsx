@@ -12,6 +12,8 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./src/lib/supabase";
 import { useOnline } from "./src/lib/useOnline";
 import { CatalogScreen } from "./src/catalog/CatalogScreen";
+import { CountScreen } from "./src/stock/CountScreen";
+import { StockScreen } from "./src/stock/StockScreen";
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>();
@@ -100,12 +102,21 @@ function LoginScreen({ online }: { online: boolean }) {
   );
 }
 
+type HomeView = "stock" | "count" | "catalog";
+
+const NAV_TABS: { key: HomeView; label: string }[] = [
+  { key: "stock", label: "Tồn kho" },
+  { key: "count", label: "Kiểm kho" },
+  { key: "catalog", label: "Danh mục" },
+];
+
 function HomeScreen() {
   // undefined = đang tải; null = không có Chi nhánh (chưa là thành viên hoặc bị khóa).
   const [branch, setBranch] = useState<
     { branch_id: string; branch_name: string } | null | undefined
   >();
   const [error, setError] = useState(false);
+  const [view, setView] = useState<HomeView>("stock");
 
   useEffect(() => {
     // shortcut: lấy Chi nhánh đầu tiên; khi một người thuộc nhiều Chi nhánh thì thêm bước chọn.
@@ -134,7 +145,39 @@ function HomeScreen() {
             <Text style={styles.link}>Đăng xuất</Text>
           </Pressable>
         </View>
-        <CatalogScreen branchId={branch.branch_id} />
+        <View style={styles.navBar}>
+          {NAV_TABS.map((tab) => {
+            const selected = view === tab.key;
+            return (
+              <Pressable
+                key={tab.key}
+                style={[styles.navTab, selected && styles.navTabSelected]}
+                onPress={() => setView(tab.key)}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+              >
+                <Text
+                  style={[
+                    styles.navTabText,
+                    selected && styles.navTabTextSelected,
+                  ]}
+                >
+                  {tab.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        {view === "stock" ? (
+          <StockScreen branchId={branch.branch_id} />
+        ) : view === "count" ? (
+          <CountScreen
+            branchId={branch.branch_id}
+            onDone={() => setView("stock")}
+          />
+        ) : (
+          <CatalogScreen branchId={branch.branch_id} />
+        )}
       </View>
     );
   }
@@ -207,4 +250,32 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   branchTitle: { fontSize: 18, fontWeight: "700" },
+  navBar: {
+    flexDirection: "row",
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+    gap: 8,
+  },
+  navTab: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#d4d4d8",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 8,
+  },
+  navTabSelected: {
+    backgroundColor: "#0f766e",
+    borderColor: "#0f766e",
+  },
+  navTabText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#27272a",
+  },
+  navTabTextSelected: {
+    color: "#fff",
+  },
 });
