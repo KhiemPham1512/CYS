@@ -69,6 +69,9 @@ function toEditableQty(
   return formatRest(q);
 }
 
+const enteredLabel = (lot: Lot) =>
+  lot.enteredOn ? ` (vào kho ${formatDate(lot.enteredOn)})` : "";
+
 export function StockScreen({ branchId }: Props) {
   const online = useOnline();
   const [groups, setGroups] = useState<Tables<"item_groups">[]>([]);
@@ -87,6 +90,7 @@ export function StockScreen({ branchId }: Props) {
   const [adjustError, setAdjustError] = useState<string | null>(null);
   const [savingAdjust, setSavingAdjust] = useState(false);
 
+  const [mfgChunk, setMfgChunk] = useState<string | null>(null);
   const [mfgQtyInput, setMfgQtyInput] = useState("");
   const [mfgQtyError, setMfgQtyError] = useState<string | null>(null);
   const [mfgDateInput, setMfgDateInput] = useState("");
@@ -147,10 +151,13 @@ export function StockScreen({ branchId }: Props) {
     return lotsByItem.get(selectedItem.id) ?? [];
   }, [lotsByItem, selectedItem]);
 
-  const unassignedLot = useMemo(
-    () => selectedLots.find((l) => l.mfgDate === null && l.qty > 0) ?? null,
+  // Phần chưa có Ngày sản xuất, mỗi phần là một đợt vào kho; Thêm Ngày sản xuất cho từng đợt.
+  const undatedLots = useMemo(
+    () => selectedLots.filter((l) => l.mfgDate === null && l.qty > 0),
     [selectedLots]
   );
+  const unassignedLot =
+    undatedLots.find((l) => l.enteredOn === mfgChunk) ?? undatedLots[0] ?? null;
 
   // Gõ "+2" / "-1" thì hiện số sau khi lưu để người dùng chắc chắn trước khi bấm.
   const adjustPreview = useMemo(() => {
@@ -174,6 +181,7 @@ export function StockScreen({ branchId }: Props) {
     const lots = lotsByItem.get(item.id) ?? [];
     const unallocated = lots.find((l) => l.mfgDate === null && l.qty > 0);
     setSelectedItem(item);
+    setMfgChunk(unallocated?.enteredOn ?? null);
     setMode("adjust");
     setAdjustInput("");
     setAdjustNote("");
@@ -232,6 +240,15 @@ export function StockScreen({ branchId }: Props) {
     } else if (parsedQty.value <= 0) {
       setMfgQtyError("Số lượng không hợp lệ");
       hasErr = true;
+    } else if (parsedQty.value > unassignedLot.qty) {
+      setMfgQtyError(
+        `Đợt này chỉ còn ${formatQty(unassignedLot.qty, {
+          caseSize: selectedItem.case_size,
+          unit: selectedItem.unit,
+          byPercent: selectedItem.record_by_percent,
+        })} chưa có Ngày sản xuất`
+      );
+      hasErr = true;
     } else {
       setMfgQtyError(null);
     }
@@ -250,7 +267,8 @@ export function StockScreen({ branchId }: Props) {
       branchId,
       selectedItem.id,
       parsedQty.value,
-      parsedDate.value
+      parsedDate.value,
+      unassignedLot.enteredOn ?? null
     );
     setSavingMfg(false);
     if (err) {
@@ -334,7 +352,7 @@ export function StockScreen({ branchId }: Props) {
               {lots &&
                 lots.map((lot, idx) => (
                   <Text
-                    key={`${lot.mfgDate ?? "none"}-${idx}`}
+                    key={`${lot.mfgDate ?? lot.enteredOn ?? "none"}-${idx}`}
                     style={styles.lotLine}
                   >
                     {lot.mfgDate
@@ -342,7 +360,7 @@ export function StockScreen({ branchId }: Props) {
                           lot.qty,
                           qtyOpts
                         )}`
-                      : `Chưa có Ngày sản xuất: ${formatQty(lot.qty, qtyOpts)}`}
+                      : `Chưa có Ngày sản xuất${enteredLabel(lot)}: ${formatQty(lot.qty, qtyOpts)}`}
                   </Text>
                 ))}
             </Pressable>
@@ -401,10 +419,13 @@ export function StockScreen({ branchId }: Props) {
                       })}
                     </Text>
                     {selectedLots.map((lot) => (
-                      <Text key={lot.mfgDate ?? "none"} style={styles.metaText}>
+                      <Text
+                        key={lot.mfgDate ?? `none-${lot.enteredOn}`}
+                        style={styles.metaText}
+                      >
                         {lot.mfgDate
                           ? `Ngày sản xuất ${formatDate(lot.mfgDate)}`
-                          : "Chưa có Ngày sản xuất"}
+                          : `Chưa có Ngày sản xuất${enteredLabel(lot)}`}
                         :{" "}
                         {formatQty(lot.qty, {
                           caseSize: selectedItem.case_size,
@@ -506,13 +527,51 @@ export function StockScreen({ branchId }: Props) {
                   {mode === "mfg" && unassignedLot && (
                     <View style={styles.cardSection}>
                       <Text style={styles.metaText}>
-                        Chưa có Ngày sản xuất:{" "}
-                        {formatQty(unassignedLot.qty, {
-                          caseSize: selectedItem.case_size,
-                          unit: selectedItem.unit,
-                          byPercent: selectedItem.record_by_percent,
-                        })}
+                        Chọn đợt hàng chưa có Ngày sản xuất:
                       </Text>
+                      <View style={styles.chipRow}>
+                        {undatedLots.map((lot) => {
+                          const selected = lot === unassignedLot;
+                          return (
+                            <Pressable
+                              key={lot.enteredOn ?? "none"}
+                              style={[
+                                styles.chip,
+                                selected && styles.tabSelected,
+                              ]}
+                              onPress={() => {
+                                setMfgChunk(lot.enteredOn ?? null);
+                                setMfgQtyInput(
+                                  toEditableQty(
+                                    lot.qty,
+                                    selectedItem.case_size,
+                                    selectedItem.record_by_percent
+                                  )
+                                );
+                                setMfgQtyError(null);
+                              }}
+                              accessibilityRole="button"
+                              accessibilityState={{ selected }}
+                            >
+                              <Text
+                                style={[
+                                  styles.tabText,
+                                  selected && styles.tabTextSelected,
+                                ]}
+                              >
+                                {formatQty(lot.qty, {
+                                  caseSize: selectedItem.case_size,
+                                  unit: selectedItem.unit,
+                                  byPercent: selectedItem.record_by_percent,
+                                })}
+                                {lot.enteredOn
+                                  ? ` — vào kho ${formatDate(lot.enteredOn)}`
+                                  : ""}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
                       <TextInput
                         style={styles.input}
                         placeholder="Số lượng"
@@ -600,6 +659,15 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { fontSize: 14, fontWeight: "700", color: "#0f766e" },
   tabRow: { flexDirection: "row", gap: 8 },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chip: {
+    minHeight: 44,
+    borderWidth: 1,
+    borderColor: "#0f766e",
+    borderRadius: 8,
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
   tab: {
     flex: 1,
     minHeight: 44,

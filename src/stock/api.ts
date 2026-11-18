@@ -75,7 +75,8 @@ export async function assignMfg(
   branchId: string,
   itemId: string,
   qty: number,
-  mfgDate: string
+  mfgDate: string,
+  enteredOn: string | null
 ): Promise<{ error: string | null }> {
   const { error } = await supabase.from("stock_movements").insert({
     branch_id: branchId,
@@ -83,6 +84,7 @@ export async function assignMfg(
     kind: "assign_mfg",
     qty,
     mfg_date: mfgDate,
+    entered_on: enteredOn,
   });
 
   if (error) {

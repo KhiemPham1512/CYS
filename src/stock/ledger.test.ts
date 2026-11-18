@@ -16,6 +16,8 @@ function mv(
     mfg_date: null,
     expected_qty: null,
     batch_id: null,
+    created_at: "2026-11-17T05:00:00Z",
+    entered_on: null,
     ...overrides,
   };
 }
@@ -30,7 +32,7 @@ describe("stockLots", () => {
 
     expect(stockLots(movements)).toEqual([
       { mfgDate: "2026-10-28", qty: 12 },
-      { mfgDate: null, qty: 7 },
+      { mfgDate: null, qty: 7, enteredOn: "2026-11-17" },
     ]);
   });
 
@@ -43,7 +45,7 @@ describe("stockLots", () => {
 
     expect(stockLots(movements)).toEqual([
       { mfgDate: "2026-10-28", qty: 19 },
-      { mfgDate: null, qty: 6 },
+      { mfgDate: null, qty: 6, enteredOn: "2026-11-17" },
     ]);
   });
 
@@ -58,7 +60,7 @@ describe("stockLots", () => {
     // 20 → 12: bớt 8 = hết Lô 05/10 (5) + 3 của Lô 20/10; Lô chưa có ngày (5) giữ nguyên.
     expect(stockLots(movements)).toEqual([
       { mfgDate: "2026-10-20", qty: 7 },
-      { mfgDate: null, qty: 5 },
+      { mfgDate: null, qty: 5, enteredOn: "2026-11-17" },
     ]);
     expect(totalQty(stockLots(movements))).toBe(12);
   });
@@ -89,7 +91,7 @@ describe("stockLots", () => {
     expect(stockLots(movements)).toEqual([
       { mfgDate: "2026-10-05", qty: 2 },
       { mfgDate: "2026-10-20", qty: 3 },
-      { mfgDate: null, qty: 5 },
+      { mfgDate: null, qty: 5, enteredOn: "2026-11-17" },
     ]);
   });
 
@@ -101,7 +103,72 @@ describe("stockLots", () => {
     ];
 
     // 10 → 4: bớt 6 = Lô 01/10 (6); còn 4 chưa có ngày.
-    expect(stockLots(movements)).toEqual([{ mfgDate: null, qty: 4 }]);
+    expect(stockLots(movements)).toEqual([
+      { mfgDate: null, qty: 4, enteredOn: "2026-11-17" },
+    ]);
+  });
+
+  it("phần chưa có Ngày sản xuất tách theo ngày vào kho", () => {
+    const movements: Movement[] = [
+      mv({ seq: 1, kind: "count", qty: 1, created_at: "2026-11-17T05:00:00Z" }),
+      mv({
+        seq: 2,
+        kind: "adjust",
+        qty: 6,
+        created_at: "2026-11-18T05:00:00Z",
+      }),
+    ];
+
+    expect(stockLots(movements)).toEqual([
+      { mfgDate: null, qty: 1, enteredOn: "2026-11-17" },
+      { mfgDate: null, qty: 5, enteredOn: "2026-11-18" },
+    ]);
+  });
+
+  it("Thêm Ngày sản xuất cho đúng phần vào kho ngày đó", () => {
+    const movements: Movement[] = [
+      mv({ seq: 1, kind: "count", qty: 1, created_at: "2026-11-17T05:00:00Z" }),
+      mv({
+        seq: 2,
+        kind: "adjust",
+        qty: 6,
+        created_at: "2026-11-18T05:00:00Z",
+      }),
+      mv({
+        seq: 3,
+        kind: "assign_mfg",
+        qty: 5,
+        mfg_date: "2026-11-10",
+        entered_on: "2026-11-18",
+      }),
+    ];
+
+    expect(stockLots(movements)).toEqual([
+      { mfgDate: "2026-11-10", qty: 5 },
+      { mfgDate: null, qty: 1, enteredOn: "2026-11-17" },
+    ]);
+  });
+
+  it("giảm số lượng: hết Lô có ngày thì trừ phần chưa có ngày vào kho sớm nhất trước", () => {
+    const movements: Movement[] = [
+      mv({ seq: 1, kind: "count", qty: 1, created_at: "2026-11-17T05:00:00Z" }),
+      mv({
+        seq: 2,
+        kind: "adjust",
+        qty: 6,
+        created_at: "2026-11-18T05:00:00Z",
+      }),
+      mv({
+        seq: 3,
+        kind: "adjust",
+        qty: 4,
+        created_at: "2026-11-18T06:00:00Z",
+      }),
+    ];
+
+    expect(stockLots(movements)).toEqual([
+      { mfgDate: null, qty: 4, enteredOn: "2026-11-18" },
+    ]);
   });
 
   it("về 0 thì hết mọi Lô", () => {
@@ -135,9 +202,11 @@ describe("stockByItem", () => {
 
     expect(map.get("a")).toEqual([
       { mfgDate: "2026-10-01", qty: 2 },
-      { mfgDate: null, qty: 3 },
+      { mfgDate: null, qty: 3, enteredOn: "2026-11-17" },
     ]);
-    expect(map.get("b")).toEqual([{ mfgDate: null, qty: 8 }]);
+    expect(map.get("b")).toEqual([
+      { mfgDate: null, qty: 8, enteredOn: "2026-11-17" },
+    ]);
   });
 });
 

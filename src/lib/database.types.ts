@@ -149,6 +149,7 @@ export type Database = {
           branch_id: string;
           created_at: string;
           created_by: string;
+          entered_on: string | null;
           expected_qty: number | null;
           id: string;
           item_id: string;
@@ -162,6 +163,7 @@ export type Database = {
           batch_id?: string | null;
           branch_id: string;
           created_by?: string;
+          entered_on?: string | null;
           expected_qty?: number | null;
           item_id: string;
           kind: MovementKind;

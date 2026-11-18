@@ -2,12 +2,23 @@ import type { Tables } from "../lib/database.types";
 
 export type Movement = Pick<
   Tables<"stock_movements">,
-  "seq" | "item_id" | "kind" | "qty" | "mfg_date" | "expected_qty" | "batch_id"
+  | "seq"
+  | "item_id"
+  | "kind"
+  | "qty"
+  | "mfg_date"
+  | "expected_qty"
+  | "batch_id"
+  | "created_at"
+  | "entered_on"
 >;
 
+// Lô có Ngày sản xuất: mfgDate. Phần chưa có Ngày sản xuất tách theo ngày vào kho (enteredOn)
+// để Thêm Ngày sản xuất đúng cho từng đợt.
 export type Lot = {
   mfgDate: string | null;
   qty: number;
+  enteredOn?: string;
 };
 
 export type CountDiff = {
@@ -22,54 +33,69 @@ function round4(n: number): number {
   return rounded === 0 ? 0 : rounded;
 }
 
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+// Ngày (giờ địa phương của máy) của một thời điểm ISO, dạng yyyy-mm-dd.
+export function localDate(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+function add(map: Map<string, number>, key: string, qty: number) {
+  map.set(key, round4((map.get(key) ?? 0) + qty));
+}
+
+// Trừ amount theo khóa tăng dần (ngày sớm nhất trước); trả phần chưa trừ được.
+function takeOldestFirst(map: Map<string, number>, amount: number): number {
+  let rest = amount;
+  for (const key of [...map.keys()].sort()) {
+    if (rest <= 0) break;
+    const take = Math.min(rest, map.get(key) ?? 0);
+    add(map, key, -take);
+    if ((map.get(key) ?? 0) <= 0) map.delete(key);
+    rest = round4(rest - take);
+  }
+  return rest;
+}
+
+const sum = (map: Map<string, number>) =>
+  [...map.values()].reduce((s, q) => s + q, 0);
+
 export function stockLots(movements: Movement[]): Lot[] {
   const sorted = [...movements].sort((a, b) => a.seq - b.seq);
-  let unallocated = 0;
-  const byMfg = new Map<string, number>();
+  const dated = new Map<string, number>(); // Ngày sản xuất → số lượng
+  const undated = new Map<string, number>(); // ngày vào kho → số lượng chưa có Ngày sản xuất
 
   for (const m of sorted) {
     if (m.kind === "count" || m.kind === "adjust") {
-      // Đặt tổng = qty nhưng giữ Ngày sản xuất: tăng thì thêm vào Lô chưa có ngày,
-      // giảm thì trừ Lô ngày sớm nhất trước, Lô chưa có ngày sau cùng (như Ghi dùng).
-      const current =
-        unallocated + [...byMfg.values()].reduce((s, q) => s + q, 0);
-      let remove = round4(current - m.qty);
-      if (remove < 0) {
-        unallocated = round4(unallocated - remove);
-      } else {
-        for (const date of [...byMfg.keys()].sort()) {
-          if (remove <= 0) break;
-          const take = Math.min(remove, byMfg.get(date) ?? 0);
-          byMfg.set(date, round4((byMfg.get(date) ?? 0) - take));
-          remove = round4(remove - take);
-        }
-        unallocated = round4(Math.max(0, unallocated - remove));
-      }
+      // Đặt tổng = qty nhưng giữ Ngày sản xuất: tăng → phần chưa có ngày, vào kho hôm nay;
+      // giảm → trừ Lô Ngày sản xuất sớm nhất trước, rồi phần chưa có ngày vào kho sớm nhất.
+      const diff = round4(m.qty - sum(dated) - sum(undated));
+      if (diff > 0) add(undated, localDate(m.created_at), diff);
+      else if (diff < 0)
+        takeOldestFirst(undated, takeOldestFirst(dated, -diff));
     } else if (m.kind === "assign_mfg" && m.mfg_date && m.qty > 0) {
-      const take = round4(Math.min(m.qty, unallocated));
-      if (take > 0) {
-        unallocated = round4(unallocated - take);
-        byMfg.set(m.mfg_date, round4((byMfg.get(m.mfg_date) ?? 0) + take));
+      let moved: number;
+      if (m.entered_on) {
+        moved = Math.min(m.qty, undated.get(m.entered_on) ?? 0);
+        add(undated, m.entered_on, -moved);
+        if ((undated.get(m.entered_on) ?? 0) <= 0) undated.delete(m.entered_on);
+      } else {
+        moved = round4(m.qty - takeOldestFirst(undated, m.qty)); // dòng cũ: phần sớm nhất
       }
+      if (moved > 0) add(dated, m.mfg_date, moved);
     }
   }
 
   const lots: Lot[] = [];
-  const dates = Array.from(byMfg.keys()).sort((a, b) =>
-    a < b ? -1 : a > b ? 1 : 0
-  );
-
-  for (const mfgDate of dates) {
-    const qty = round4(byMfg.get(mfgDate) ?? 0);
-    if (qty > 0) {
-      lots.push({ mfgDate, qty });
-    }
+  for (const mfgDate of [...dated.keys()].sort()) {
+    const qty = round4(dated.get(mfgDate) ?? 0);
+    if (qty > 0) lots.push({ mfgDate, qty });
   }
-
-  if (unallocated > 0) {
-    lots.push({ mfgDate: null, qty: round4(unallocated) });
+  for (const enteredOn of [...undated.keys()].sort()) {
+    const qty = round4(undated.get(enteredOn) ?? 0);
+    if (qty > 0) lots.push({ mfgDate: null, qty, enteredOn });
   }
-
   return lots;
 }
 

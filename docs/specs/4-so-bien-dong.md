@@ -47,3 +47,11 @@ Bảng `stock_movements` (chỉ select + insert): `seq` (thứ tự), `item_id`,
 
 - `npm test` xanh (có test cho qty, date, ledger), `npx tsc --noEmit` sạch (chạy cả hai).
 - Không sửa SQL, `src/lib/*`, `src/catalog/*`, `.husky`, `.env*`.
+
+## Thay đổi 2 — tách phần chưa có Ngày sản xuất theo ngày vào kho (góp ý người dùng 18/11)
+
+- `Lot` có thêm `enteredOn` (yyyy-mm-dd, giờ máy) cho phần chưa có Ngày sản xuất; mỗi lần Kiểm kho/Điều chỉnh làm tăng số tạo/cộng vào phần của ngày đó.
+- Giảm số: trừ Lô có Ngày sản xuất sớm nhất trước, rồi phần chưa có ngày vào kho sớm nhất.
+- Cột mới `stock_movements.entered_on` (chỉ với `assign_mfg`): Thêm Ngày sản xuất cho đúng đợt; null (dòng cũ) = lấy đợt sớm nhất.
+- Khung món, mục Thêm Ngày sản xuất: chọn đợt ("5 bao — vào kho 18/11/2026"), ô số lượng tự điền theo đợt; nhập quá phần còn của đợt → báo lỗi.
+- Ô Điều chỉnh tồn kho nhận `+x` / `-x` (cộng trừ vào số đang có, `parseAdjust`), hiện "Sau khi lưu: …".
