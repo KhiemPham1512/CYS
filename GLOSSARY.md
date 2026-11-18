@@ -64,9 +64,21 @@ _Tránh_: hàng còn thiếu, giao thiếu
 Hàng bị hư (phát hiện lúc nhận hoặc sau khi đã vào kho) trả lại nhà cung cấp; luôn được đền bằng hàng tương đương.
 _Tránh_: đổi hàng, hoàn hàng, return
 
+**Nhận hàng**:
+Lần một Người dùng ghi nhận hàng của một dòng Đơn đặt hàng đã về: phần nhận tốt vào Tồn kho thực tế thành Lô theo Ngày sản xuất, phần Hàng thiếu và Trả hàng hư vào Chờ nhà cung cấp. Mỗi dòng nhận một lần và hết Hàng đang về.
+_Tránh_: nhập kho, nhập hàng
+
+**Nhận bù**:
+Lần nhận phần hàng nhà cung cấp còn nợ trong Chờ nhà cung cấp (nhận một phần cũng được); phần nhận vào Tồn kho thực tế thành Lô, phần còn lại tiếp tục chờ.
+_Tránh_: giao bù, đền hàng
+
 **Ghi dùng**:
 Lần một Người dùng khai báo các Nguyên vật liệu đã lấy ra dùng và số lượng; Tồn kho thực tế bị trừ tương ứng.
 _Tránh_: xuất kho, tiêu thụ, lấy hàng
+
+**Hủy Ghi dùng**:
+Lần một Người dùng gỡ một Ghi dùng đã ghi nhầm, chỉ trong ngày ghi; Tồn kho thực tế được hoàn lại và lần hủy vẫn được lưu lại. Sửa một Ghi dùng là hủy rồi ghi số mới.
+_Tránh_: xóa Ghi dùng, hoàn tác
 
 **Điều chỉnh tồn kho**:
 Lần một Người dùng đặt lại Tồn kho thực tế của một Nguyên vật liệu về số thực tế, có thể kèm lý do. Ngày sản xuất của các Lô được giữ: phần tăng vào phần chưa có Ngày sản xuất, phần giảm trừ Lô có Ngày sản xuất sớm nhất trước (Kiểm kho cũng vậy).

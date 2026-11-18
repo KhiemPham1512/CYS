@@ -42,6 +42,11 @@ do $$ begin
     assert false, 'hư quá số nhận phải bị chặn';
   exception when sqlstate '22023' then null;
   end;
+  begin
+    perform public.receive_order_line('00000000-0000-0000-0000-0000000000e1', 10, 0, '2999-01-01');
+    assert false, 'Ngày sản xuất tương lai phải bị chặn';
+  exception when sqlstate '22023' then null;
+  end;
 
   -- Nhận 7/10, hư 2: vào kho 5, Thiếu 3, Hư 2.
   perform public.receive_order_line('00000000-0000-0000-0000-0000000000e1', 7, 2, '2026-11-10');
