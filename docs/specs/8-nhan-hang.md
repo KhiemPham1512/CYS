@@ -26,4 +26,4 @@ Màn "Nhận hàng": danh sách Hàng đang về theo đơn → nhập số/ngà
 
 ## Ngoài phạm vi
 
-Trả hàng hư chi tiết (#9); kg/bao của trà (chưa có chỗ lưu).
+Trả hàng hư sau khi đã vào kho (làm ở #9, trừ đúng Lô); kg/bao của trà (chưa có chỗ lưu).

@@ -25,6 +25,7 @@ import { loadOrders, subscribeOrders } from "../orders/api";
 import { incomingByItem, projectedQty } from "../orders/orders";
 import { loadReceivingData, subscribeReceiving } from "../orders/receivingApi";
 import { stockByItem, totalQty, type Lot } from "./ledger";
+import { ReturnDamagedPanel } from "./ReturnDamagedPanel";
 import { formatQty, formatSheetQty, parseAdjust, parseQty } from "./qty";
 
 type Props = {
@@ -53,7 +54,7 @@ export function StockScreen({ branchId }: Props) {
     null
   );
   const busy = useRef(false); // chống bấm đôi trước khi state kịp cập nhật
-  const [mode, setMode] = useState<"adjust" | "mfg">("adjust");
+  const [mode, setMode] = useState<"adjust" | "mfg" | "return">("adjust");
   const [adjustInput, setAdjustInput] = useState("");
   const [adjustNote, setAdjustNote] = useState("");
   const [adjustError, setAdjustError] = useState<string | null>(null);
@@ -446,6 +447,7 @@ export function StockScreen({ branchId }: Props) {
                       [
                         ["adjust", "Điều chỉnh tồn kho"],
                         ["mfg", "Thêm Ngày sản xuất"],
+                        ["return", "Trả hàng hư"],
                       ] as const
                     ).map(([key, label]) => {
                       const selected = mode === key;
@@ -520,6 +522,16 @@ export function StockScreen({ branchId }: Props) {
                           {savingAdjust ? "Đang lưu…" : "Lưu điều chỉnh"}
                         </Text>
                       </Pressable>
+                    </View>
+                  )}
+
+                  {mode === "return" && (
+                    <View style={styles.cardSection}>
+                      <ReturnDamagedPanel
+                        item={selectedItem}
+                        lots={selectedLots}
+                        online={online}
+                      />
                     </View>
                   )}
 

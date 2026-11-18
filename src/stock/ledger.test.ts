@@ -429,4 +429,30 @@ describe("Nhận hàng (kind receive)", () => {
     ]);
     expect(lots).toEqual([{ mfgDate: "2026-11-12", qty: 3 }]);
   });
+
+  it("Trả hàng hư trừ đúng Lô Ngày sản xuất đã chọn, không đụng Lô khác", () => {
+    const lots = stockLots([
+      mv({ seq: 1, kind: "receive", qty: 5, mfg_date: "2026-11-05" }),
+      mv({ seq: 2, kind: "receive", qty: 5, mfg_date: "2026-11-12" }),
+      mv({ seq: 3, kind: "return_damaged", qty: 2, mfg_date: "2026-11-12" }),
+    ]);
+    expect(lots).toEqual([
+      { mfgDate: "2026-11-05", qty: 5 },
+      { mfgDate: "2026-11-12", qty: 3 },
+    ]);
+  });
+
+  it("Trả hàng hư trừ đúng Lô chưa có ngày theo ngày vào kho; hết thì bỏ Lô", () => {
+    const lots = stockLots([
+      mv({ seq: 1, kind: "count", qty: 4, created_at: "2026-11-10T03:00:00Z" }),
+      mv({
+        seq: 2,
+        kind: "receive",
+        qty: 3,
+        created_at: "2026-11-12T03:00:00Z",
+      }),
+      mv({ seq: 3, kind: "return_damaged", qty: 3, entered_on: "2026-11-12" }),
+    ]);
+    expect(lots).toEqual([{ mfgDate: null, qty: 4, enteredOn: "2026-11-10" }]);
+  });
 });

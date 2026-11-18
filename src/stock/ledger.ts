@@ -119,6 +119,14 @@ export function stockLots(movements: Movement[]): Lot[] {
       // Nhận hàng: cộng vào Lô đúng Ngày sản xuất; không có ngày thì vào phần chưa có ngày (ngày vào kho).
       if (m.mfg_date) add(dated, m.mfg_date, m.qty);
       else add(undated, localDate(m.created_at), m.qty);
+    } else if (m.kind === "return_damaged" && m.qty > 0) {
+      // Trả hàng hư: trừ đúng Lô đã chọn (Ngày sản xuất, hoặc ngày vào kho nếu chưa có ngày).
+      const [map, key] = m.mfg_date
+        ? [dated, m.mfg_date]
+        : [undated, m.entered_on ?? ""];
+      const taken = Math.min(m.qty, map.get(key) ?? 0);
+      add(map, key, -taken);
+      if ((map.get(key) ?? 0) <= 0) map.delete(key);
     } else if (m.kind === "assign_mfg" && m.mfg_date && m.qty > 0) {
       let moved: number;
       if (m.entered_on) {

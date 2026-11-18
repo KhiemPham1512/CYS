@@ -287,6 +287,15 @@ export type Database = {
         };
         Returns: void;
       };
+      return_damaged: {
+        Args: {
+          p_item_id: string;
+          p_qty: number;
+          p_mfg: string | null;
+          p_entered_on: string | null;
+        };
+        Returns: void;
+      };
       settle_owed: {
         Args: {
           p_item_id: string;
@@ -307,6 +316,12 @@ export type TablesInsert<T extends keyof PublicTables> =
   PublicTables[T]["Insert"];
 export type ShelfLifeUnit = "day" | "month";
 export type MovementKind =
-  "count" | "adjust" | "assign_mfg" | "use" | "void" | "receive";
+  | "count"
+  | "adjust"
+  | "assign_mfg"
+  | "use"
+  | "void"
+  | "receive"
+  | "return_damaged";
 export type TablesUpdate<T extends keyof PublicTables> =
   PublicTables[T]["Update"];
