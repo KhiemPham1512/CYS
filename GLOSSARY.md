@@ -33,7 +33,7 @@ Ngày sản xuất in trên hàng, do Người dùng nhập tay khi nhận hàng
 _Tránh_: NSX, hạn sử dụng (khi ý nói ngày in trên bao bì)
 
 **Thời hạn sử dụng**:
-Khoảng thời gian một Nguyên vật liệu dùng được kể từ Ngày sản xuất, ghi bằng ngày hoặc tháng đúng như trên bảng hạn (không quy đổi); ngày hết hạn của một Lô = Ngày sản xuất + Thời hạn sử dụng (tháng tính theo lịch).
+Khoảng thời gian một Nguyên vật liệu dùng được kể từ Ngày sản xuất, ghi bằng ngày hoặc tháng đúng như trên bảng hạn (không quy đổi); ngày hết hạn của một Lô = Ngày sản xuất + Thời hạn sử dụng (tháng tính theo lịch; hạn theo ngày tính cả ngày sản xuất, ví dụ 30 ngày từ 18/11 dùng được đến hết 17/12).
 _Tránh_: HSD, shelf life
 
 **Lô**:
@@ -41,7 +41,7 @@ Phần Tồn kho thực tế của một Nguyên vật liệu có cùng Ngày s�
 _Tránh_: batch, mẻ
 
 **Đang dùng**:
-Đơn vị đã khui của một Nguyên vật liệu có hạn sau khi khui dài (hơn 7 ngày), được theo dõi để biết còn dùng được đến ngày nào.
+Đơn vị đã khui của một Nguyên vật liệu có hạn sau khi khui dài (hơn 7 ngày), được theo dõi để biết còn dùng được đến ngày nào. Mỗi lần Ghi dùng thêm một đơn vị (ngày khui = hôm nay); có thể khui sẵn nhiều đơn vị cùng lúc; Người dùng bấm "Hết" khi dùng xong đơn vị đó.
 _Tránh_: đang mở, đã khui
 
 **Hàng đang về**:

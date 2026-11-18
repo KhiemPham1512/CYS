@@ -191,6 +191,20 @@ export type Database = {
         Update: never;
         Relationships: [];
       };
+      in_use: {
+        Row: {
+          id: string;
+          branch_id: string;
+          item_id: string;
+          opened_on: string;
+          ended_at: string | null;
+          created_by: string;
+          created_at: string;
+        };
+        Insert: { branch_id: string; item_id: string };
+        Update: { ended_at?: string | null };
+        Relationships: [];
+      };
       supplier_owed: {
         Row: {
           id: string;
