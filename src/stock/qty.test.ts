@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatQty, parseAdjust, parseQty } from "./qty";
+import { formatQty, formatSheetQty, parseAdjust, parseQty } from "./qty";
 
 describe("parseQty", () => {
   it("đọc các ví dụ hợp lệ trong đặc tả", () => {
@@ -152,5 +152,38 @@ describe("parseAdjust", () => {
       ok: false,
       error: "Số lượng không hợp lệ",
     });
+  });
+});
+
+describe("formatSheetQty (số viết kiểu tờ giấy)", () => {
+  const box = { caseSize: 12, byPercent: false };
+
+  it("thùng + lẻ: 1T+3, tròn thùng: 2T, nhỏ hơn thùng: số thường", () => {
+    expect(formatSheetQty(15, box)).toBe("1T+3");
+    expect(formatSheetQty(24, box)).toBe("2T");
+    expect(formatSheetQty(7, box)).toBe("7");
+  });
+
+  it("món không có Quy cách thùng: số thường, dấu phẩy thập phân", () => {
+    expect(formatSheetQty(40, { caseSize: null, byPercent: false })).toBe("40");
+    expect(formatSheetQty(0.5, { caseSize: null, byPercent: false })).toBe(
+      "0,5"
+    );
+  });
+
+  it("Ghi theo %: phần lẻ viết bằng %", () => {
+    expect(formatSheetQty(2.95, { caseSize: null, byPercent: true })).toBe(
+      "2+95%"
+    );
+    expect(formatSheetQty(0.95, { caseSize: null, byPercent: true })).toBe(
+      "95%"
+    );
+  });
+
+  it("khứ hồi với parseQty", () => {
+    for (const q of [15, 24, 7, 1]) {
+      const r = parseQty(formatSheetQty(q, box), box);
+      expect(r).toEqual({ ok: true, value: q });
+    }
   });
 });

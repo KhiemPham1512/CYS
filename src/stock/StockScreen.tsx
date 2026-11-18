@@ -25,7 +25,7 @@ import { loadOrders, subscribeOrders } from "../orders/api";
 import { incomingByItem, projectedQty } from "../orders/orders";
 import { loadReceivingData, subscribeReceiving } from "../orders/receivingApi";
 import { stockByItem, totalQty, type Lot } from "./ledger";
-import { formatQty, parseAdjust, parseQty } from "./qty";
+import { formatQty, formatSheetQty, parseAdjust, parseQty } from "./qty";
 
 type Props = {
   branchId: string;
@@ -35,42 +35,6 @@ type SectionData = {
   group: Tables<"item_groups">;
   data: Tables<"items">[];
 };
-
-function round4(n: number): number {
-  const rounded = Math.round(n * 10000) / 10000;
-  return rounded === 0 ? 0 : rounded;
-}
-
-function toEditableQty(
-  qty: number,
-  caseSize: number | null,
-  byPercent: boolean
-): string {
-  const q = round4(qty);
-  if (q <= 0) return "0";
-
-  const formatRest = (rest: number): string => {
-    const r = round4(rest);
-    if (byPercent) {
-      const whole = Math.floor(r);
-      const frac = round4(r - whole);
-      if (frac > 0) {
-        const pct = String(round4(frac * 100)).replace(".", ",");
-        return whole > 0 ? `${whole}+${pct}%` : `${pct}%`;
-      }
-      return String(whole);
-    }
-    return String(r).replace(".", ",");
-  };
-
-  if (caseSize !== null && caseSize > 0 && q >= caseSize) {
-    const cases = Math.floor((q + 1e-9) / caseSize);
-    const rest = Math.max(0, round4(q - cases * caseSize));
-    return rest === 0 ? `${cases}T` : `${cases}T+${formatRest(rest)}`;
-  }
-
-  return formatRest(q);
-}
 
 const enteredLabel = (lot: Lot) =>
   lot.enteredOn ? ` (vào kho ${formatDate(lot.enteredOn)})` : "";
@@ -200,7 +164,10 @@ export function StockScreen({ branchId }: Props) {
     setAdjustError(null);
     setMfgQtyInput(
       unallocated
-        ? toEditableQty(unallocated.qty, item.case_size, item.record_by_percent)
+        ? formatSheetQty(unallocated.qty, {
+            caseSize: item.case_size,
+            byPercent: item.record_by_percent,
+          })
         : ""
     );
     setMfgQtyError(null);
@@ -580,11 +547,10 @@ export function StockScreen({ branchId }: Props) {
                               onPress={() => {
                                 setMfgChunk(lot.enteredOn ?? null);
                                 setMfgQtyInput(
-                                  toEditableQty(
-                                    lot.qty,
-                                    selectedItem.case_size,
-                                    selectedItem.record_by_percent
-                                  )
+                                  formatSheetQty(lot.qty, {
+                                    caseSize: selectedItem.case_size,
+                                    byPercent: selectedItem.record_by_percent,
+                                  })
                                 );
                                 setMfgQtyError(null);
                               }}

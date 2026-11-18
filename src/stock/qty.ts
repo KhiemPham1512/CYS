@@ -123,3 +123,31 @@ export function parseAdjust(
     ? { ok: false, error: "Không đủ để trừ" }
     : { ok: true, value };
 }
+
+// Số viết kiểu tờ giấy / ô nhập: "1T+3", "2T", "7", "2+95%". Khứ hồi với parseQty.
+export function formatSheetQty(qty: number, opts: ParseQtyOptions): string {
+  const q = round4(qty);
+  if (q <= 0) return "0";
+
+  const formatRest = (rest: number): string => {
+    const r = round4(rest);
+    if (opts.byPercent) {
+      const whole = Math.floor(r);
+      const frac = round4(r - whole);
+      if (frac > 0) {
+        const pct = formatDecimal(round4(frac * 100));
+        return whole > 0 ? `${whole}+${pct}%` : `${pct}%`;
+      }
+      return String(whole);
+    }
+    return formatDecimal(r);
+  };
+
+  if (opts.caseSize !== null && opts.caseSize > 0 && q >= opts.caseSize) {
+    const cases = Math.floor((q + 1e-9) / opts.caseSize);
+    const rest = Math.max(0, round4(q - cases * opts.caseSize));
+    return rest === 0 ? `${cases}T` : `${cases}T+${formatRest(rest)}`;
+  }
+
+  return formatRest(q);
+}

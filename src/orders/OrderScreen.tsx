@@ -14,9 +14,8 @@ import { ItemQtyModal } from "../components/ItemQtyModal";
 import type { Tables } from "../lib/database.types";
 import { useOnline } from "../lib/useOnline";
 import { loadMovements, subscribeMovements } from "../stock/api";
-import { localDate, stockByItem, totalQty } from "../stock/ledger";
+import { stockByItem, totalQty } from "../stock/ledger";
 import { formatQty, parseQty } from "../stock/qty";
-import { formatDate } from "../stock/date";
 import {
   deleteDraft,
   loadOrders,
@@ -27,6 +26,7 @@ import {
   type OrderRow,
 } from "./api";
 import { incomingByItem, projectedQty } from "./orders";
+import { PlacedOrderSheet } from "./PlacedOrderSheet";
 import { loadReceivingData, subscribeReceiving } from "./receivingApi";
 
 type Props = { branchId: string };
@@ -50,6 +50,7 @@ export function OrderScreen({ branchId }: Props) {
   const busy = useRef(false); // chống bấm đôi trước khi state kịp cập nhật
   const [message, setMessage] = useState<string | null>(null);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   // Chỉ nhận kết quả của lần tải mới nhất; lần tải cũ về sau bị bỏ.
   const latestRequest = useRef(0);
@@ -335,6 +336,16 @@ export function OrderScreen({ branchId }: Props) {
           </Pressable>
         ))}
       </ScrollView>
+      <Pressable
+        style={styles.viewBtn}
+        onPress={() => setSheetOpen(true)}
+        accessibilityRole="button"
+      >
+        <Text style={styles.viewBtnText}>
+          Xem đơn đã đặt
+          {placedOrders.length > 0 ? ` (${placedOrders.length})` : ""}
+        </Text>
+      </Pressable>
       {!online && <Text style={styles.error}>Mất mạng — không lưu được</Text>}
       {message && <Text style={styles.message}>{message}</Text>}
 
@@ -377,24 +388,6 @@ export function OrderScreen({ branchId }: Props) {
         {groupItems.length === 0 && (
           <Text style={styles.meta}>Nhóm này chưa có món.</Text>
         )}
-
-        <Text style={styles.section}>Đơn đã đặt của nhóm này</Text>
-        {placedOrders.length === 0 && <Text style={styles.meta}>Chưa có.</Text>}
-        {placedOrders.map((o) => (
-          <View key={o.id} style={styles.row}>
-            <Text style={styles.name}>
-              Đặt ngày {formatDate(localDate(o.placed_at ?? o.created_at))}
-            </Text>
-            {lines
-              .filter((l) => l.order_id === o.id)
-              .map((l) => (
-                <Text key={l.id} style={styles.meta}>
-                  {itemsById.get(l.item_id)?.name ?? "?"}:{" "}
-                  {fmt(itemsById.get(l.item_id), l.qty)}
-                </Text>
-              ))}
-          </View>
-        ))}
       </ScrollView>
 
       <View style={styles.footer}>
@@ -432,6 +425,14 @@ export function OrderScreen({ branchId }: Props) {
         )}
       </View>
 
+      <PlacedOrderSheet
+        visible={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        groupName={groups.find((g) => g.id === groupId)?.name ?? ""}
+        items={groupItems}
+        placed={placedOrders}
+        lines={lines}
+      />
       <ItemQtyModal
         visible={editingItem !== null}
         title={
@@ -508,6 +509,17 @@ const styles = StyleSheet.create({
   fieldError: { color: "#b91c1c", fontSize: 14 },
   error: { color: "#b91c1c", fontSize: 14, textAlign: "center" },
   message: { color: "#0f766e", fontSize: 14, textAlign: "center", padding: 8 },
+  viewBtn: {
+    marginHorizontal: 12,
+    marginVertical: 6,
+    minHeight: 44,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#0f766e",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  viewBtnText: { color: "#0f766e", fontSize: 15, fontWeight: "600" },
   footer: {
     padding: 16,
     gap: 8,
