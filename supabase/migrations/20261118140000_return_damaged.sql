@@ -21,6 +21,7 @@ create policy "return_damaged only via function" on public.stock_movements
   as restrictive for insert to authenticated
   with check (kind <> 'return_damaged');
 
+-- shortcut: máy chủ không kiểm Lô có đủ số (Lô tính lúc đọc sổ ở app); gọi sai Lô thì Chờ nhà cung cấp tăng mà kho không giảm. Nâng lên kiểm máy chủ khi có nhiều người dùng/ứng dụng khác gọi.
 create function public.return_damaged(
   p_item_id uuid, p_qty numeric, p_mfg date, p_entered_on date
 ) returns void
