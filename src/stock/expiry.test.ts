@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   addDuration,
+  lastDay,
   expiryAlerts,
   inUseExpiry,
   lotExpiry,
@@ -28,6 +29,19 @@ describe("addDuration", () => {
   });
 });
 
+describe("lastDay: hạn tính cả ngày bắt đầu", () => {
+  it("30 ngày từ 18/11 dùng được đến 17/12; từ 18/10 đến 16/11", () => {
+    expect(lastDay("2026-11-18", 30, "day")).toBe("2026-12-17");
+    expect(lastDay("2026-10-18", 30, "day")).toBe("2026-11-16");
+  });
+  it("1 ngày = chính ngày đó", () => {
+    expect(lastDay("2026-11-18", 1, "day")).toBe("2026-11-18");
+  });
+  it("tháng tính theo lịch, giữ nguyên ngày", () => {
+    expect(lastDay("2026-10-15", 6, "month")).toBe("2027-04-15");
+  });
+});
+
 describe("lotExpiry", () => {
   it("Lô có Ngày sản xuất: Ngày sản xuất + Thời hạn sử dụng", () => {
     expect(
@@ -40,16 +54,16 @@ describe("lotExpiry", () => {
         { mfgDate: null, qty: 1, enteredOn: "2026-11-10" },
         item({ shelf_life: 6, shelf_life_from_receipt_days: 7 })
       )
-    ).toBe("2026-11-17");
+    ).toBe("2026-11-16");
   });
   it("có cả hai quy tắc: lấy ngày sớm hơn", () => {
-    // Lô có ngày sản xuất + hạn 6 tháng = 2027-04-15, nhưng vào kho 11-10 + 7 ngày = 11-17 sớm hơn
+    // Lô có ngày sản xuất + hạn 6 tháng = 2027-04-15, nhưng vào kho 11-10 + 7 ngày (tính cả ngày đầu) = 11-16 sớm hơn
     expect(
       lotExpiry(
         { mfgDate: "2026-10-15", qty: 1, enteredOn: "2026-11-10" },
         item({ shelf_life: 6, shelf_life_from_receipt_days: 7 })
       )
-    ).toBe("2026-11-17");
+    ).toBe("2026-11-16");
   });
   it("món chưa có Thời hạn sử dụng: không có hạn", () => {
     expect(lotExpiry({ mfgDate: "2026-10-15", qty: 1 }, item())).toBeNull();
@@ -96,7 +110,7 @@ describe("Đang dùng", () => {
   });
   it("dùng được đến = ngày khui + hạn sau khui", () => {
     expect(inUseExpiry("2026-11-18", item({ shelf_life_after_open: 30 }))).toBe(
-      "2026-12-18"
+      "2026-12-17"
     );
     expect(
       inUseExpiry(

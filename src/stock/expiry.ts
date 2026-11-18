@@ -32,6 +32,18 @@ export function addDuration(
   return d.toISOString().slice(0, 10);
 }
 
+// Ngày cuối còn dùng được: hạn tính cả ngày bắt đầu, nên "30 ngày" từ 18/11 là hết ngày 17/12.
+// Hạn theo tháng giữ nguyên quy tắc lịch (15/10 + 6 tháng = 15/04).
+export function lastDay(
+  iso: string,
+  amount: number,
+  unit: "day" | "month"
+): string {
+  return unit === "day"
+    ? addDuration(iso, amount - 1, "day")
+    : addDuration(iso, amount, "month");
+}
+
 // Hạn của Lô = ngày sớm hơn giữa "Ngày sản xuất + Thời hạn sử dụng" và "ngày vào kho + hạn từ ngày nhập".
 // shortcut: Lô có Ngày sản xuất không biết ngày vào kho (sổ chỉ giữ ngày vào kho cho phần chưa có ngày),
 // nên quy tắc "từ ngày nhập" chỉ áp khi Lô có enteredOn.
@@ -39,11 +51,11 @@ export function lotExpiry(lot: Lot, item: ExpiryItem): string | null {
   const candidates: string[] = [];
   if (lot.mfgDate && item.shelf_life)
     candidates.push(
-      addDuration(lot.mfgDate, item.shelf_life, item.shelf_life_unit)
+      lastDay(lot.mfgDate, item.shelf_life, item.shelf_life_unit)
     );
   if (lot.enteredOn && item.shelf_life_from_receipt_days)
     candidates.push(
-      addDuration(lot.enteredOn, item.shelf_life_from_receipt_days, "day")
+      lastDay(lot.enteredOn, item.shelf_life_from_receipt_days, "day")
     );
   return candidates.sort()[0] ?? null;
 }
@@ -74,7 +86,7 @@ export function tracksInUse(item: ExpiryItem): boolean {
 
 export function inUseExpiry(openedOn: string, item: ExpiryItem): string | null {
   return item.shelf_life_after_open
-    ? addDuration(
+    ? lastDay(
         openedOn,
         item.shelf_life_after_open,
         item.shelf_life_after_open_unit
