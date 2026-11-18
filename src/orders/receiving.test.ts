@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { planReceipt, waitingByItem } from "./receiving";
+import {
+  planGroupReceipt,
+  planGroupSettle,
+  planReceipt,
+  waitingByItem,
+} from "./receiving";
 
 const base = {
   ordered: 10,
@@ -84,5 +89,92 @@ describe("waitingByItem (Chờ nhà cung cấp)", () => {
     ]);
     expect(waiting.has("x")).toBe(false);
     expect(waiting.has("z")).toBe(false);
+  });
+});
+
+describe("planGroupReceipt (một nút Đã nhận hàng cho cả Nhóm)", () => {
+  const line = {
+    key: "l1",
+    name: "Món A",
+    ordered: 10,
+    short: 0,
+    damaged: 0,
+    mfgDate: null,
+    tracksMfg: false,
+  };
+
+  it("mọi món hợp lệ: ra kế hoạch từng dòng, số thiếu quy ra số thực nhận", () => {
+    const r = planGroupReceipt([
+      line,
+      { ...line, key: "l2", name: "Món B", short: 3, damaged: 2 },
+    ]);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.lines[0]).toMatchObject({ key: "l1", received: 10 });
+    expect(r.lines[1]).toMatchObject({ key: "l2", received: 7 });
+    expect(r.lines[1].plan).toMatchObject({ good: 5, short: 3, damaged: 2 });
+  });
+
+  it("món bắt buộc ngày mà chưa có ngày: chặn cả Nhóm, nêu đúng món", () => {
+    const r = planGroupReceipt([
+      line,
+      { ...line, key: "l2", name: "Món theo dõi", tracksMfg: true },
+    ]);
+    expect(r).toEqual({
+      ok: false,
+      errors: [
+        { key: "l2", name: "Món theo dõi", error: "Cần nhập Ngày sản xuất" },
+      ],
+    });
+  });
+
+  it("nhiều dòng sai: liệt kê hết; số thiếu quá số đặt cũng chặn", () => {
+    const r = planGroupReceipt([
+      { ...line, key: "a", name: "A", short: 11 },
+      { ...line, key: "b", name: "B", tracksMfg: true },
+    ]);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.errors.map((e) => e.key)).toEqual(["a", "b"]);
+  });
+});
+
+describe("planGroupSettle (nhận bù cho cả Nhóm trong tab Chờ nhà cung cấp)", () => {
+  const line = {
+    key: "x",
+    name: "Món X",
+    waiting: 5,
+    stillMissing: 5, // mặc định: chưa về, không nhận gì
+    mfgDate: null,
+    tracksMfg: false,
+  };
+
+  it("món chưa chỉnh (còn thiếu = số đang chờ) thì bỏ qua, không nhận nhầm", () => {
+    expect(planGroupSettle([line])).toEqual({ ok: true, lines: [] });
+  });
+
+  it("nhận một phần: số nhận = số chờ − số vẫn còn thiếu", () => {
+    const r = planGroupSettle([{ ...line, stillMissing: 3 }]);
+    expect(r).toEqual({
+      ok: true,
+      lines: [{ key: "x", qty: 2, mfgDate: null }],
+    });
+  });
+
+  it("món bắt buộc ngày mà nhận có số lượng thì thiếu ngày sẽ chặn cả Nhóm", () => {
+    const r = planGroupSettle([
+      { ...line, stillMissing: 0, tracksMfg: true },
+      { ...line, key: "y", name: "Món Y", stillMissing: 2 },
+    ]);
+    expect(r).toEqual({
+      ok: false,
+      errors: [{ key: "x", name: "Món X", error: "Cần nhập Ngày sản xuất" }],
+    });
+  });
+
+  it("món bắt buộc ngày nhưng không nhận gì thì không cần ngày; số không hợp lệ bị chặn", () => {
+    expect(planGroupSettle([{ ...line, tracksMfg: true }]).ok).toBe(true);
+    expect(planGroupSettle([{ ...line, stillMissing: 6 }]).ok).toBe(false);
+    expect(planGroupSettle([{ ...line, stillMissing: -1 }]).ok).toBe(false);
   });
 });

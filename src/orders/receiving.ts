@@ -54,3 +54,68 @@ export function waitingByItem(rows: OwedRow[]): Map<string, number> {
   for (const [item, qty] of net) if (qty <= 0) net.delete(item);
   return net;
 }
+
+export type GroupLineInput = {
+  key: string;
+  name: string;
+  ordered: number;
+  short: number; // số hàng thiếu (chưa về)
+  damaged: number;
+  mfgDate: string | null;
+  tracksMfg: boolean;
+};
+
+export type GroupReceiptPlan =
+  | {
+      ok: true;
+      lines: {
+        key: string;
+        received: number;
+        plan: Extract<ReceiptPlan, { ok: true }>;
+      }[];
+    }
+  | { ok: false; errors: { key: string; name: string; error: string }[] };
+
+// Một nút "Đã nhận hàng" cho cả Nhóm: có dòng nào sai thì chặn cả Nhóm và nêu từng dòng.
+export function planGroupReceipt(inputs: GroupLineInput[]): GroupReceiptPlan {
+  const lines: Extract<GroupReceiptPlan, { ok: true }>["lines"] = [];
+  const errors: { key: string; name: string; error: string }[] = [];
+  for (const i of inputs) {
+    const received = round4(i.ordered - i.short);
+    const plan = planReceipt({ ...i, received });
+    if (plan.ok) lines.push({ key: i.key, received, plan });
+    else errors.push({ key: i.key, name: i.name, error: plan.error });
+  }
+  return errors.length > 0 ? { ok: false, errors } : { ok: true, lines };
+}
+
+export type SettleLineInput = {
+  key: string;
+  name: string;
+  waiting: number; // số đang Chờ nhà cung cấp
+  stillMissing: number; // số vẫn còn thiếu sau lần nhận này (mặc định = waiting: chưa về)
+  mfgDate: string | null;
+  tracksMfg: boolean;
+};
+
+export type GroupSettlePlan =
+  | { ok: true; lines: { key: string; qty: number; mfgDate: string | null }[] }
+  | { ok: false; errors: { key: string; name: string; error: string }[] };
+
+// Nhận bù cả Nhóm: món không đổi số thì bỏ qua; có dòng sai thì chặn cả Nhóm.
+export function planGroupSettle(inputs: SettleLineInput[]): GroupSettlePlan {
+  const lines: Extract<GroupSettlePlan, { ok: true }>["lines"] = [];
+  const errors: { key: string; name: string; error: string }[] = [];
+  for (const i of inputs) {
+    const qty = round4(i.waiting - i.stillMissing);
+    const error =
+      i.stillMissing < 0 || i.stillMissing > i.waiting
+        ? "Số lượng không hợp lệ"
+        : qty > 0 && i.tracksMfg && !i.mfgDate
+          ? "Cần nhập Ngày sản xuất"
+          : null;
+    if (error) errors.push({ key: i.key, name: i.name, error });
+    else if (qty > 0) lines.push({ key: i.key, qty, mfgDate: i.mfgDate });
+  }
+  return errors.length > 0 ? { ok: false, errors } : { ok: true, lines };
+}
