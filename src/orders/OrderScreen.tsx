@@ -6,11 +6,11 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { loadCatalog } from "../catalog/api";
 import { compareItems } from "../catalog/sections";
+import { ItemQtyModal } from "../components/ItemQtyModal";
 import type { Tables } from "../lib/database.types";
 import { useOnline } from "../lib/useOnline";
 import { loadMovements, subscribeMovements } from "../stock/api";
@@ -49,6 +49,7 @@ export function OrderScreen({ branchId }: Props) {
   const [saving, setSaving] = useState(false);
   const busy = useRef(false); // chống bấm đôi trước khi state kịp cập nhật
   const [message, setMessage] = useState<string | null>(null);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
   // Chỉ nhận kết quả của lần tải mới nhất; lần tải cũ về sau bị bỏ.
   const latestRequest = useRef(0);
@@ -138,6 +139,7 @@ export function OrderScreen({ branchId }: Props) {
 
   const parsed = useMemo(() => {
     const errors: Record<string, string> = {};
+    const values: Record<string, number> = {};
     const wanted = new Map<string, number>();
     for (const item of groupItems) {
       const raw = inputs[item.id] ?? "";
@@ -147,9 +149,12 @@ export function OrderScreen({ branchId }: Props) {
         byPercent: item.record_by_percent,
       });
       if (!r.ok) errors[item.id] = r.error;
-      else if (r.value > 0) wanted.set(item.id, r.value);
+      else {
+        values[item.id] = r.value;
+        if (r.value > 0) wanted.set(item.id, r.value);
+      }
     }
-    return { errors, wanted };
+    return { errors, values, wanted };
   }, [inputs, groupItems]);
 
   const fmt = (item: Tables<"items"> | undefined, qty: number) =>
@@ -276,6 +281,29 @@ export function OrderScreen({ branchId }: Props) {
 
   const saveDisabled = !online || saving || hasErrors;
 
+  const editingItem = editingItemId
+    ? (itemsById.get(editingItemId) ?? null)
+    : null;
+  const editingInfo = editingItem
+    ? (() => {
+        const stock = totalQty(lotsByItem.get(editingItem.id) ?? []);
+        const coming = incoming.get(editingItem.id) ?? 0;
+        return [
+          `Tồn kho thực tế: ${fmt(editingItem, stock)}`,
+          `Hàng đang về: ${fmt(editingItem, coming)}`,
+          `Tồn kho dự tính: ${fmt(editingItem, projectedQty(stock, coming))}`,
+        ];
+      })()
+    : [];
+  const editingQty = editingItem ? parsed.values[editingItem.id] : undefined;
+  const editingError = editingItem
+    ? (parsed.errors[editingItem.id] ?? null)
+    : null;
+  const editingPreview =
+    editingItem && editingQty !== undefined && !editingError
+      ? `= ${fmt(editingItem, editingQty)}`
+      : null;
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -290,6 +318,7 @@ export function OrderScreen({ branchId }: Props) {
             style={[styles.chip, g.id === groupId && styles.chipSelected]}
             onPress={() => {
               setGroupId(g.id);
+              setEditingItemId(null);
               setMessage(null);
             }}
             accessibilityRole="button"
@@ -316,8 +345,15 @@ export function OrderScreen({ branchId }: Props) {
         {groupItems.map((item) => {
           const stock = totalQty(lotsByItem.get(item.id) ?? []);
           const coming = incoming.get(item.id) ?? 0;
+          const validQty = parsed.values[item.id];
+          const fieldError = parsed.errors[item.id];
           return (
-            <View key={item.id} style={styles.row}>
+            <Pressable
+              key={item.id}
+              style={styles.row}
+              onPress={() => setEditingItemId(item.id)}
+              accessibilityRole="button"
+            >
               <Text style={styles.name}>
                 {item.name}
                 {item.name_zh ? ` · ${item.name_zh}` : ""}
@@ -327,20 +363,15 @@ export function OrderScreen({ branchId }: Props) {
                 {fmt(item, coming)} · Tồn kho dự tính:{" "}
                 {fmt(item, projectedQty(stock, coming))}
               </Text>
-              <TextInput
-                style={styles.input}
-                placeholder={
-                  item.case_size !== null
-                    ? "Số lượng đặt (vd 1T+3)"
-                    : "Số lượng đặt"
-                }
-                value={inputs[item.id] ?? ""}
-                onChangeText={(t) => setInputs((p) => ({ ...p, [item.id]: t }))}
-              />
-              {parsed.errors[item.id] && (
-                <Text style={styles.error}>{parsed.errors[item.id]}</Text>
+              {validQty !== undefined && (
+                <Text style={styles.summaryText}>
+                  Đặt: {fmt(item, validQty)}
+                </Text>
               )}
-            </View>
+              {fieldError && (
+                <Text style={styles.fieldError}>{fieldError}</Text>
+              )}
+            </Pressable>
           );
         })}
         {groupItems.length === 0 && (
@@ -400,6 +431,37 @@ export function OrderScreen({ branchId }: Props) {
           </Pressable>
         )}
       </View>
+
+      <ItemQtyModal
+        visible={editingItem !== null}
+        title={
+          editingItem
+            ? `${editingItem.name}${editingItem.name_zh ? ` · ${editingItem.name_zh}` : ""}`
+            : ""
+        }
+        info={editingInfo}
+        label="Số lượng đặt"
+        placeholder={editingItem?.case_size !== null ? "vd 1T+3" : "0"}
+        value={editingItem ? (inputs[editingItem.id] ?? "") : ""}
+        error={editingError}
+        preview={editingPreview}
+        onChangeText={(t) => {
+          if (!editingItem) return;
+          setInputs((p) => ({ ...p, [editingItem.id]: t }));
+        }}
+        onDone={() => setEditingItemId(null)}
+        onReset={() => {
+          if (editingItem) {
+            const id = editingItem.id;
+            setInputs((p) => {
+              const next = { ...p };
+              delete next[id];
+              return next;
+            });
+          }
+          setEditingItemId(null);
+        }}
+      />
     </View>
   );
 }
@@ -442,14 +504,8 @@ const styles = StyleSheet.create({
   },
   name: { fontSize: 16, fontWeight: "600", color: "#18181b" },
   meta: { fontSize: 13, color: "#52525b", paddingHorizontal: 16 },
-  input: {
-    borderWidth: 1,
-    borderColor: "#d4d4d8",
-    borderRadius: 8,
-    padding: 10,
-    fontSize: 16,
-    backgroundColor: "#fff",
-  },
+  summaryText: { fontSize: 13, color: "#0f766e", fontWeight: "600" },
+  fieldError: { color: "#b91c1c", fontSize: 14 },
   error: { color: "#b91c1c", fontSize: 14, textAlign: "center" },
   message: { color: "#0f766e", fontSize: 14, textAlign: "center", padding: 8 },
   footer: {
