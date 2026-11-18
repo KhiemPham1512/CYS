@@ -62,6 +62,40 @@ export async function settleOwed(
   return { error: mapRpcError(error) };
 }
 
+export async function receiveLines(
+  lines: {
+    lineId: string;
+    received: number;
+    damaged: number;
+    mfgDate: string | null;
+  }[]
+): Promise<{ done: number; error: string | null }> {
+  let done = 0;
+  for (const line of lines) {
+    const { error } = await receiveLine(
+      line.lineId,
+      line.received,
+      line.damaged,
+      line.mfgDate
+    );
+    if (error) return { done, error };
+    done += 1;
+  }
+  return { done, error: null };
+}
+
+export async function settleLines(
+  lines: { itemId: string; qty: number; mfgDate: string | null }[]
+): Promise<{ done: number; error: string | null }> {
+  let done = 0;
+  for (const line of lines) {
+    const { error } = await settleOwed(line.itemId, line.qty, line.mfgDate);
+    if (error) return { done, error };
+    done += 1;
+  }
+  return { done, error: null };
+}
+
 export function subscribeReceiving(
   branchId: string,
   onChange: () => void

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,7 +14,6 @@ import { loadCatalog } from "../catalog/api";
 import type { Tables } from "../lib/database.types";
 import { useOnline } from "../lib/useOnline";
 import { formatDate, parseShortDate } from "../stock/date";
-import { localDate } from "../stock/ledger";
 import { formatQty, parseQty } from "../stock/qty";
 import {
   loadOrders,
@@ -20,20 +21,42 @@ import {
   type OrderLineRow,
   type OrderRow,
 } from "./api";
-import { planReceipt, waitingByItem, type OwedRow } from "./receiving";
+import { planGroupReceipt, type GroupLineInput } from "./receiving";
 import {
   loadReceivingData,
-  receiveLine,
-  settleOwed,
+  receiveLines,
   subscribeReceiving,
 } from "./receivingApi";
 
 type Props = { branchId: string };
 
-function omitKey<T>(record: Record<string, T>, key: string): Record<string, T> {
+type LinePlan = Extract<
+  ReturnType<typeof planGroupReceipt>,
+  { ok: true }
+>["lines"][number];
+
+function omitKeys<T>(
+  record: Record<string, T>,
+  keys: string[]
+): Record<string, T> {
   const next = { ...record };
-  delete next[key];
+  for (const key of keys) delete next[key];
   return next;
+}
+
+function sameUnitKind(items: (Tables<"items"> | undefined)[]): boolean {
+  if (items.length === 0) return false;
+  const first = items[0];
+  if (!first) return false;
+  const unit = first.unit.trim().toLowerCase();
+  if (!unit) return false;
+  return items.every(
+    (item) =>
+      item !== undefined &&
+      item.unit.trim().toLowerCase() === unit &&
+      item.case_size === first.case_size &&
+      item.record_by_percent === first.record_by_percent
+  );
 }
 
 export function ReceiveScreen({ branchId }: Props) {
@@ -45,33 +68,19 @@ export function ReceiveScreen({ branchId }: Props) {
   const [receivedLineIds, setReceivedLineIds] = useState<Set<string>>(
     () => new Set()
   );
-  const [owed, setOwed] = useState<OwedRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [saving, setSaving] = useState(false);
   const busy = useRef(false); // chống bấm đôi trước khi state kịp cập nhật
   const [message, setMessage] = useState<string | null>(null);
 
-  const [receivedInputs, setReceivedInputs] = useState<Record<string, string>>(
-    {}
-  );
+  const [shortInputs, setShortInputs] = useState<Record<string, string>>({});
   const [damagedInputs, setDamagedInputs] = useState<Record<string, string>>(
     {}
   );
   const [mfgInputs, setMfgInputs] = useState<Record<string, string>>({});
-  const [lineErrors, setLineErrors] = useState<Record<string, string | null>>(
-    {}
-  );
-
-  const [settleQtyInputs, setSettleQtyInputs] = useState<
-    Record<string, string>
-  >({});
-  const [settleMfgInputs, setSettleMfgInputs] = useState<
-    Record<string, string>
-  >({});
-  const [settleErrors, setSettleErrors] = useState<
-    Record<string, string | null>
-  >({});
+  const [groupErrors, setGroupErrors] = useState<Record<string, string[]>>({});
+  const [editingLineId, setEditingLineId] = useState<string | null>(null);
 
   // Chỉ nhận kết quả của lần tải mới nhất; lần tải cũ về sau bị bỏ.
   const latestRequest = useRef(0);
@@ -90,7 +99,6 @@ export function ReceiveScreen({ branchId }: Props) {
       setOrders(ord.orders);
       setLines(ord.lines);
       setReceivedLineIds(rec.receivedLineIds);
-      setOwed(rec.owed);
     } catch {
       if (request === latestRequest.current) setError(true);
     } finally {
@@ -115,36 +123,46 @@ export function ReceiveScreen({ branchId }: Props) {
     };
   }, [branchId, fetchData]);
 
-  const groupsById = useMemo(
-    () => new Map(groups.map((g) => [g.id, g])),
-    [groups]
-  );
   const itemsById = useMemo(
     () => new Map(items.map((i) => [i.id, i])),
     [items]
   );
 
-  const placedOrders = useMemo(() => {
-    return orders
-      .filter((o) => o.placed_at !== null)
-      .sort((a, b) => (b.placed_at ?? "").localeCompare(a.placed_at ?? ""))
-      .map((order) => ({
-        order,
-        unreceivedLines: lines.filter(
-          (l) => l.order_id === order.id && !receivedLineIds.has(l.id)
-        ),
-      }))
-      .filter((entry) => entry.unreceivedLines.length > 0);
-  }, [orders, lines, receivedLineIds]);
+  const linesById = useMemo(
+    () => new Map(lines.map((l) => [l.id, l])),
+    [lines]
+  );
 
-  const waitingList = useMemo(() => {
-    const map = waitingByItem(owed);
-    return [...map.entries()].sort(([aId], [bId]) => {
-      const aName = itemsById.get(aId)?.name ?? "";
-      const bName = itemsById.get(bId)?.name ?? "";
-      return aName.localeCompare(bName, "vi");
-    });
-  }, [owed, itemsById]);
+  const groupedLines = useMemo(() => {
+    const placedGroupByOrder = new Map<string, string>();
+    for (const order of orders) {
+      if (order.placed_at !== null) {
+        placedGroupByOrder.set(order.id, order.group_id);
+      }
+    }
+    const byGroup = new Map<string, OrderLineRow[]>();
+    for (const line of lines) {
+      if (receivedLineIds.has(line.id)) continue;
+      const groupId = placedGroupByOrder.get(line.order_id);
+      if (!groupId) continue;
+      const list = byGroup.get(groupId);
+      if (list) list.push(line);
+      else byGroup.set(groupId, [line]);
+    }
+    return groups
+      .map((group) => ({
+        group,
+        groupLines: byGroup.get(group.id) ?? [],
+      }))
+      .filter((entry) => entry.groupLines.length > 0);
+  }, [groups, orders, lines, receivedLineIds]);
+
+  const editingLine = editingLineId
+    ? (linesById.get(editingLineId) ?? null)
+    : null;
+  const editingItem = editingLine
+    ? itemsById.get(editingLine.item_id)
+    : undefined;
 
   const fmt = (item: Tables<"items"> | undefined, qty: number) =>
     formatQty(qty, {
@@ -152,6 +170,46 @@ export function ReceiveScreen({ branchId }: Props) {
       unit: item?.unit ?? "",
       byPercent: item?.record_by_percent ?? false,
     });
+
+  function formatEditedSummary(
+    line: OrderLineRow,
+    item: Tables<"items"> | undefined
+  ): string | null {
+    const rawShort = (shortInputs[line.id] ?? "").trim();
+    const rawDamaged = (damagedInputs[line.id] ?? "").trim();
+    const rawMfg = (mfgInputs[line.id] ?? "").trim();
+    if (!rawShort && !rawDamaged && !rawMfg) return null;
+
+    const qtyOpts = {
+      caseSize: item?.case_size ?? null,
+      byPercent: item?.record_by_percent ?? false,
+    };
+
+    const shortParsed = rawShort ? parseQty(rawShort, qtyOpts) : null;
+    const shortText = !rawShort
+      ? fmt(item, 0)
+      : shortParsed?.ok
+        ? fmt(item, shortParsed.value)
+        : rawShort;
+
+    const damagedParsed = rawDamaged ? parseQty(rawDamaged, qtyOpts) : null;
+    const damagedText = !rawDamaged
+      ? fmt(item, 0)
+      : damagedParsed?.ok
+        ? fmt(item, damagedParsed.value)
+        : rawDamaged;
+
+    const mfgParsed = rawMfg ? parseShortDate(rawMfg, new Date()) : null;
+    const mfgText = !rawMfg
+      ? null
+      : mfgParsed?.ok
+        ? formatDate(mfgParsed.value)
+        : rawMfg;
+
+    const parts = [`Thiếu ${shortText}`, `Hư ${damagedText}`];
+    if (mfgText) parts.push(`Ngày sản xuất ${mfgText}`);
+    return parts.join(" · ");
+  }
 
   async function runSave(action: () => Promise<void>) {
     if (!online || busy.current) return;
@@ -165,146 +223,140 @@ export function ReceiveScreen({ branchId }: Props) {
     }
   }
 
-  async function handleReceive(
-    line: OrderLineRow,
-    item: Tables<"items"> | undefined,
-    full: boolean
+  async function commitGroupReceive(
+    groupId: string,
+    planLines: LinePlan[],
+    lineItems: (Tables<"items"> | undefined)[]
   ) {
-    if (!online || busy.current) return;
-    setMessage(null);
-    setLineErrors((p) => ({ ...p, [line.id]: null }));
-
-    const qtyOpts = {
-      caseSize: item?.case_size ?? null,
-      byPercent: item?.record_by_percent ?? false,
-    };
-
-    let received = line.qty;
-    if (!full) {
-      const rawRec = (receivedInputs[line.id] ?? "").trim();
-      if (rawRec) {
-        const parsed = parseQty(rawRec, qtyOpts);
-        if (!parsed.ok) {
-          setLineErrors((p) => ({ ...p, [line.id]: parsed.error }));
-          return;
-        }
-        received = parsed.value;
-      }
-    }
-
-    let damaged = 0;
-    if (!full) {
-      const rawDam = (damagedInputs[line.id] ?? "").trim();
-      if (rawDam) {
-        const parsed = parseQty(rawDam, qtyOpts);
-        if (!parsed.ok) {
-          setLineErrors((p) => ({ ...p, [line.id]: parsed.error }));
-          return;
-        }
-        damaged = parsed.value;
-      }
-    }
-
-    let mfgDate: string | null = null;
-    const rawMfg = (mfgInputs[line.id] ?? "").trim();
-    if (rawMfg) {
-      const parsed = parseShortDate(rawMfg, new Date());
-      if (!parsed.ok) {
-        setLineErrors((p) => ({ ...p, [line.id]: parsed.error }));
-        return;
-      }
-      mfgDate = parsed.value;
-    }
-
-    const plan = planReceipt({
-      ordered: line.qty,
-      received,
-      damaged,
-      mfgDate,
-      tracksMfg: item?.track_mfg_date ?? false,
-    });
-    if (!plan.ok) {
-      setLineErrors((p) => ({ ...p, [line.id]: plan.error }));
-      return;
-    }
-
     await runSave(async () => {
-      const { error: err } = await receiveLine(
-        line.id,
-        received,
-        damaged,
-        plan.mfgDate
+      const res = await receiveLines(
+        planLines.map((l) => ({
+          lineId: l.key,
+          received: l.received,
+          damaged: l.plan.damaged,
+          mfgDate: l.plan.mfgDate,
+        }))
       );
-      if (err) {
-        setLineErrors((p) => ({ ...p, [line.id]: err }));
+      if (res.error) {
+        const doneKeys = planLines.slice(0, res.done).map((l) => l.key);
+        if (doneKeys.length > 0) {
+          setShortInputs((p) => omitKeys(p, doneKeys));
+          setDamagedInputs((p) => omitKeys(p, doneKeys));
+          setMfgInputs((p) => omitKeys(p, doneKeys));
+        }
+        setMessage(
+          `Đã nhận ${res.done}/${planLines.length} món. Lỗi: ${res.error}`
+        );
+        await fetchData();
         return;
       }
-      setReceivedInputs((p) => omitKey(p, line.id));
-      setDamagedInputs((p) => omitKey(p, line.id));
-      setMfgInputs((p) => omitKey(p, line.id));
-      setLineErrors((p) => omitKey(p, line.id));
-      setMessage(
-        `Vào kho ${fmt(item, plan.good)} · Thiếu ${fmt(item, plan.short)} · Hư ${fmt(item, plan.damaged)}`
-      );
+
+      const allKeys = planLines.map((l) => l.key);
+      setShortInputs((p) => omitKeys(p, allKeys));
+      setDamagedInputs((p) => omitKeys(p, allKeys));
+      setMfgInputs((p) => omitKeys(p, allKeys));
+      setGroupErrors((p) => omitKeys(p, [groupId]));
+
+      if (sameUnitKind(lineItems)) {
+        const refItem = lineItems[0];
+        const totalGood = planLines.reduce((s, l) => s + l.plan.good, 0);
+        const totalShort = planLines.reduce((s, l) => s + l.plan.short, 0);
+        const totalDamaged = planLines.reduce((s, l) => s + l.plan.damaged, 0);
+        setMessage(
+          `Đã nhận ${planLines.length} món: vào kho ${fmt(refItem, totalGood)} · Thiếu ${fmt(refItem, totalShort)} · Hư ${fmt(refItem, totalDamaged)}`
+        );
+      } else {
+        const shortCount = planLines.filter((l) => l.plan.short > 0).length;
+        const damagedCount = planLines.filter((l) => l.plan.damaged > 0).length;
+        setMessage(
+          `Đã nhận ${planLines.length} món (thiếu ${shortCount} món · hư ${damagedCount} món)`
+        );
+      }
       await fetchData();
     });
   }
 
-  async function handleSettle(itemId: string, waitingQty: number) {
+  function handleGroupReceive(
+    group: Tables<"item_groups">,
+    groupLines: OrderLineRow[]
+  ) {
     if (!online || busy.current) return;
     setMessage(null);
-    setSettleErrors((p) => ({ ...p, [itemId]: null }));
+    setGroupErrors((p) => omitKeys(p, [group.id]));
 
-    const item = itemsById.get(itemId);
-    const qtyOpts = {
-      caseSize: item?.case_size ?? null,
-      byPercent: item?.record_by_percent ?? false,
-    };
+    const today = new Date();
+    const parseErrors: string[] = [];
+    const inputs: GroupLineInput[] = [];
+    const lineItems: (Tables<"items"> | undefined)[] = [];
 
-    const parsedQty = parseQty(settleQtyInputs[itemId] ?? "", qtyOpts);
-    if (!parsedQty.ok) {
-      setSettleErrors((p) => ({ ...p, [itemId]: parsedQty.error }));
-      return;
+    for (const line of groupLines) {
+      const item = itemsById.get(line.item_id);
+      const name = item?.name ?? "?";
+      const qtyOpts = {
+        caseSize: item?.case_size ?? null,
+        byPercent: item?.record_by_percent ?? false,
+      };
+      const lineErrs: string[] = [];
+
+      let short = 0;
+      const rawShort = (shortInputs[line.id] ?? "").trim();
+      if (rawShort) {
+        const parsed = parseQty(rawShort, qtyOpts);
+        if (!parsed.ok) lineErrs.push(`Số hàng thiếu: ${parsed.error}`);
+        else short = parsed.value;
+      }
+
+      let damaged = 0;
+      const rawDamaged = (damagedInputs[line.id] ?? "").trim();
+      if (rawDamaged) {
+        const parsed = parseQty(rawDamaged, qtyOpts);
+        if (!parsed.ok) lineErrs.push(`Hàng hư: ${parsed.error}`);
+        else damaged = parsed.value;
+      }
+
+      let mfgDate: string | null = null;
+      const rawMfg = (mfgInputs[line.id] ?? "").trim();
+      if (rawMfg) {
+        const parsed = parseShortDate(rawMfg, today);
+        if (!parsed.ok) lineErrs.push(`Ngày sản xuất: ${parsed.error}`);
+        else mfgDate = parsed.value;
+      }
+
+      if (lineErrs.length > 0) {
+        parseErrors.push(`${name}: ${lineErrs.join("; ")}`);
+      } else {
+        inputs.push({
+          key: line.id,
+          name,
+          ordered: line.qty,
+          short,
+          damaged,
+          mfgDate,
+          tracksMfg: item?.track_mfg_date ?? false,
+        });
+        lineItems.push(item);
+      }
     }
-    if (parsedQty.value <= 0 || parsedQty.value > waitingQty) {
-      setSettleErrors((p) => ({
+
+    const plan = planGroupReceipt(inputs);
+    if (parseErrors.length > 0 || !plan.ok) {
+      const planErrs = plan.ok
+        ? []
+        : plan.errors.map((e) => `${e.name}: ${e.error}`);
+      setGroupErrors((p) => ({
         ...p,
-        [itemId]: "Số lượng nhận bù không hợp lệ",
+        [group.id]: [...parseErrors, ...planErrs],
       }));
       return;
     }
 
-    let mfgDate: string | null = null;
-    const rawMfg = (settleMfgInputs[itemId] ?? "").trim();
-    if (rawMfg) {
-      const parsedDate = parseShortDate(rawMfg, new Date());
-      if (!parsedDate.ok) {
-        setSettleErrors((p) => ({ ...p, [itemId]: parsedDate.error }));
-        return;
-      }
-      mfgDate = parsedDate.value;
-    } else if (item?.track_mfg_date) {
-      setSettleErrors((p) => ({
-        ...p,
-        [itemId]: "Cần nhập Ngày sản xuất",
-      }));
-      return;
-    }
-
-    await runSave(async () => {
-      const { error: err } = await settleOwed(itemId, parsedQty.value, mfgDate);
-      if (err) {
-        setSettleErrors((p) => ({ ...p, [itemId]: err }));
-        return;
-      }
-      setSettleQtyInputs((p) => omitKey(p, itemId));
-      setSettleMfgInputs((p) => omitKey(p, itemId));
-      setSettleErrors((p) => omitKey(p, itemId));
-      setMessage(
-        `Đã nhận bù ${item?.name ?? ""}: ${fmt(item, parsedQty.value)}`
-      );
-      await fetchData();
-    });
+    Alert.alert(`Nhận ${plan.lines.length} món của ${group.name}?`, undefined, [
+      { text: "Hủy", style: "cancel" },
+      {
+        text: "Đã nhận hàng",
+        onPress: () => void commitGroupReceive(group.id, plan.lines, lineItems),
+      },
+    ]);
   }
 
   if (loading) {
@@ -342,24 +394,24 @@ export function ReceiveScreen({ branchId }: Props) {
 
       <ScrollView keyboardShouldPersistTaps="handled">
         <Text style={styles.section}>Hàng đang về</Text>
-        {placedOrders.length === 0 && (
+        {groupedLines.length === 0 && (
           <Text style={styles.meta}>Không có hàng đang về.</Text>
         )}
-        {placedOrders.map(({ order, unreceivedLines }) => {
-          const groupName = groupsById.get(order.group_id)?.name ?? "?";
-          const placedLabel = formatDate(
-            localDate(order.placed_at ?? order.created_at)
-          );
+        {groupedLines.map(({ group, groupLines }) => {
+          const errs = groupErrors[group.id] ?? [];
           return (
-            <View key={order.id} style={styles.orderBlock}>
-              <Text style={styles.orderHeader}>
-                {groupName} · Đặt ngày {placedLabel}
-              </Text>
-              {unreceivedLines.map((line) => {
+            <View key={group.id} style={styles.groupBlock}>
+              <Text style={styles.groupHeader}>{group.name}</Text>
+              {groupLines.map((line) => {
                 const item = itemsById.get(line.item_id);
-                const lineError = lineErrors[line.id];
+                const summary = formatEditedSummary(line, item);
                 return (
-                  <View key={line.id} style={styles.row}>
+                  <Pressable
+                    key={line.id}
+                    style={styles.row}
+                    onPress={() => setEditingLineId(line.id)}
+                    accessibilityRole="button"
+                  >
                     <Text style={styles.name}>
                       {item?.name ?? "?"}
                       {item?.name_zh ? ` · ${item.name_zh}` : ""}
@@ -367,127 +419,118 @@ export function ReceiveScreen({ branchId }: Props) {
                     <Text style={styles.metaInline}>
                       Đã đặt: {fmt(item, line.qty)}
                     </Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder={`Số thực nhận (mặc định ${fmt(item, line.qty)})`}
-                      value={receivedInputs[line.id] ?? ""}
-                      onChangeText={(t) => {
-                        setReceivedInputs((p) => ({ ...p, [line.id]: t }));
-                        setLineErrors((p) => ({ ...p, [line.id]: null }));
-                      }}
-                    />
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Hàng hư (mặc định 0)"
-                      value={damagedInputs[line.id] ?? ""}
-                      onChangeText={(t) => {
-                        setDamagedInputs((p) => ({ ...p, [line.id]: t }));
-                        setLineErrors((p) => ({ ...p, [line.id]: null }));
-                      }}
-                    />
-                    <TextInput
-                      style={styles.input}
-                      placeholder={
-                        item?.track_mfg_date
-                          ? "Ngày sản xuất (bắt buộc, vd 28)"
-                          : "Ngày sản xuất (vd 28)"
-                      }
-                      value={mfgInputs[line.id] ?? ""}
-                      onChangeText={(t) => {
-                        setMfgInputs((p) => ({ ...p, [line.id]: t }));
-                        setLineErrors((p) => ({ ...p, [line.id]: null }));
-                      }}
-                    />
-                    {lineError && (
-                      <Text style={styles.fieldError}>{lineError}</Text>
+                    {summary && (
+                      <Text style={styles.summaryText}>{summary}</Text>
                     )}
-                    <View style={styles.btnRow}>
-                      <Pressable
-                        style={[
-                          styles.primary,
-                          styles.btnHalf,
-                          actionDisabled && styles.disabled,
-                        ]}
-                        disabled={actionDisabled}
-                        onPress={() => void handleReceive(line, item, true)}
-                        accessibilityRole="button"
-                      >
-                        <Text style={styles.primaryText}>Đã đủ hàng</Text>
-                      </Pressable>
-                      <Pressable
-                        style={[
-                          styles.primary,
-                          styles.place,
-                          styles.btnHalf,
-                          actionDisabled && styles.disabled,
-                        ]}
-                        disabled={actionDisabled}
-                        onPress={() => void handleReceive(line, item, false)}
-                        accessibilityRole="button"
-                      >
-                        <Text style={styles.primaryText}>Lưu nhận hàng</Text>
-                      </Pressable>
-                    </View>
-                  </View>
+                  </Pressable>
                 );
               })}
-            </View>
-          );
-        })}
-
-        <Text style={styles.section}>Chờ nhà cung cấp</Text>
-        {waitingList.length === 0 && (
-          <Text style={styles.meta}>Không có món nào đang chờ.</Text>
-        )}
-        {waitingList.map(([itemId, waitingQty]) => {
-          const item = itemsById.get(itemId);
-          const settleError = settleErrors[itemId];
-          return (
-            <View key={itemId} style={styles.row}>
-              <Text style={styles.name}>
-                {item?.name ?? "?"}
-                {item?.name_zh ? ` · ${item.name_zh}` : ""}
-              </Text>
-              <Text style={styles.metaInline}>
-                Còn chờ: {fmt(item, waitingQty)}
-              </Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Số nhận bù"
-                value={settleQtyInputs[itemId] ?? ""}
-                onChangeText={(t) => {
-                  setSettleQtyInputs((p) => ({ ...p, [itemId]: t }));
-                  setSettleErrors((p) => ({ ...p, [itemId]: null }));
-                }}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder={
-                  item?.track_mfg_date
-                    ? "Ngày sản xuất (bắt buộc, vd 28)"
-                    : "Ngày sản xuất (vd 28)"
-                }
-                value={settleMfgInputs[itemId] ?? ""}
-                onChangeText={(t) => {
-                  setSettleMfgInputs((p) => ({ ...p, [itemId]: t }));
-                  setSettleErrors((p) => ({ ...p, [itemId]: null }));
-                }}
-              />
-              {settleError && (
-                <Text style={styles.fieldError}>{settleError}</Text>
+              {errs.length > 0 && (
+                <View style={styles.errorBox}>
+                  {errs.map((err, idx) => (
+                    <Text key={idx} style={styles.fieldError}>
+                      {err}
+                    </Text>
+                  ))}
+                </View>
               )}
-              <Pressable
-                style={[styles.primary, actionDisabled && styles.disabled]}
-                disabled={actionDisabled}
-                onPress={() => void handleSettle(itemId, waitingQty)}
-                accessibilityRole="button"
-              >
-                <Text style={styles.primaryText}>Đã nhận bù</Text>
-              </Pressable>
+              <View style={styles.groupFooter}>
+                <Pressable
+                  style={[styles.primary, actionDisabled && styles.disabled]}
+                  disabled={actionDisabled}
+                  onPress={() => handleGroupReceive(group, groupLines)}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.primaryText}>Đã nhận hàng</Text>
+                </Pressable>
+              </View>
             </View>
           );
         })}
       </ScrollView>
+
+      <Modal
+        visible={editingLine !== null}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setEditingLineId(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <ScrollView keyboardShouldPersistTaps="handled">
+              {editingLine && (
+                <View style={styles.modalContent}>
+                  <Text style={styles.modalTitle}>
+                    {editingItem?.name ?? "?"}
+                    {editingItem?.name_zh ? ` · ${editingItem.name_zh}` : ""}
+                  </Text>
+                  <Text style={styles.metaInline}>
+                    Đã đặt: {fmt(editingItem, editingLine.qty)}
+                  </Text>
+
+                  <Text style={styles.label}>Số hàng thiếu</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="0"
+                    value={shortInputs[editingLine.id] ?? ""}
+                    onChangeText={(t) =>
+                      setShortInputs((p) => ({ ...p, [editingLine.id]: t }))
+                    }
+                  />
+
+                  <Text style={styles.label}>Hàng hư</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="0"
+                    value={damagedInputs[editingLine.id] ?? ""}
+                    onChangeText={(t) =>
+                      setDamagedInputs((p) => ({ ...p, [editingLine.id]: t }))
+                    }
+                  />
+
+                  <Text style={styles.label}>
+                    {editingItem?.track_mfg_date
+                      ? "Ngày sản xuất (bắt buộc)"
+                      : "Ngày sản xuất"}
+                  </Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder={
+                      editingItem?.track_mfg_date ? "bắt buộc, vd 28" : "vd 28"
+                    }
+                    value={mfgInputs[editingLine.id] ?? ""}
+                    onChangeText={(t) =>
+                      setMfgInputs((p) => ({ ...p, [editingLine.id]: t }))
+                    }
+                  />
+
+                  <View style={styles.btnRow}>
+                    <Pressable
+                      style={[styles.secondary, styles.btnHalf]}
+                      onPress={() => {
+                        const id = editingLine.id;
+                        setShortInputs((p) => omitKeys(p, [id]));
+                        setDamagedInputs((p) => omitKeys(p, [id]));
+                        setMfgInputs((p) => omitKeys(p, [id]));
+                      }}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.secondaryText}>Đặt lại</Text>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.primary, styles.btnHalf]}
+                      onPress={() => setEditingLineId(null)}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.primaryText}>Xong</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -508,18 +551,21 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: "#f4f4f5",
   },
-  orderBlock: {
+  groupBlock: {
     borderBottomWidth: 1,
     borderBottomColor: "#e4e4e7",
+    backgroundColor: "#fff",
   },
-  orderHeader: {
-    fontSize: 14,
+  groupHeader: {
+    fontSize: 15,
     fontWeight: "700",
     color: "#18181b",
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 4,
-    backgroundColor: "#fff",
+    paddingTop: 14,
+    paddingBottom: 6,
+    backgroundColor: "#fafafa",
+    borderBottomWidth: 1,
+    borderBottomColor: "#f4f4f5",
   },
   row: {
     paddingHorizontal: 16,
@@ -527,11 +573,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#f4f4f5",
     backgroundColor: "#fff",
-    gap: 6,
+    gap: 4,
   },
   name: { fontSize: 16, fontWeight: "600", color: "#18181b" },
   meta: { fontSize: 13, color: "#52525b", padding: 16 },
   metaInline: { fontSize: 13, color: "#52525b" },
+  summaryText: { fontSize: 13, color: "#0f766e", fontWeight: "600" },
+  errorBox: { paddingHorizontal: 16, paddingTop: 10, gap: 4 },
+  groupFooter: { padding: 16 },
   input: {
     borderWidth: 1,
     borderColor: "#d4d4d8",
@@ -540,7 +589,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     backgroundColor: "#fff",
   },
-  btnRow: { flexDirection: "row", gap: 8, marginTop: 4 },
+  label: { fontSize: 14, fontWeight: "600", color: "#27272a", marginTop: 4 },
+  btnRow: { flexDirection: "row", gap: 8, marginTop: 12 },
   btnHalf: { flex: 1 },
   error: { color: "#b91c1c", fontSize: 14, textAlign: "center", padding: 8 },
   fieldError: { color: "#b91c1c", fontSize: 14 },
@@ -553,7 +603,31 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     minHeight: 44,
   },
-  place: { backgroundColor: "#b45309" },
+  secondary: {
+    borderWidth: 1,
+    borderColor: "#d4d4d8",
+    borderRadius: 8,
+    padding: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 44,
+    backgroundColor: "#fff",
+  },
   disabled: { opacity: 0.5 },
   primaryText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  secondaryText: { color: "#18181b", fontSize: 16, fontWeight: "600" },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    justifyContent: "center",
+    padding: 16,
+  },
+  modalCard: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    maxHeight: "85%",
+    padding: 16,
+  },
+  modalContent: { gap: 8 },
+  modalTitle: { fontSize: 18, fontWeight: "700", color: "#18181b" },
 });
