@@ -167,6 +167,7 @@ export function CountScreen({ branchId, onDone }: Props) {
 
     try {
       const fresh = await loadMovements(branchId);
+      setMovements(fresh); // nhãn Chưa kiểm cập nhật ngay sau khi lưu
       setDiffs(countDiffs(fresh, batchId));
     } catch {
       // Đã lưu nhưng tải lại lỗi: tính lệch từ chính các dòng vừa lưu, không báo "không lệch" sai.

@@ -179,16 +179,18 @@ export function stockByItem(movements: Movement[]): Map<string, Lot[]> {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const RESET_HOUR_MS = 7 * 60 * 60 * 1000; // 7h sáng
 
 // Mốc reset nhãn "Chưa kiểm": 7h sáng giờ Việt Nam gần nhất (= 00:00 UTC), trả về ISO UTC.
 export function checkResetAt(nowIso: string): string {
   const vn = Date.parse(nowIso) + VN_OFFSET_MS;
   const vnDay = vn - (((vn % DAY_MS) + DAY_MS) % DAY_MS); // 00:00 giờ VN của ngày đó, tính bằng ms
-  const sevenVn = vnDay + 7 * 60 * 60 * 1000;
+  const sevenVn = vnDay + RESET_HOUR_MS;
   const boundaryVn = vn >= sevenVn ? sevenVn : sevenVn - DAY_MS;
   return new Date(boundaryVn - VN_OFFSET_MS).toISOString();
 }
 
+// shortcut: múi giờ UTC+7 cố định; dựa vào sổ đã tải (nếu sau này tải theo khoảng ngày thì Kiểm kho cũ có thể hiện sai là Chưa kiểm).
 // Các món đã Kiểm kho (count) kể từ mốc reset 7h sáng. Ghi dùng/Điều chỉnh/Nhận hàng không đổi nhãn;
 // các món còn lại là "Chưa kiểm".
 export function checkedSince(
