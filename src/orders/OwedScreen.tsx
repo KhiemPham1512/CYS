@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { loadCatalog } from "../catalog/api";
+import { compareGroups, compareItems } from "../catalog/sections";
 import type { Tables } from "../lib/database.types";
 import { useOnline } from "../lib/useOnline";
 import { formatDate, parseShortDate } from "../stock/date";
@@ -66,7 +67,7 @@ export function OwedScreen({ branchId }: Props) {
         loadReceivingData(branchId),
       ]);
       if (request !== latestRequest.current) return;
-      setGroups(catalog.groups);
+      setGroups([...catalog.groups].sort(compareGroups));
       setItems(catalog.items);
       setOwed(rec.owed);
     } catch {
@@ -114,7 +115,7 @@ export function OwedScreen({ branchId }: Props) {
       .map((group) => ({
         group,
         entries: (byGroup.get(group.id) ?? []).sort((a, b) =>
-          a.item.name.localeCompare(b.item.name, "vi")
+          compareItems(a.item, b.item)
         ),
       }))
       .filter((entry) => entry.entries.length > 0);
@@ -356,7 +357,7 @@ export function OwedScreen({ branchId }: Props) {
                   onPress={() => void handleGroupSettle(group, entries)}
                   accessibilityRole="button"
                 >
-                  <Text style={styles.primaryText}>Đã nhận hàng</Text>
+                  <Text style={styles.primaryText}>Nhận bù</Text>
                 </Pressable>
               </View>
             </View>

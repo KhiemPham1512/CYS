@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { loadCatalog } from "../catalog/api";
 import { buildSections } from "../catalog/sections";
+import { ItemQtyModal } from "../components/ItemQtyModal";
 import type { Tables } from "../lib/database.types";
 import { useOnline } from "../lib/useOnline";
 import { loadMovements, saveCount } from "./api";
@@ -41,6 +42,7 @@ export function CountScreen({ branchId, onDone }: Props) {
   const savingRef = useRef(false); // chống bấm đôi trước khi state kịp cập nhật
   const [saveError, setSaveError] = useState<string | null>(null);
   const [diffs, setDiffs] = useState<CountDiff[] | null>(null);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setError(false);
@@ -85,6 +87,7 @@ export function CountScreen({ branchId, onDone }: Props) {
 
   const validation = useMemo(() => {
     const errors: Record<string, string> = {};
+    const parsedValues: Record<string, number> = {};
     const rows: { item_id: string; qty: number; expected_qty: number }[] = [];
 
     for (const item of items) {
@@ -98,6 +101,7 @@ export function CountScreen({ branchId, onDone }: Props) {
       if (!parsed.ok) {
         errors[item.id] = parsed.error;
       } else {
+        parsedValues[item.id] = parsed.value;
         const lots = lotsByItem.get(item.id);
         const expected = lots ? totalQty(lots) : 0;
         rows.push({
@@ -110,6 +114,7 @@ export function CountScreen({ branchId, onDone }: Props) {
 
     return {
       errors,
+      parsedValues,
       rows,
       hasError: Object.keys(errors).length > 0,
     };
@@ -254,6 +259,24 @@ export function CountScreen({ branchId, onDone }: Props) {
   const saveDisabled =
     !online || saving || validation.rows.length === 0 || validation.hasError;
 
+  const editingItem = editingItemId
+    ? (itemsById.get(editingItemId) ?? null)
+    : null;
+  const editingQty = editingItem
+    ? validation.parsedValues[editingItem.id]
+    : undefined;
+  const editingError = editingItem
+    ? (validation.errors[editingItem.id] ?? null)
+    : null;
+  const editingPreview =
+    editingItem && editingQty !== undefined && !editingError
+      ? `= ${formatQty(editingQty, {
+          caseSize: editingItem.case_size,
+          unit: editingItem.unit,
+          byPercent: editingItem.record_by_percent,
+        })}`
+      : null;
+
   return (
     <View style={styles.container}>
       <View style={styles.toolbar}>
@@ -292,10 +315,14 @@ export function CountScreen({ branchId, onDone }: Props) {
           </View>
         )}
         renderItem={({ item }) => {
-          const val = inputs[item.id] ?? "";
+          const parsedQty = validation.parsedValues[item.id];
           const fieldError = validation.errors[item.id];
           return (
-            <View style={styles.itemRow}>
+            <Pressable
+              style={styles.itemRow}
+              onPress={() => setEditingItemId(item.id)}
+              accessibilityRole="button"
+            >
               <Text style={styles.itemName}>
                 {item.name}
                 {item.name_zh ? ` · ${item.name_zh}` : ""}
@@ -307,18 +334,20 @@ export function CountScreen({ branchId, onDone }: Props) {
                   : ""}
                 {item.record_by_percent ? " · Ghi theo %" : ""}
               </Text>
-              <TextInput
-                style={styles.qtyInput}
-                placeholder="bỏ trống nếu không đếm"
-                value={val}
-                onChangeText={(text) =>
-                  setInputs((prev) => ({ ...prev, [item.id]: text }))
-                }
-              />
+              {parsedQty !== undefined && (
+                <Text style={styles.summaryText}>
+                  Đã đếm:{" "}
+                  {formatQty(parsedQty, {
+                    caseSize: item.case_size,
+                    unit: item.unit,
+                    byPercent: item.record_by_percent,
+                  })}
+                </Text>
+              )}
               {fieldError && (
                 <Text style={styles.fieldError}>{fieldError}</Text>
               )}
-            </View>
+            </Pressable>
           );
         }}
         ListEmptyComponent={
@@ -340,6 +369,41 @@ export function CountScreen({ branchId, onDone }: Props) {
           </Text>
         </Pressable>
       </View>
+
+      <ItemQtyModal
+        visible={editingItem !== null}
+        title={
+          editingItem
+            ? `${editingItem.name}${editingItem.name_zh ? ` · ${editingItem.name_zh}` : ""}`
+            : ""
+        }
+        info={editingItem ? [`Đơn vị tính: ${editingItem.unit}`] : []}
+        label="Số đếm được"
+        placeholder={
+          editingItem?.case_size !== null
+            ? "gõ được 1T+3"
+            : "bỏ trống nếu không đếm"
+        }
+        value={editingItem ? (inputs[editingItem.id] ?? "") : ""}
+        error={editingError}
+        preview={editingPreview}
+        onChangeText={(text) => {
+          if (!editingItem) return;
+          setInputs((prev) => ({ ...prev, [editingItem.id]: text }));
+        }}
+        onDone={() => setEditingItemId(null)}
+        onReset={() => {
+          if (editingItem) {
+            const id = editingItem.id;
+            setInputs((prev) => {
+              const next = { ...prev };
+              delete next[id];
+              return next;
+            });
+          }
+          setEditingItemId(null);
+        }}
+      />
     </View>
   );
 }
@@ -389,14 +453,7 @@ const styles = StyleSheet.create({
   },
   itemName: { fontSize: 16, fontWeight: "600", color: "#18181b" },
   itemMeta: { fontSize: 13, color: "#52525b" },
-  qtyInput: {
-    borderWidth: 1,
-    borderColor: "#d4d4d8",
-    borderRadius: 8,
-    padding: 10,
-    fontSize: 16,
-    backgroundColor: "#fff",
-  },
+  summaryText: { fontSize: 13, color: "#0f766e", fontWeight: "600" },
   fieldError: { color: "#b91c1c", fontSize: 14 },
   footer: {
     padding: 16,
