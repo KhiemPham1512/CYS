@@ -396,3 +396,37 @@ describe("Ghi dùng", () => {
     expect(totalQty(lots)).toBe(6);
   });
 });
+
+describe("Nhận hàng (kind receive)", () => {
+  it("nhận kèm Ngày sản xuất: thành Lô đúng ngày, cạnh Lô đã có", () => {
+    const lots = stockLots([
+      mv({ seq: 1, kind: "count", qty: 4 }),
+      mv({ seq: 2, kind: "receive", qty: 10, mfg_date: "2026-11-10" }),
+    ]);
+    expect(lots).toEqual([
+      { mfgDate: "2026-11-10", qty: 10 },
+      { mfgDate: null, qty: 4, enteredOn: "2026-11-17" },
+    ]);
+  });
+
+  it("nhận không kèm ngày (món không theo dõi): vào phần chưa có ngày theo ngày vào kho", () => {
+    const lots = stockLots([
+      mv({
+        seq: 1,
+        kind: "receive",
+        qty: 6,
+        created_at: "2026-11-18T03:00:00Z",
+      }),
+    ]);
+    expect(lots).toEqual([{ mfgDate: null, qty: 6, enteredOn: "2026-11-18" }]);
+  });
+
+  it("Ghi dùng sau khi nhận trừ Lô Ngày sản xuất sớm nhất trước", () => {
+    const lots = stockLots([
+      mv({ seq: 1, kind: "receive", qty: 5, mfg_date: "2026-11-12" }),
+      mv({ seq: 2, kind: "receive", qty: 5, mfg_date: "2026-11-05" }),
+      mv({ seq: 3, kind: "use", qty: 7 }),
+    ]);
+    expect(lots).toEqual([{ mfgDate: "2026-11-12", qty: 3 }]);
+  });
+});

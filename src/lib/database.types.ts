@@ -255,6 +255,7 @@ export type Tables<T extends keyof PublicTables> = PublicTables[T]["Row"];
 export type TablesInsert<T extends keyof PublicTables> =
   PublicTables[T]["Insert"];
 export type ShelfLifeUnit = "day" | "month";
-export type MovementKind = "count" | "adjust" | "assign_mfg" | "use" | "void";
+export type MovementKind =
+  "count" | "adjust" | "assign_mfg" | "use" | "void" | "receive";
 export type TablesUpdate<T extends keyof PublicTables> =
   PublicTables[T]["Update"];
