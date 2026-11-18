@@ -21,6 +21,7 @@ import {
   voidUse,
 } from "./api";
 import {
+  lastUseToday,
   localTime,
   stockByItem,
   todaysUses,
@@ -118,6 +119,9 @@ export function UseScreen({ branchId, userId }: Props) {
     return { errors, rows };
   }, [inputs, items]);
 
+  const canGiveBack = (item: Tables<"items">) =>
+    lastUseToday(movements, new Date().toISOString(), userId, item.id) !== null;
+
   const fmt = (item: Tables<"items"> | undefined, qty: number) =>
     formatQty(qty, {
       caseSize: item?.case_size ?? null,
@@ -125,13 +129,35 @@ export function UseScreen({ branchId, userId }: Props) {
       byPercent: item?.record_by_percent ?? false,
     });
 
-  function step(item: Tables<"items">, delta: number) {
-    const r = parseQty(inputs[item.id] ?? "", {
-      caseSize: item.case_size,
-      byPercent: item.record_by_percent,
-    });
-    const next = Math.max(0, round4((r.ok ? r.value : 0) + delta));
-    setInputs((p) => ({ ...p, [item.id]: next ? String(next) : "" }));
+  // Nút −: trừ 1 và lưu ngay. Nút +: trả lại 1 từ lần trừ gần nhất của chính mình hôm nay
+  // (qty > 1 thì sửa còn qty − 1, qty = 1 thì hủy). shortcut: bước cố định 1 đơn vị, số lớn gõ ở ô bên dưới.
+  async function quickUse(item: Tables<"items">) {
+    if (!online || busy.current) return;
+    busy.current = true;
+    const { error: err } = await saveUses(branchId, [
+      { item_id: item.id, qty: 1 },
+    ]);
+    setSaveError(err);
+    if (!err) await fetchData();
+    busy.current = false;
+  }
+
+  async function giveBack(item: Tables<"items">) {
+    const last = lastUseToday(
+      movements,
+      new Date().toISOString(),
+      userId,
+      item.id
+    );
+    if (!last || !online || busy.current) return;
+    busy.current = true;
+    const { error: err } =
+      last.qty <= 1
+        ? await voidUse(branchId, last)
+        : await editUse(branchId, last, round4(last.qty - 1));
+    setSaveError(err);
+    if (!err) await fetchData();
+    busy.current = false;
   }
 
   async function handleSave() {
@@ -224,36 +250,42 @@ export function UseScreen({ branchId, userId }: Props) {
                 {item.name}
                 {item.name_zh ? ` · ${item.name_zh}` : ""}
               </Text>
-              <Text style={styles.meta}>
-                Tồn kho: {fmt(item, stock)}
-                {item.case_size !== null ? " · gõ được 1T+3" : ""}
-              </Text>
               <View style={styles.stepper}>
                 <Pressable
-                  style={styles.stepBtn}
-                  onPress={() => step(item, -1)}
+                  style={[styles.stepBtn, stock <= 0 && styles.disabled]}
+                  disabled={stock <= 0 || !online}
+                  onPress={() => void quickUse(item)}
                   accessibilityRole="button"
-                  accessibilityLabel={`Giảm ${item.name}`}
+                  accessibilityLabel={`Trừ 1 ${item.name}`}
                 >
                   <Text style={styles.stepText}>−</Text>
                 </Pressable>
-                <TextInput
-                  style={[styles.input, styles.qtyInput]}
-                  placeholder="0"
-                  value={inputs[item.id] ?? ""}
-                  onChangeText={(t) =>
-                    setInputs((p) => ({ ...p, [item.id]: t }))
-                  }
-                />
+                <Text style={styles.stockText}>
+                  Tồn kho: {fmt(item, stock)}
+                </Text>
                 <Pressable
-                  style={styles.stepBtn}
-                  onPress={() => step(item, 1)}
+                  style={[
+                    styles.stepBtn,
+                    !canGiveBack(item) && styles.disabled,
+                  ]}
+                  disabled={!canGiveBack(item) || !online}
+                  onPress={() => void giveBack(item)}
                   accessibilityRole="button"
-                  accessibilityLabel={`Tăng ${item.name}`}
+                  accessibilityLabel={`Trả lại 1 ${item.name}`}
                 >
                   <Text style={styles.stepText}>+</Text>
                 </Pressable>
               </View>
+              <TextInput
+                style={styles.input}
+                placeholder={
+                  item.case_size !== null
+                    ? "Gõ số lớn rồi Lưu (vd 1T+3)"
+                    : "Gõ số lớn rồi Lưu"
+                }
+                value={inputs[item.id] ?? ""}
+                onChangeText={(t) => setInputs((p) => ({ ...p, [item.id]: t }))}
+              />
               {parsed.errors[item.id] && (
                 <Text style={styles.error}>{parsed.errors[item.id]}</Text>
               )}
@@ -375,7 +407,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   stepText: { fontSize: 24, fontWeight: "700", color: "#0f766e" },
-  qtyInput: { flex: 1, textAlign: "center" },
+  stockText: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#18181b",
+  },
   warn: { color: "#b45309", fontSize: 14 },
   error: { color: "#b91c1c", fontSize: 14, textAlign: "center" },
   section: {

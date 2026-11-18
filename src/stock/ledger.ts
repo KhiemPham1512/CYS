@@ -83,6 +83,19 @@ export function todaysUses(movements: Movement[], nowIso: string): Movement[] {
     .sort((a, b) => a.seq - b.seq);
 }
 
+// Lần Ghi dùng hôm nay mới nhất của người dùng cho một món (để nút + trả lại 1).
+export function lastUseToday(
+  movements: Movement[],
+  nowIso: string,
+  userId: string,
+  itemId: string
+): Movement | null {
+  const mine = todaysUses(movements, nowIso).filter(
+    (m) => m.created_by === userId && m.item_id === itemId
+  );
+  return mine[mine.length - 1] ?? null;
+}
+
 // Số lần người dùng đã Ghi dùng từng món, để món hay dùng lên đầu.
 export function usageCounts(
   movements: Movement[],
