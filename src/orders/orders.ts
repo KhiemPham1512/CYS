@@ -28,3 +28,22 @@ export function incomingByItem(
 // Tồn kho dự tính = Tồn kho thực tế + Hàng đang về.
 export const projectedQty = (actual: number, incoming: number): number =>
   round4(actual + incoming);
+
+// Bảng "đơn đã đặt" của một Nhóm, gộp thành một: cộng số lượng các dòng đã đặt mà chưa nhận hàng
+// (đặt thêm lần nữa thì cộng dồn). Nhận hết rồi thì hiện lại đơn gần nhất để bảng không trống.
+// `orders` là các đơn đã đặt của Nhóm đó. `placedAt` là giờ đặt của đơn mới nhất.
+export function sheetQtyByItem(
+  orders: Order[],
+  lines: OrderLine[],
+  receivedLineIds: Set<string>
+): { qty: Map<string, number>; placedAt: string | null } {
+  const placed = orders.filter((o) => !isEditable(o));
+  const latest = [...placed].sort((a, b) =>
+    (b.placed_at ?? "").localeCompare(a.placed_at ?? "")
+  )[0];
+  if (!latest) return { qty: new Map(), placedAt: null };
+  const pending = incomingByItem(placed, lines, receivedLineIds);
+  const qty =
+    pending.size > 0 ? pending : incomingByItem([latest], lines, new Set());
+  return { qty, placedAt: latest.placed_at };
+}
