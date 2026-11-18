@@ -40,6 +40,10 @@ _Tránh_: HSD, shelf life
 Phần Tồn kho thực tế của một Nguyên vật liệu có cùng Ngày sản xuất (phần chưa có Ngày sản xuất tách theo ngày vào kho để Thêm Ngày sản xuất cho đúng đợt); Tồn kho thực tế là tổng các Lô. Ghi dùng trừ Lô có Ngày sản xuất sớm nhất trước.
 _Tránh_: batch, mẻ
 
+**Chưa kiểm**:
+Nhãn trên một Nguyên vật liệu chưa được Kiểm kho kể từ 7h sáng giờ Việt Nam gần nhất. Ghi dùng không bỏ nhãn; chỉ Kiểm kho (lưu số đếm) mới bỏ, đến 7h sáng hôm sau nhãn hiện lại. Nhãn giúp người kiểm kho đối chiếu thủ công, không thay thế Kiểm kho.
+_Tránh_: chưa đếm
+
 **Đang dùng**:
 Đơn vị đã khui của một Nguyên vật liệu có hạn sau khi khui dài (hơn 7 ngày), được theo dõi để biết còn dùng được đến ngày nào. Mỗi lần Ghi dùng thêm một đơn vị (ngày khui = hôm nay); có thể khui sẵn nhiều đơn vị cùng lúc; Người dùng bấm "Hết" khi dùng xong đơn vị đó.
 _Tránh_: đang mở, đã khui

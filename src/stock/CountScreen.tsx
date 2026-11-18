@@ -13,9 +13,16 @@ import { loadCatalog } from "../catalog/api";
 import { buildSections } from "../catalog/sections";
 import { ItemQtyModal } from "../components/ItemQtyModal";
 import type { Tables } from "../lib/database.types";
+import { useNow } from "../lib/useNow";
 import { useOnline } from "../lib/useOnline";
 import { loadMovements, saveCount } from "./api";
-import { countDiffs, stockByItem, totalQty, type CountDiff } from "./ledger";
+import {
+  checkedSince,
+  countDiffs,
+  stockByItem,
+  totalQty,
+  type CountDiff,
+} from "./ledger";
 import { formatQty, parseQty, round4 } from "./qty";
 
 type Props = {
@@ -67,6 +74,8 @@ export function CountScreen({ branchId, onDone }: Props) {
   }, [fetchData]);
 
   const lotsByItem = useMemo(() => stockByItem(movements), [movements]);
+  const now = useNow();
+  const checked = useMemo(() => checkedSince(movements, now), [movements, now]);
 
   const itemsById = useMemo(() => {
     const map = new Map<string, Tables<"items">>();
@@ -158,6 +167,7 @@ export function CountScreen({ branchId, onDone }: Props) {
 
     try {
       const fresh = await loadMovements(branchId);
+      setMovements(fresh); // nhãn Chưa kiểm cập nhật ngay sau khi lưu
       setDiffs(countDiffs(fresh, batchId));
     } catch {
       // Đã lưu nhưng tải lại lỗi: tính lệch từ chính các dòng vừa lưu, không báo "không lệch" sai.
@@ -327,6 +337,9 @@ export function CountScreen({ branchId, onDone }: Props) {
                 {item.name}
                 {item.name_zh ? ` · ${item.name_zh}` : ""}
               </Text>
+              {!checked.has(item.id) && (
+                <Text style={styles.uncheckedTag}>Chưa kiểm</Text>
+              )}
               <Text style={styles.itemMeta}>
                 Đơn vị tính: {item.unit}
                 {item.case_size !== null
@@ -451,6 +464,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     gap: 6,
   },
+  uncheckedTag: { fontSize: 12, fontWeight: "700", color: "#b45309" },
   itemName: { fontSize: 16, fontWeight: "600", color: "#18181b" },
   itemMeta: { fontSize: 13, color: "#52525b" },
   summaryText: { fontSize: 13, color: "#0f766e", fontWeight: "600" },
