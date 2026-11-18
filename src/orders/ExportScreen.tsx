@@ -96,6 +96,13 @@ export function ExportScreen({ branchId, branchName }: Props) {
       .catch(() => undefined);
   }, [fetchData]);
 
+  // Thông báo tự tắt sau vài giây.
+  useEffect(() => {
+    if (!message) return;
+    const t = setTimeout(() => setMessage(null), 4000);
+    return () => clearTimeout(t);
+  }, [message]);
+
   const lotsByItem = useMemo(() => stockByItem(movements), [movements]);
   const incoming = useMemo(
     () => incomingByItem(orders, lines, received),
@@ -228,7 +235,10 @@ export function ExportScreen({ branchId, branchName }: Props) {
           <Pressable
             key={k}
             style={[styles.kind, kind === k && styles.kindOn]}
-            onPress={() => setKind(k)}
+            onPress={() => {
+              setKind(k);
+              setMessage(null);
+            }}
             accessibilityRole="button"
           >
             <Text style={[styles.kindText, kind === k && styles.kindTextOn]}>
