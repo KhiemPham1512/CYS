@@ -13,6 +13,8 @@ import { supabase } from "./src/lib/supabase";
 import { useOnline } from "./src/lib/useOnline";
 import { useLockWatch } from "./src/lib/useLockWatch";
 import { CatalogScreen } from "./src/catalog/CatalogScreen";
+import { CountScreen } from "./src/stock/CountScreen";
+import { StockScreen } from "./src/stock/StockScreen";
 import { UsersScreen } from "./src/users/UsersScreen";
 
 const LOCKED_MESSAGE = "Người dùng này đã bị khóa. Liên hệ Quản trị.";
@@ -125,6 +127,15 @@ function LoginScreen({
   );
 }
 
+type HomeView = "stock" | "count" | "catalog" | "users";
+
+const NAV_TABS: { key: HomeView; label: string; adminOnly?: boolean }[] = [
+  { key: "stock", label: "Tồn kho" },
+  { key: "count", label: "Kiểm kho" },
+  { key: "catalog", label: "Danh mục" },
+  { key: "users", label: "Người dùng", adminOnly: true },
+];
+
 function HomeScreen({
   userId,
   onLocked,
@@ -139,7 +150,7 @@ function HomeScreen({
   >();
   const [error, setError] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [view, setView] = useState<"catalog" | "users">("catalog");
+  const [view, setView] = useState<HomeView>("stock");
 
   useEffect(() => {
     // shortcut: lấy Chi nhánh đầu tiên; khi một người thuộc nhiều Chi nhánh thì thêm bước chọn.
@@ -169,19 +180,6 @@ function HomeScreen({
         <View style={styles.topBar}>
           <Text style={styles.branchTitle}>{branch.branch_name}</Text>
           <View style={styles.topActions}>
-            {isAdmin && (
-              <Pressable
-                style={styles.linkButton}
-                onPress={() =>
-                  setView(view === "catalog" ? "users" : "catalog")
-                }
-                accessibilityRole="button"
-              >
-                <Text style={styles.link}>
-                  {view === "catalog" ? "Người dùng" : "Danh mục"}
-                </Text>
-              </Pressable>
-            )}
             <Pressable
               style={styles.linkButton}
               onPress={() => supabase.auth.signOut()}
@@ -191,7 +189,37 @@ function HomeScreen({
             </Pressable>
           </View>
         </View>
-        {isAdmin && view === "users" ? (
+        <View style={styles.navBar}>
+          {NAV_TABS.filter((tab) => !tab.adminOnly || isAdmin).map((tab) => {
+            const selected = view === tab.key;
+            return (
+              <Pressable
+                key={tab.key}
+                style={[styles.navTab, selected && styles.navTabSelected]}
+                onPress={() => setView(tab.key)}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+              >
+                <Text
+                  style={[
+                    styles.navTabText,
+                    selected && styles.navTabTextSelected,
+                  ]}
+                >
+                  {tab.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        {view === "stock" ? (
+          <StockScreen branchId={branch.branch_id} />
+        ) : view === "count" ? (
+          <CountScreen
+            branchId={branch.branch_id}
+            onDone={() => setView("stock")}
+          />
+        ) : isAdmin && view === "users" ? (
           <UsersScreen currentUserId={userId} />
         ) : (
           <CatalogScreen branchId={branch.branch_id} />
@@ -268,5 +296,33 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   branchTitle: { fontSize: 18, fontWeight: "700" },
+  navBar: {
+    flexDirection: "row",
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+    gap: 8,
+  },
+  navTab: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#d4d4d8",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 8,
+  },
+  navTabSelected: {
+    backgroundColor: "#0f766e",
+    borderColor: "#0f766e",
+  },
+  navTabText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#27272a",
+  },
+  navTabTextSelected: {
+    color: "#fff",
+  },
   topActions: { flexDirection: "row", alignItems: "center" },
 });

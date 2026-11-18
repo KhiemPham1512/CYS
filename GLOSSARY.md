@@ -37,7 +37,7 @@ Khoảng thời gian một Nguyên vật liệu dùng được kể từ Ngày s
 _Tránh_: HSD, shelf life
 
 **Lô**:
-Phần Tồn kho thực tế của một Nguyên vật liệu có cùng Ngày sản xuất (hoặc cùng chưa có Ngày sản xuất); Tồn kho thực tế là tổng các Lô. Ghi dùng trừ Lô có Ngày sản xuất sớm nhất trước.
+Phần Tồn kho thực tế của một Nguyên vật liệu có cùng Ngày sản xuất (phần chưa có Ngày sản xuất tách theo ngày vào kho để Thêm Ngày sản xuất cho đúng đợt); Tồn kho thực tế là tổng các Lô. Ghi dùng trừ Lô có Ngày sản xuất sớm nhất trước.
 _Tránh_: batch, mẻ
 
 **Đang dùng**:
@@ -69,7 +69,7 @@ Lần một Người dùng khai báo các Nguyên vật liệu đã lấy ra dù
 _Tránh_: xuất kho, tiêu thụ, lấy hàng
 
 **Điều chỉnh tồn kho**:
-Lần một Người dùng đặt lại Tồn kho thực tế của một Nguyên vật liệu về số thực tế, có thể kèm lý do.
+Lần một Người dùng đặt lại Tồn kho thực tế của một Nguyên vật liệu về số thực tế, có thể kèm lý do. Ngày sản xuất của các Lô được giữ: phần tăng vào phần chưa có Ngày sản xuất, phần giảm trừ Lô có Ngày sản xuất sớm nhất trước (Kiểm kho cũng vậy).
 _Tránh_: sửa kho, cân kho
 
 **Kiểm kho**:
