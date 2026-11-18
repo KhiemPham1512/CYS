@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import { loadCatalog } from "../catalog/api";
-import { compareItems } from "../catalog/sections";
+import { compareGroups, compareItems } from "../catalog/sections";
 import { ItemQtyModal } from "../components/ItemQtyModal";
 import type { Tables } from "../lib/database.types";
 import { useOnline } from "../lib/useOnline";
@@ -65,7 +65,7 @@ export function OrderScreen({ branchId }: Props) {
         loadReceivingData(branchId),
       ]);
       if (request !== latestRequest.current) return;
-      setGroups(catalog.groups);
+      setGroups([...catalog.groups].sort(compareGroups));
       setItems(catalog.items);
       setMovements(movs);
       setOrders(ord.orders);

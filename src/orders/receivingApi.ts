@@ -62,6 +62,7 @@ export async function settleOwed(
   return { error: mapRpcError(error) };
 }
 
+// shortcut: lưu tuần tự từng dòng, không giao dịch; lỗi giữa chừng thì dòng trước đã nhận, dòng sau chưa (báo done), nâng cấp thành hàm máy chủ nhận cả Nhóm một giao dịch khi cần.
 export async function receiveLines(
   lines: {
     lineId: string;
@@ -84,6 +85,7 @@ export async function receiveLines(
   return { done, error: null };
 }
 
+// shortcut: như receiveLines, nhận bù tuần tự không giao dịch.
 export async function settleLines(
   lines: { itemId: string; qty: number; mfgDate: string | null }[]
 ): Promise<{ done: number; error: string | null }> {

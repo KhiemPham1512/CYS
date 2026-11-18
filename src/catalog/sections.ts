@@ -11,6 +11,12 @@ export type SectionItem = Pick<
   "id" | "group_id" | "name" | "name_zh" | "is_hidden" | "sort_order"
 >;
 
+// Thứ tự Nhóm: sort_order rồi tên tiếng Việt.
+export const compareGroups = (
+  a: Pick<SectionGroup, "name" | "sort_order">,
+  b: Pick<SectionGroup, "name" | "sort_order">
+): number => a.sort_order - b.sort_order || a.name.localeCompare(b.name, "vi");
+
 // Thứ tự món như trên tờ giấy (sort_order), cùng số thì theo tên tiếng Việt.
 export const compareItems = (
   a: Pick<SectionItem, "name" | "sort_order">,
@@ -23,9 +29,7 @@ export function buildSections<G extends SectionGroup, I extends SectionItem>(
   opts: { query: string; showHidden: boolean }
 ): { group: G; items: I[] }[] {
   const hasQuery = normalizeVi(opts.query) !== "";
-  const sortedGroups = [...groups].sort(
-    (a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, "vi")
-  );
+  const sortedGroups = [...groups].sort(compareGroups);
 
   const itemsByGroup = new Map<string, I[]>();
   for (const item of items) {

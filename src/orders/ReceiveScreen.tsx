@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { loadCatalog } from "../catalog/api";
+import { compareGroups } from "../catalog/sections";
 import type { Tables } from "../lib/database.types";
 import { useOnline } from "../lib/useOnline";
 import { formatDate, parseShortDate } from "../stock/date";
@@ -94,7 +95,7 @@ export function ReceiveScreen({ branchId }: Props) {
         loadReceivingData(branchId),
       ]);
       if (request !== latestRequest.current) return;
-      setGroups(catalog.groups);
+      setGroups([...catalog.groups].sort(compareGroups));
       setItems(catalog.items);
       setOrders(ord.orders);
       setLines(ord.lines);
