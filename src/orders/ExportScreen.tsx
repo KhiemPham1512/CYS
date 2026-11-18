@@ -337,6 +337,7 @@ export function ExportScreen({ branchId, branchName }: Props) {
                   </Text>
                 </View>
               ))}
+              <View style={styles.tableEnd} />
             </View>
           </ScrollView>
           {message ? <Text style={styles.error}>{message}</Text> : null}
@@ -440,6 +441,7 @@ const styles = StyleSheet.create({
     borderColor: BORDER,
     marginHorizontal: 8,
   },
+  tableEnd: { borderTopWidth: 1, borderColor: BORDER, marginHorizontal: 8 },
   thRow: { backgroundColor: "#e4e4e7" },
   cell: {
     borderRightWidth: 1,
