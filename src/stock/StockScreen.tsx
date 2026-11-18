@@ -81,6 +81,7 @@ export function StockScreen({ branchId }: Props) {
   const [selectedItem, setSelectedItem] = useState<Tables<"items"> | null>(
     null
   );
+  const [mode, setMode] = useState<"adjust" | "mfg">("adjust");
   const [adjustInput, setAdjustInput] = useState("");
   const [adjustNote, setAdjustNote] = useState("");
   const [adjustError, setAdjustError] = useState<string | null>(null);
@@ -160,6 +161,7 @@ export function StockScreen({ branchId }: Props) {
     const lots = lotsByItem.get(item.id) ?? [];
     const unallocated = lots.find((l) => l.mfgDate === null && l.qty > 0);
     setSelectedItem(item);
+    setMode("adjust");
     setAdjustInput("");
     setAdjustNote("");
     setAdjustError(null);
@@ -378,52 +380,112 @@ export function StockScreen({ branchId }: Props) {
 
                   <View style={styles.cardSection}>
                     <Text style={styles.sectionHeading}>
-                      Điều chỉnh tồn kho
+                      Tồn kho thực tế:{" "}
+                      {formatQty(totalQty(selectedLots), {
+                        caseSize: selectedItem.case_size,
+                        unit: selectedItem.unit,
+                        byPercent: selectedItem.record_by_percent,
+                      })}
                     </Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder={
-                        selectedItem.case_size !== null
-                          ? "Ví dụ: 1T+3 hoặc 5"
-                          : selectedItem.record_by_percent
-                            ? "Ví dụ: 2+95%"
-                            : "Nhập số lượng"
-                      }
-                      value={adjustInput}
-                      onChangeText={(t) => {
-                        setAdjustInput(t);
-                        setAdjustError(null);
-                      }}
-                    />
-                    {adjustError && (
-                      <Text style={styles.fieldError}>{adjustError}</Text>
-                    )}
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Lý do (không bắt buộc)"
-                      value={adjustNote}
-                      onChangeText={setAdjustNote}
-                    />
-                    <Pressable
-                      style={[
-                        styles.saveButton,
-                        (!online || savingAdjust) && styles.buttonDisabled,
-                      ]}
-                      disabled={!online || savingAdjust}
-                      onPress={handleSaveAdjust}
-                      accessibilityRole="button"
-                    >
-                      <Text style={styles.saveButtonText}>
-                        {savingAdjust ? "Đang lưu…" : "Lưu điều chỉnh"}
+                    {selectedLots.map((lot) => (
+                      <Text key={lot.mfgDate ?? "none"} style={styles.metaText}>
+                        {lot.mfgDate
+                          ? `Ngày sản xuất ${formatDate(lot.mfgDate)}`
+                          : "Chưa có Ngày sản xuất"}
+                        :{" "}
+                        {formatQty(lot.qty, {
+                          caseSize: selectedItem.case_size,
+                          unit: selectedItem.unit,
+                          byPercent: selectedItem.record_by_percent,
+                        })}
                       </Text>
-                    </Pressable>
+                    ))}
                   </View>
 
-                  {unassignedLot && (
+                  <View style={styles.tabRow}>
+                    {(
+                      [
+                        ["adjust", "Điều chỉnh tồn kho"],
+                        ["mfg", "Thêm Ngày sản xuất"],
+                      ] as const
+                    ).map(([key, label]) => {
+                      const selected = mode === key;
+                      return (
+                        <Pressable
+                          key={key}
+                          style={[styles.tab, selected && styles.tabSelected]}
+                          onPress={() => setMode(key)}
+                          accessibilityRole="tab"
+                          accessibilityState={{ selected }}
+                        >
+                          <Text
+                            style={[
+                              styles.tabText,
+                              selected && styles.tabTextSelected,
+                            ]}
+                          >
+                            {label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+
+                  {mode === "adjust" && (
                     <View style={styles.cardSection}>
-                      <Text style={styles.sectionHeading}>
-                        Thêm Ngày sản xuất
+                      <Text style={styles.metaText}>
+                        Nhập Tồn kho thực tế mới. Ngày sản xuất đã nhập được
+                        giữ: phần tăng vào "Chưa có Ngày sản xuất", phần giảm
+                        trừ Lô cũ nhất trước.
                       </Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder={
+                          selectedItem.case_size !== null
+                            ? "Ví dụ: 1T+3 hoặc 5"
+                            : selectedItem.record_by_percent
+                              ? "Ví dụ: 2+95%"
+                              : "Nhập số lượng"
+                        }
+                        value={adjustInput}
+                        onChangeText={(t) => {
+                          setAdjustInput(t);
+                          setAdjustError(null);
+                        }}
+                      />
+                      {adjustError && (
+                        <Text style={styles.fieldError}>{adjustError}</Text>
+                      )}
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Lý do (không bắt buộc)"
+                        value={adjustNote}
+                        onChangeText={setAdjustNote}
+                      />
+                      <Pressable
+                        style={[
+                          styles.saveButton,
+                          (!online || savingAdjust) && styles.buttonDisabled,
+                        ]}
+                        disabled={!online || savingAdjust}
+                        onPress={handleSaveAdjust}
+                        accessibilityRole="button"
+                      >
+                        <Text style={styles.saveButtonText}>
+                          {savingAdjust ? "Đang lưu…" : "Lưu điều chỉnh"}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  )}
+
+                  {mode === "mfg" && !unassignedLot && (
+                    <Text style={styles.metaText}>
+                      Toàn bộ Tồn kho thực tế đã có Ngày sản xuất.
+                    </Text>
+                  )}
+
+                  {mode === "mfg" && unassignedLot && (
+                    <View style={styles.cardSection}>
                       <Text style={styles.metaText}>
                         Chưa có Ngày sản xuất:{" "}
                         {formatQty(unassignedLot.qty, {
@@ -518,6 +580,20 @@ const styles = StyleSheet.create({
     borderBottomColor: "#e4e4e7",
   },
   sectionTitle: { fontSize: 14, fontWeight: "700", color: "#0f766e" },
+  tabRow: { flexDirection: "row", gap: 8 },
+  tab: {
+    flex: 1,
+    minHeight: 44,
+    borderWidth: 1,
+    borderColor: "#0f766e",
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 8,
+  },
+  tabSelected: { backgroundColor: "#0f766e" },
+  tabText: { color: "#0f766e", fontWeight: "600", textAlign: "center" },
+  tabTextSelected: { color: "#fff" },
   itemRow: {
     paddingHorizontal: 16,
     paddingVertical: 12,

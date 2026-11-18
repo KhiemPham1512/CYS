@@ -29,8 +29,22 @@ export function stockLots(movements: Movement[]): Lot[] {
 
   for (const m of sorted) {
     if (m.kind === "count" || m.kind === "adjust") {
-      byMfg.clear();
-      unallocated = m.qty > 0 ? round4(m.qty) : 0;
+      // Đặt tổng = qty nhưng giữ Ngày sản xuất: tăng thì thêm vào Lô chưa có ngày,
+      // giảm thì trừ Lô ngày sớm nhất trước, Lô chưa có ngày sau cùng (như Ghi dùng).
+      const current =
+        unallocated + [...byMfg.values()].reduce((s, q) => s + q, 0);
+      let remove = round4(current - m.qty);
+      if (remove < 0) {
+        unallocated = round4(unallocated - remove);
+      } else {
+        for (const date of [...byMfg.keys()].sort()) {
+          if (remove <= 0) break;
+          const take = Math.min(remove, byMfg.get(date) ?? 0);
+          byMfg.set(date, round4((byMfg.get(date) ?? 0) - take));
+          remove = round4(remove - take);
+        }
+        unallocated = round4(Math.max(0, unallocated - remove));
+      }
     } else if (m.kind === "assign_mfg" && m.mfg_date && m.qty > 0) {
       const take = round4(Math.min(m.qty, unallocated));
       if (take > 0) {
