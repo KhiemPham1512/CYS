@@ -407,7 +407,11 @@ const styles = StyleSheet.create({
   groupText: { fontSize: 16, fontWeight: "600", color: "#0f766e" },
   error: { color: "#b91c1c", fontSize: 14, textAlign: "center", padding: 8 },
   modal: { flex: 1, backgroundColor: "#f4f4f5", paddingTop: 40 },
-  paper: { backgroundColor: "#fff", paddingVertical: 12 },
+  paper: {
+    backgroundColor: "#fff",
+    paddingVertical: 28,
+    paddingHorizontal: 12,
+  },
   paperBranch: { fontSize: 13, color: "#52525b", textAlign: "center" },
   paperTitle: {
     fontSize: 20,
