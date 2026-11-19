@@ -25,7 +25,14 @@ import { formatDate, parseShortDate } from "./date";
 import { loadOrders, subscribeOrders } from "../orders/api";
 import { incomingByItem, projectedQty } from "../orders/orders";
 import { loadReceivingData, subscribeReceiving } from "../orders/receivingApi";
-import { checkedSince, stockByItem, totalQty, type Lot } from "./ledger";
+import {
+  checkedSince,
+  localDate,
+  stockByItem,
+  totalQty,
+  type Lot,
+} from "./ledger";
+import { expiredLots } from "./expiry";
 import { ReturnDamagedPanel } from "./ReturnDamagedPanel";
 import { formatQty, formatSheetQty, parseAdjust, parseQty } from "./qty";
 
@@ -115,6 +122,7 @@ export function StockScreen({ branchId }: Props) {
 
   const lotsByItem = useMemo(() => stockByItem(movements), [movements]);
   const now = useNow();
+  const today = localDate(now);
   const checked = useMemo(() => checkedSince(movements, now), [movements, now]);
 
   const sections = useMemo<SectionData[]>(() => {
@@ -341,6 +349,7 @@ export function StockScreen({ branchId }: Props) {
             ? `${item.name} — ${formatQty(totalQty(lots), qtyOpts)}`
             : `${item.name} — 0`;
           const coming = incoming.get(item.id) ?? 0;
+          const expired = expiredLots(lots ?? [], item, today);
 
           return (
             <Pressable
@@ -351,6 +360,11 @@ export function StockScreen({ branchId }: Props) {
               <Text style={styles.itemTitle}>{headerLine}</Text>
               {!checked.has(item.id) && (
                 <Text style={styles.uncheckedTag}>Chưa kiểm</Text>
+              )}
+              {expired.length > 0 && (
+                <Text style={styles.expiredTag}>
+                  Quá hạn: {formatQty(totalQty(expired), qtyOpts)}
+                </Text>
               )}
               {coming > 0 && (
                 <Text style={styles.lotLine}>
@@ -712,6 +726,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     gap: 4,
   },
+  expiredTag: { fontSize: 13, fontWeight: "700", color: "#b91c1c" },
   uncheckedTag: { fontSize: 12, fontWeight: "700", color: "#b45309" },
   itemTitle: { fontSize: 16, fontWeight: "600", color: "#18181b" },
   lotLine: { fontSize: 14, color: "#52525b", paddingLeft: 8 },

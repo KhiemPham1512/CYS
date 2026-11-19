@@ -76,6 +76,18 @@ export function expiryAlerts<T extends { expiry: string }>(
   };
 }
 
+// Các Lô của một món đã quá hạn (hạn trước hôm nay).
+export function expiredLots(
+  lots: Lot[],
+  item: ExpiryItem,
+  today: string
+): Lot[] {
+  return lots.filter((l) => {
+    const expiry = lotExpiry(l, item);
+    return expiry !== null && expiry < today;
+  });
+}
+
 // Chỉ món có hạn sau khui dài (> 7 ngày; tháng luôn dài hơn) mới vào Đang dùng.
 // shortcut: mốc 7 ngày cố định theo ticket #10, đưa vào cấu hình khi quán cần đổi.
 export function tracksInUse(item: ExpiryItem): boolean {

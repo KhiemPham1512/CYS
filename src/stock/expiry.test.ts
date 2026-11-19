@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   addDuration,
   lastDay,
+  expiredLots,
   expiryAlerts,
   inUseExpiry,
   lotExpiry,
@@ -119,5 +120,21 @@ describe("Đang dùng", () => {
       )
     ).toBe("2027-01-18");
     expect(inUseExpiry("2026-11-18", item())).toBeNull();
+  });
+});
+
+describe("expiredLots: Lô quá hạn của một món (để tô đỏ ở Tồn kho)", () => {
+  const sixMonths = item({ shelf_life: 6 });
+  it("trả các Lô có hạn trước hôm nay; hạn đúng hôm nay vẫn dùng được", () => {
+    const lots = [
+      { mfgDate: "2026-05-17", qty: 2 }, // hạn 2026-11-17: quá hạn
+      { mfgDate: "2026-05-18", qty: 3 }, // hạn 2026-11-18: hôm nay, chưa quá
+    ];
+    expect(expiredLots(lots, sixMonths, "2026-11-18")).toEqual([lots[0]]);
+  });
+  it("món không có Thời hạn: không Lô nào quá hạn", () => {
+    expect(
+      expiredLots([{ mfgDate: "2020-01-01", qty: 1 }], item(), "2026-11-18")
+    ).toEqual([]);
   });
 });
