@@ -1,4 +1,4 @@
-import { usesMfgDate } from "../stock/expiry";
+import { formatMfg, usesMfgDate } from "../stock/expiry";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -161,11 +161,11 @@ export function OwedScreen({ branchId }: Props) {
     const mfgText = !rawMfg
       ? null
       : mfgParsed?.ok
-        ? formatDate(mfgParsed.value)
+        ? formatMfg(mfgParsed.value, item)
         : rawMfg;
 
     const parts = [`Còn thiếu: ${stillText}`];
-    if (mfgText) parts.push(`Ngày sản xuất ${mfgText}`);
+    if (mfgText) parts.push(`NSX ${mfgText}`);
     return parts.join(" · ");
   }
 
@@ -209,7 +209,8 @@ export function OwedScreen({ branchId }: Props) {
       }
 
       let mfgDate: string | null = null;
-      const rawMfg = (mfgInputs[item.id] ?? "").trim();
+      // Món không dùng Ngày sản xuất (ô đã ẩn): bỏ qua chữ cũ còn sót trong ô.
+      const rawMfg = usesMfgDate(item) ? (mfgInputs[item.id] ?? "").trim() : "";
       if (rawMfg) {
         const parsed = parseShortDate(rawMfg, today);
         if (!parsed.ok) itemErrs.push(`Ngày sản xuất: ${parsed.error}`);

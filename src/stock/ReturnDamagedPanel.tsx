@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import type { Tables } from "../lib/database.types";
 import { planReturn } from "../orders/receiving";
 import { returnDamaged } from "../orders/receivingApi";
-import { formatDayMonth, formatMfg } from "./expiry";
+import { formatDayMonth, formatMfg, usesMfgDate } from "./expiry";
 import type { Lot } from "./ledger";
 import { formatQty, parseQty } from "./qty";
 
@@ -15,9 +15,11 @@ type Props = {
 
 const lotKey = (lot: Lot) => lot.mfgDate ?? `u:${lot.enteredOn ?? ""}`;
 const lotLabel = (lot: Lot, item: Tables<"items">) =>
-  lot.mfgDate
-    ? `NSX ${formatMfg(lot.mfgDate, item)}`
-    : `Chưa có NSX${lot.enteredOn ? ` (vào kho ${formatDayMonth(lot.enteredOn)})` : ""}`;
+  !usesMfgDate(item)
+    ? `Vào kho ${formatDayMonth(lot.enteredOn ?? lot.mfgDate ?? "")}` // món không có hạn: không nói NSX
+    : lot.mfgDate
+      ? `NSX ${formatMfg(lot.mfgDate, item)}`
+      : `Chưa có NSX${lot.enteredOn ? ` (vào kho ${formatDayMonth(lot.enteredOn)})` : ""}`;
 
 // Trả hàng hư sau khi đã vào kho: chọn Lô, nhập số; kho trừ đúng Lô và số đó sang Chờ nhà cung cấp.
 export function ReturnDamagedPanel({ item, lots, online }: Props) {
