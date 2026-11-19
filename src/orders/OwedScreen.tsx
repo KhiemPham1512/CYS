@@ -17,6 +17,7 @@ import { formatDate, parseShortDate } from "../stock/date";
 import { formatQty, parseQty } from "../stock/qty";
 import {
   planGroupSettle,
+  owedBreakdown,
   waitingByItem,
   type OwedRow,
   type SettleLineInput,
@@ -98,6 +99,7 @@ export function OwedScreen({ branchId }: Props) {
   );
 
   const waitingMap = useMemo(() => waitingByItem(owed), [owed]);
+  const breakdown = useMemo(() => owedBreakdown(owed), [owed]);
 
   const groupedWaiting = useMemo(() => {
     const byGroup = new Map<
@@ -334,6 +336,18 @@ export function OwedScreen({ branchId }: Props) {
                     </Text>
                     <Text style={styles.metaInline}>
                       Đang chờ: {fmt(item, waiting)}
+                    </Text>
+                    <Text style={styles.metaInline}>
+                      {[
+                        ["Thiếu", breakdown.get(item.id)?.short ?? 0],
+                        ["Hư", breakdown.get(item.id)?.damaged ?? 0],
+                        ["Đã nhận bù", breakdown.get(item.id)?.settled ?? 0],
+                      ]
+                        .filter(([, q]) => (q as number) > 0)
+                        .map(
+                          ([label, q]) => `${label}: ${fmt(item, q as number)}`
+                        )
+                        .join(" · ")}
                     </Text>
                     {summary && (
                       <Text style={styles.summaryText}>{summary}</Text>
