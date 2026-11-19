@@ -4,6 +4,7 @@ import {
   planGroupReceipt,
   planGroupSettle,
   planReceipt,
+  owedBreakdown,
   planReturn,
   waitingByItem,
 } from "./receiving";
@@ -254,5 +255,19 @@ describe("planReturn", () => {
       ok: false,
       error: "Trả nhiều hơn số của Lô",
     });
+  });
+});
+
+describe("owedBreakdown (tách Thiếu / Hư / Đã nhận bù theo món)", () => {
+  it("cộng riêng từng loại, không trừ chéo", () => {
+    const b = owedBreakdown([
+      { item_id: "x", kind: "short", qty: 3 },
+      { item_id: "x", kind: "damaged", qty: 2 },
+      { item_id: "x", kind: "short", qty: 1 },
+      { item_id: "x", kind: "settled", qty: 4 },
+      { item_id: "y", kind: "damaged", qty: 1 },
+    ]);
+    expect(b.get("x")).toEqual({ short: 4, damaged: 2, settled: 4 });
+    expect(b.get("y")).toEqual({ short: 0, damaged: 1, settled: 0 });
   });
 });

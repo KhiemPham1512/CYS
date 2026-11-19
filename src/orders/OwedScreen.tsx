@@ -1,3 +1,4 @@
+import { formatMfg, usesMfgDate } from "../stock/expiry";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -17,6 +18,7 @@ import { formatDate, parseShortDate } from "../stock/date";
 import { formatQty, parseQty } from "../stock/qty";
 import {
   planGroupSettle,
+  owedBreakdown,
   waitingByItem,
   type OwedRow,
   type SettleLineInput,
@@ -98,6 +100,7 @@ export function OwedScreen({ branchId }: Props) {
   );
 
   const waitingMap = useMemo(() => waitingByItem(owed), [owed]);
+  const breakdown = useMemo(() => owedBreakdown(owed), [owed]);
 
   const groupedWaiting = useMemo(() => {
     const byGroup = new Map<
@@ -158,11 +161,11 @@ export function OwedScreen({ branchId }: Props) {
     const mfgText = !rawMfg
       ? null
       : mfgParsed?.ok
-        ? formatDate(mfgParsed.value)
+        ? formatMfg(mfgParsed.value, item)
         : rawMfg;
 
     const parts = [`Còn thiếu: ${stillText}`];
-    if (mfgText) parts.push(`Ngày sản xuất ${mfgText}`);
+    if (mfgText) parts.push(`NSX ${mfgText}`);
     return parts.join(" · ");
   }
 
@@ -206,7 +209,8 @@ export function OwedScreen({ branchId }: Props) {
       }
 
       let mfgDate: string | null = null;
-      const rawMfg = (mfgInputs[item.id] ?? "").trim();
+      // Món không dùng Ngày sản xuất (ô đã ẩn): bỏ qua chữ cũ còn sót trong ô.
+      const rawMfg = usesMfgDate(item) ? (mfgInputs[item.id] ?? "").trim() : "";
       if (rawMfg) {
         const parsed = parseShortDate(rawMfg, today);
         if (!parsed.ok) itemErrs.push(`Ngày sản xuất: ${parsed.error}`);
@@ -335,6 +339,18 @@ export function OwedScreen({ branchId }: Props) {
                     <Text style={styles.metaInline}>
                       Đang chờ: {fmt(item, waiting)}
                     </Text>
+                    <Text style={styles.metaInline}>
+                      {[
+                        ["Thiếu", breakdown.get(item.id)?.short ?? 0],
+                        ["Hư", breakdown.get(item.id)?.damaged ?? 0],
+                        ["Đã nhận bù", breakdown.get(item.id)?.settled ?? 0],
+                      ]
+                        .filter(([, q]) => (q as number) > 0)
+                        .map(
+                          ([label, q]) => `${label}: ${fmt(item, q as number)}`
+                        )
+                        .join(" · ")}
+                    </Text>
                     {summary && (
                       <Text style={styles.summaryText}>{summary}</Text>
                     )}
@@ -397,21 +413,27 @@ export function OwedScreen({ branchId }: Props) {
                     }
                   />
 
-                  <Text style={styles.label}>
-                    {editingItem.track_mfg_date
-                      ? "Ngày sản xuất (bắt buộc khi có nhận)"
-                      : "Ngày sản xuất"}
-                  </Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder={
-                      editingItem.track_mfg_date ? "bắt buộc, vd 28" : "vd 28"
-                    }
-                    value={mfgInputs[editingItem.id] ?? ""}
-                    onChangeText={(t) =>
-                      setMfgInputs((p) => ({ ...p, [editingItem.id]: t }))
-                    }
-                  />
+                  {usesMfgDate(editingItem) && (
+                    <>
+                      <Text style={styles.label}>
+                        {editingItem.track_mfg_date
+                          ? "Ngày sản xuất (bắt buộc khi có nhận)"
+                          : "Ngày sản xuất"}
+                      </Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder={
+                          editingItem.track_mfg_date
+                            ? "bắt buộc, vd 28"
+                            : "vd 28"
+                        }
+                        value={mfgInputs[editingItem.id] ?? ""}
+                        onChangeText={(t) =>
+                          setMfgInputs((p) => ({ ...p, [editingItem.id]: t }))
+                        }
+                      />
+                    </>
+                  )}
 
                   <View style={styles.btnRow}>
                     <Pressable

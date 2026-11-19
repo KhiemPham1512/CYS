@@ -76,6 +76,42 @@ export function expiryAlerts<T extends { expiry: string }>(
   };
 }
 
+// "28/10" (bỏ năm).
+export function formatDayMonth(iso: string): string {
+  const [, m, d] = iso.slice(0, 10).split("-");
+  return `${d}/${m}`;
+}
+
+// Ngày sản xuất viết tắt "28/10"; chỉ giữ năm khi hạn dùng sang năm khác (món hạn dài).
+export function formatMfg(mfgDate: string, item: ExpiryItem): string {
+  const expiry = item.shelf_life
+    ? lastDay(mfgDate, item.shelf_life, item.shelf_life_unit)
+    : null;
+  const short = formatDayMonth(mfgDate);
+  return expiry && expiry.slice(0, 4) !== mfgDate.slice(0, 4)
+    ? `${short}/${mfgDate.slice(0, 4)}`
+    : short;
+}
+
+// Món có Ngày sản xuất trên giao diện: món theo dõi hoặc có Thời hạn sử dụng. Món không hạn (nhóm Đóng gói) thì ẩn.
+export function usesMfgDate(
+  item: Pick<Tables<"items">, "track_mfg_date" | "shelf_life">
+): boolean {
+  return item.track_mfg_date || item.shelf_life !== null;
+}
+
+// Các Lô của một món đã quá hạn (hạn trước hôm nay).
+export function expiredLots(
+  lots: Lot[],
+  item: ExpiryItem,
+  today: string
+): Lot[] {
+  return lots.filter((l) => {
+    const expiry = lotExpiry(l, item);
+    return expiry !== null && expiry < today;
+  });
+}
+
 // Chỉ món có hạn sau khui dài (> 7 ngày; tháng luôn dài hơn) mới vào Đang dùng.
 // shortcut: mốc 7 ngày cố định theo ticket #10, đưa vào cấu hình khi quán cần đổi.
 export function tracksInUse(item: ExpiryItem): boolean {

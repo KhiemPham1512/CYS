@@ -56,6 +56,22 @@ export function waitingByItem(rows: OwedRow[]): Map<string, number> {
   return net;
 }
 
+// Từng loại đã ghi cho một món (không trừ chéo) để biết còn nợ vì thiếu hay vì hư.
+export function owedBreakdown(
+  rows: OwedRow[]
+): Map<string, { short: number; damaged: number; settled: number }> {
+  const out = new Map<
+    string,
+    { short: number; damaged: number; settled: number }
+  >();
+  for (const r of rows) {
+    const b = out.get(r.item_id) ?? { short: 0, damaged: 0, settled: 0 };
+    b[r.kind] = round4(b[r.kind] + r.qty);
+    out.set(r.item_id, b);
+  }
+  return out;
+}
+
 export type GroupLineInput = {
   key: string;
   name: string;

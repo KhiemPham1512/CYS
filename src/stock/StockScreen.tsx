@@ -25,7 +25,14 @@ import { formatDate, parseShortDate } from "./date";
 import { loadOrders, subscribeOrders } from "../orders/api";
 import { incomingByItem, projectedQty } from "../orders/orders";
 import { loadReceivingData, subscribeReceiving } from "../orders/receivingApi";
-import { checkedSince, stockByItem, totalQty, type Lot } from "./ledger";
+import {
+  checkedSince,
+  localDate,
+  stockByItem,
+  totalQty,
+  type Lot,
+} from "./ledger";
+import { expiredLots, formatDayMonth, formatMfg, usesMfgDate } from "./expiry";
 import { ReturnDamagedPanel } from "./ReturnDamagedPanel";
 import { formatQty, formatSheetQty, parseAdjust, parseQty } from "./qty";
 
@@ -39,7 +46,7 @@ type SectionData = {
 };
 
 const enteredLabel = (lot: Lot) =>
-  lot.enteredOn ? ` (vào kho ${formatDate(lot.enteredOn)})` : "";
+  lot.enteredOn ? ` (vào kho ${formatDayMonth(lot.enteredOn)})` : "";
 
 export function StockScreen({ branchId }: Props) {
   const online = useOnline();
@@ -115,6 +122,7 @@ export function StockScreen({ branchId }: Props) {
 
   const lotsByItem = useMemo(() => stockByItem(movements), [movements]);
   const now = useNow();
+  const today = localDate(now);
   const checked = useMemo(() => checkedSince(movements, now), [movements, now]);
 
   const sections = useMemo<SectionData[]>(() => {
@@ -341,6 +349,7 @@ export function StockScreen({ branchId }: Props) {
             ? `${item.name} — ${formatQty(totalQty(lots), qtyOpts)}`
             : `${item.name} — 0`;
           const coming = incoming.get(item.id) ?? 0;
+          const expired = expiredLots(lots ?? [], item, today);
 
           return (
             <Pressable
@@ -352,6 +361,11 @@ export function StockScreen({ branchId }: Props) {
               {!checked.has(item.id) && (
                 <Text style={styles.uncheckedTag}>Chưa kiểm</Text>
               )}
+              {expired.length > 0 && (
+                <Text style={styles.expiredTag}>
+                  Quá hạn: {formatQty(totalQty(expired), qtyOpts)}
+                </Text>
+              )}
               {coming > 0 && (
                 <Text style={styles.lotLine}>
                   Hàng đang về: {formatQty(coming, qtyOpts)} · Tồn kho dự tính:{" "}
@@ -362,17 +376,18 @@ export function StockScreen({ branchId }: Props) {
                 </Text>
               )}
               {lots &&
+                usesMfgDate(item) &&
                 lots.map((lot, idx) => (
                   <Text
                     key={`${lot.mfgDate ?? lot.enteredOn ?? "none"}-${idx}`}
                     style={styles.lotLine}
                   >
                     {lot.mfgDate
-                      ? `Ngày sản xuất ${formatDate(lot.mfgDate)}: ${formatQty(
+                      ? `NSX ${formatMfg(lot.mfgDate, item)}: ${formatQty(
                           lot.qty,
                           qtyOpts
                         )}`
-                      : `Chưa có Ngày sản xuất${enteredLabel(lot)}: ${formatQty(lot.qty, qtyOpts)}`}
+                      : `Chưa có NSX${enteredLabel(lot)}: ${formatQty(lot.qty, qtyOpts)}`}
                   </Text>
                 ))}
             </Pressable>
@@ -430,22 +445,23 @@ export function StockScreen({ branchId }: Props) {
                         byPercent: selectedItem.record_by_percent,
                       })}
                     </Text>
-                    {selectedLots.map((lot) => (
-                      <Text
-                        key={lot.mfgDate ?? `none-${lot.enteredOn}`}
-                        style={styles.metaText}
-                      >
-                        {lot.mfgDate
-                          ? `Ngày sản xuất ${formatDate(lot.mfgDate)}`
-                          : `Chưa có Ngày sản xuất${enteredLabel(lot)}`}
-                        :{" "}
-                        {formatQty(lot.qty, {
-                          caseSize: selectedItem.case_size,
-                          unit: selectedItem.unit,
-                          byPercent: selectedItem.record_by_percent,
-                        })}
-                      </Text>
-                    ))}
+                    {usesMfgDate(selectedItem) &&
+                      selectedLots.map((lot) => (
+                        <Text
+                          key={lot.mfgDate ?? `none-${lot.enteredOn}`}
+                          style={styles.metaText}
+                        >
+                          {lot.mfgDate
+                            ? `NSX ${formatMfg(lot.mfgDate, selectedItem)}`
+                            : `Chưa có NSX${enteredLabel(lot)}`}
+                          :{" "}
+                          {formatQty(lot.qty, {
+                            caseSize: selectedItem.case_size,
+                            unit: selectedItem.unit,
+                            byPercent: selectedItem.record_by_percent,
+                          })}
+                        </Text>
+                      ))}
                   </View>
 
                   <View style={styles.tabRow}>
@@ -455,27 +471,31 @@ export function StockScreen({ branchId }: Props) {
                         ["mfg", "Thêm Ngày sản xuất"],
                         ["return", "Trả hàng hư"],
                       ] as const
-                    ).map(([key, label]) => {
-                      const selected = mode === key;
-                      return (
-                        <Pressable
-                          key={key}
-                          style={[styles.tab, selected && styles.tabSelected]}
-                          onPress={() => setMode(key)}
-                          accessibilityRole="tab"
-                          accessibilityState={{ selected }}
-                        >
-                          <Text
-                            style={[
-                              styles.tabText,
-                              selected && styles.tabTextSelected,
-                            ]}
+                    )
+                      .filter(
+                        ([key]) => key !== "mfg" || usesMfgDate(selectedItem)
+                      )
+                      .map(([key, label]) => {
+                        const selected = mode === key;
+                        return (
+                          <Pressable
+                            key={key}
+                            style={[styles.tab, selected && styles.tabSelected]}
+                            onPress={() => setMode(key)}
+                            accessibilityRole="tab"
+                            accessibilityState={{ selected }}
                           >
-                            {label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
+                            <Text
+                              style={[
+                                styles.tabText,
+                                selected && styles.tabTextSelected,
+                              ]}
+                            >
+                              {label}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
                   </View>
 
                   {mode === "adjust" && (
@@ -587,7 +607,7 @@ export function StockScreen({ branchId }: Props) {
                                   byPercent: selectedItem.record_by_percent,
                                 })}
                                 {lot.enteredOn
-                                  ? ` — vào kho ${formatDate(lot.enteredOn)}`
+                                  ? ` — vào kho ${formatDayMonth(lot.enteredOn)}`
                                   : ""}
                               </Text>
                             </Pressable>
@@ -712,6 +732,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     gap: 4,
   },
+  expiredTag: { fontSize: 13, fontWeight: "700", color: "#b91c1c" },
   uncheckedTag: { fontSize: 12, fontWeight: "700", color: "#b45309" },
   itemTitle: { fontSize: 16, fontWeight: "600", color: "#18181b" },
   lotLine: { fontSize: 14, color: "#52525b", paddingLeft: 8 },

@@ -2,10 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   addDuration,
   lastDay,
+  expiredLots,
+  formatDayMonth,
+  formatMfg,
   expiryAlerts,
   inUseExpiry,
   lotExpiry,
   tracksInUse,
+  usesMfgDate,
   type ExpiryItem,
 } from "./expiry";
 
@@ -119,5 +123,58 @@ describe("Đang dùng", () => {
       )
     ).toBe("2027-01-18");
     expect(inUseExpiry("2026-11-18", item())).toBeNull();
+  });
+});
+
+describe("expiredLots: Lô quá hạn của một món (để tô đỏ ở Tồn kho)", () => {
+  const sixMonths = item({ shelf_life: 6 });
+  it("trả các Lô có hạn trước hôm nay; hạn đúng hôm nay vẫn dùng được", () => {
+    const lots = [
+      { mfgDate: "2026-05-17", qty: 2 }, // hạn 2026-11-17: quá hạn
+      { mfgDate: "2026-05-18", qty: 3 }, // hạn 2026-11-18: hôm nay, chưa quá
+    ];
+    expect(expiredLots(lots, sixMonths, "2026-11-18")).toEqual([lots[0]]);
+  });
+  it("món không có Thời hạn: không Lô nào quá hạn", () => {
+    expect(
+      expiredLots([{ mfgDate: "2020-01-01", qty: 1 }], item(), "2026-11-18")
+    ).toEqual([]);
+  });
+});
+
+describe("usesMfgDate: món nào có Ngày sản xuất trên giao diện", () => {
+  it("món theo dõi hoặc có Thời hạn thì có; món không hạn (đóng gói) thì không", () => {
+    expect(usesMfgDate({ track_mfg_date: true, shelf_life: null })).toBe(true);
+    expect(usesMfgDate({ track_mfg_date: false, shelf_life: 6 })).toBe(true);
+    expect(usesMfgDate({ track_mfg_date: false, shelf_life: null })).toBe(
+      false
+    );
+  });
+});
+
+describe("formatMfg: Ngày sản xuất viết tắt, chỉ thêm năm khi hạn sang năm khác", () => {
+  it("ngày/tháng, bỏ năm", () => {
+    expect(formatDayMonth("2026-10-28")).toBe("28/10");
+    expect(
+      formatMfg("2026-10-28", item({ shelf_life: 2, shelf_life_unit: "month" }))
+    ).toBe("28/10");
+    expect(formatMfg("2026-10-28", item())).toBe("28/10"); // món chưa có hạn
+  });
+  it("món hạn dài sang năm sau thì giữ năm", () => {
+    expect(
+      formatMfg(
+        "2026-10-28",
+        item({ shelf_life: 12, shelf_life_unit: "month" })
+      )
+    ).toBe("28/10/2026");
+    expect(
+      formatMfg(
+        "2026-02-01",
+        item({ shelf_life: 12, shelf_life_unit: "month" })
+      )
+    ).toBe("01/02/2026");
+    expect(
+      formatMfg("2026-10-28", item({ shelf_life: 5, shelf_life_unit: "month" }))
+    ).toBe("28/10/2026"); // hạn 28/03/2027
   });
 });
