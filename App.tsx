@@ -13,6 +13,8 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./src/lib/supabase";
 import { useOnline } from "./src/lib/useOnline";
 import { useLockWatch } from "./src/lib/useLockWatch";
+import { AuditScreen } from "./src/admin/AuditScreen";
+import { BulkEditScreen } from "./src/catalog/BulkEditScreen";
 import { CatalogScreen } from "./src/catalog/CatalogScreen";
 import { CountScreen } from "./src/stock/CountScreen";
 import { StockScreen } from "./src/stock/StockScreen";
@@ -144,6 +146,8 @@ type HomeView =
   | "expiry"
   | "count"
   | "catalog"
+  | "audit"
+  | "bulk"
   | "users";
 
 const NAV_TABS: { key: HomeView; label: string; adminOnly?: boolean }[] = [
@@ -156,6 +160,8 @@ const NAV_TABS: { key: HomeView; label: string; adminOnly?: boolean }[] = [
   { key: "export", label: "Xuất ảnh" },
   { key: "count", label: "Kiểm kho" },
   { key: "catalog", label: "Danh mục" },
+  { key: "audit", label: "Nhật ký", adminOnly: true },
+  { key: "bulk", label: "Sửa hàng loạt", adminOnly: true },
   { key: "users", label: "Người dùng", adminOnly: true },
 ];
 
@@ -262,6 +268,10 @@ function HomeScreen({
             branchId={branch.branch_id}
             onDone={() => setView("stock")}
           />
+        ) : isAdmin && view === "audit" ? (
+          <AuditScreen branchId={branch.branch_id} />
+        ) : isAdmin && view === "bulk" ? (
+          <BulkEditScreen branchId={branch.branch_id} />
         ) : isAdmin && view === "users" ? (
           <UsersScreen currentUserId={userId} />
         ) : (

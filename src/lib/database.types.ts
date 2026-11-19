@@ -288,6 +288,27 @@ export type Database = {
     };
     Views: { [_ in never]: never };
     Functions: {
+      audit_feed: {
+        Args: {
+          p_branch: string;
+          p_actor?: string | null;
+          p_from?: string | null;
+          p_to?: string | null;
+          p_item?: string | null;
+          p_limit?: number;
+        };
+        Returns: {
+          logged_at: string;
+          actor: string | null;
+          actor_email: string | null;
+          table_name: string;
+          action: string;
+          item_id: string | null;
+          item_name: string | null;
+          old_data: Json | null;
+          new_data: Json | null;
+        }[];
+      };
       branch_member_emails: {
         Args: { p_branch_id: string };
         Returns: { user_id: string; email: string }[];
