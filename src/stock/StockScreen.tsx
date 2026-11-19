@@ -32,7 +32,7 @@ import {
   totalQty,
   type Lot,
 } from "./ledger";
-import { expiredLots, usesMfgDate } from "./expiry";
+import { expiredLots, formatDayMonth, formatMfg, usesMfgDate } from "./expiry";
 import { ReturnDamagedPanel } from "./ReturnDamagedPanel";
 import { formatQty, formatSheetQty, parseAdjust, parseQty } from "./qty";
 
@@ -46,7 +46,7 @@ type SectionData = {
 };
 
 const enteredLabel = (lot: Lot) =>
-  lot.enteredOn ? ` (vào kho ${formatDate(lot.enteredOn)})` : "";
+  lot.enteredOn ? ` (vào kho ${formatDayMonth(lot.enteredOn)})` : "";
 
 export function StockScreen({ branchId }: Props) {
   const online = useOnline();
@@ -383,11 +383,11 @@ export function StockScreen({ branchId }: Props) {
                     style={styles.lotLine}
                   >
                     {lot.mfgDate
-                      ? `Ngày sản xuất ${formatDate(lot.mfgDate)}: ${formatQty(
+                      ? `NSX ${formatMfg(lot.mfgDate, item)}: ${formatQty(
                           lot.qty,
                           qtyOpts
                         )}`
-                      : `Chưa có Ngày sản xuất${enteredLabel(lot)}: ${formatQty(lot.qty, qtyOpts)}`}
+                      : `Chưa có NSX${enteredLabel(lot)}: ${formatQty(lot.qty, qtyOpts)}`}
                   </Text>
                 ))}
             </Pressable>
@@ -452,8 +452,8 @@ export function StockScreen({ branchId }: Props) {
                           style={styles.metaText}
                         >
                           {lot.mfgDate
-                            ? `Ngày sản xuất ${formatDate(lot.mfgDate)}`
-                            : `Chưa có Ngày sản xuất${enteredLabel(lot)}`}
+                            ? `NSX ${formatMfg(lot.mfgDate, selectedItem)}`
+                            : `Chưa có NSX${enteredLabel(lot)}`}
                           :{" "}
                           {formatQty(lot.qty, {
                             caseSize: selectedItem.case_size,
@@ -607,7 +607,7 @@ export function StockScreen({ branchId }: Props) {
                                   byPercent: selectedItem.record_by_percent,
                                 })}
                                 {lot.enteredOn
-                                  ? ` — vào kho ${formatDate(lot.enteredOn)}`
+                                  ? ` — vào kho ${formatDayMonth(lot.enteredOn)}`
                                   : ""}
                               </Text>
                             </Pressable>

@@ -3,6 +3,8 @@ import {
   addDuration,
   lastDay,
   expiredLots,
+  formatDayMonth,
+  formatMfg,
   expiryAlerts,
   inUseExpiry,
   lotExpiry,
@@ -147,5 +149,32 @@ describe("usesMfgDate: món nào có Ngày sản xuất trên giao diện", () =
     expect(usesMfgDate({ track_mfg_date: false, shelf_life: null })).toBe(
       false
     );
+  });
+});
+
+describe("formatMfg: Ngày sản xuất viết tắt, chỉ thêm năm khi hạn sang năm khác", () => {
+  it("ngày/tháng, bỏ năm", () => {
+    expect(formatDayMonth("2026-10-28")).toBe("28/10");
+    expect(
+      formatMfg("2026-10-28", item({ shelf_life: 2, shelf_life_unit: "month" }))
+    ).toBe("28/10");
+    expect(formatMfg("2026-10-28", item())).toBe("28/10"); // món chưa có hạn
+  });
+  it("món hạn dài sang năm sau thì giữ năm", () => {
+    expect(
+      formatMfg(
+        "2026-10-28",
+        item({ shelf_life: 12, shelf_life_unit: "month" })
+      )
+    ).toBe("28/10/2026");
+    expect(
+      formatMfg(
+        "2026-02-01",
+        item({ shelf_life: 12, shelf_life_unit: "month" })
+      )
+    ).toBe("01/02/2026");
+    expect(
+      formatMfg("2026-10-28", item({ shelf_life: 5, shelf_life_unit: "month" }))
+    ).toBe("28/10/2026"); // hạn 28/03/2027
   });
 });

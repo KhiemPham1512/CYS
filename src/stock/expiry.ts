@@ -76,6 +76,23 @@ export function expiryAlerts<T extends { expiry: string }>(
   };
 }
 
+// "28/10" (bỏ năm).
+export function formatDayMonth(iso: string): string {
+  const [, m, d] = iso.slice(0, 10).split("-");
+  return `${d}/${m}`;
+}
+
+// Ngày sản xuất viết tắt "28/10"; chỉ giữ năm khi hạn dùng sang năm khác (món hạn dài).
+export function formatMfg(mfgDate: string, item: ExpiryItem): string {
+  const expiry = item.shelf_life
+    ? lastDay(mfgDate, item.shelf_life, item.shelf_life_unit)
+    : null;
+  const short = formatDayMonth(mfgDate);
+  return expiry && expiry.slice(0, 4) !== mfgDate.slice(0, 4)
+    ? `${short}/${mfgDate.slice(0, 4)}`
+    : short;
+}
+
 // Món có Ngày sản xuất trên giao diện: món theo dõi hoặc có Thời hạn sử dụng. Món không hạn (nhóm Đóng gói) thì ẩn.
 export function usesMfgDate(
   item: Pick<Tables<"items">, "track_mfg_date" | "shelf_life">

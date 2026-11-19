@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import type { Tables } from "../lib/database.types";
 import { planReturn } from "../orders/receiving";
 import { returnDamaged } from "../orders/receivingApi";
-import { formatDate } from "./date";
+import { formatDayMonth, formatMfg } from "./expiry";
 import type { Lot } from "./ledger";
 import { formatQty, parseQty } from "./qty";
 
@@ -14,10 +14,10 @@ type Props = {
 };
 
 const lotKey = (lot: Lot) => lot.mfgDate ?? `u:${lot.enteredOn ?? ""}`;
-const lotLabel = (lot: Lot) =>
+const lotLabel = (lot: Lot, item: Tables<"items">) =>
   lot.mfgDate
-    ? `Ngày sản xuất ${formatDate(lot.mfgDate)}`
-    : `Chưa có ngày${lot.enteredOn ? ` (vào kho ${formatDate(lot.enteredOn)})` : ""}`;
+    ? `NSX ${formatMfg(lot.mfgDate, item)}`
+    : `Chưa có NSX${lot.enteredOn ? ` (vào kho ${formatDayMonth(lot.enteredOn)})` : ""}`;
 
 // Trả hàng hư sau khi đã vào kho: chọn Lô, nhập số; kho trừ đúng Lô và số đó sang Chờ nhà cung cấp.
 export function ReturnDamagedPanel({ item, lots, online }: Props) {
@@ -78,7 +78,7 @@ export function ReturnDamagedPanel({ item, lots, online }: Props) {
               accessibilityState={{ selected }}
             >
               <Text style={[styles.chipText, selected && styles.chipTextOn]}>
-                {lotLabel(l)}: {fmt(l.qty)}
+                {lotLabel(l, item)}: {fmt(l.qty)}
               </Text>
             </Pressable>
           );
