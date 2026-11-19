@@ -37,16 +37,16 @@ begin
   end;
 
   select * into r from public.audit_feed('00000000-0000-0000-0000-0000000000a1')
-    where table_name = 'items';
+    where table_name = 'items' and action = 'update';
   assert r.actor = '00000000-0000-0000-0000-00000000000a', 'ghi đúng người sửa';
   assert r.actor_email = 'a@example.test', 'có email';
   assert r.item_name = 'Món A', 'có tên món';
   assert r.old_data ->> 'unit' = 'Hộp' and r.new_data ->> 'unit' = 'Gói', 'cũ → mới';
-  assert (select count(*) from public.audit_feed('00000000-0000-0000-0000-0000000000a1') where table_name = 'items') = 1, 'sửa không đổi gì thì không ghi';
+  assert (select count(*) from public.audit_feed('00000000-0000-0000-0000-0000000000a1') where table_name = 'items' and action = 'update') = 1, 'sửa không đổi gì thì không ghi';
   assert (select count(*) from public.audit_feed('00000000-0000-0000-0000-0000000000a1') where table_name = 'stock_movements' and action = 'use') = 1, 'gộp biến động kho';
 
   -- Lọc theo món, người, ngày.
-  assert (select count(*) from public.audit_feed('00000000-0000-0000-0000-0000000000a1', null, null, null, '00000000-0000-0000-0000-0000000000a3')) = 2, 'lọc theo món';
+  assert (select count(*) from public.audit_feed('00000000-0000-0000-0000-0000000000a1', null, null, null, '00000000-0000-0000-0000-0000000000a3')) = 3, 'lọc theo món (thêm món + sửa món + Ghi dùng)';
   assert (select count(*) from public.audit_feed('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-00000000000d')) = 0, 'lọc theo người khác';
   assert (select count(*) from public.audit_feed('00000000-0000-0000-0000-0000000000a1', null, current_date + 2, null)) = 0, 'lọc từ ngày tương lai';
 end $$;
