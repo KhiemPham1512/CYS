@@ -64,6 +64,18 @@ describe("describeChange", () => {
     ).toEqual(["Xóa: Cafe"]);
   });
 
+  it("thêm / xóa không có tên (tài khoản) thì nêu đối tượng", () => {
+    expect(
+      describeChange(
+        entry({
+          table_name: "members",
+          action: "insert",
+          new_data: { user_id: "u" },
+        })
+      )
+    ).toEqual(["Thêm: tài khoản"]);
+  });
+
   it("thành viên: khóa và quyền Quản trị", () => {
     expect(
       describeChange(

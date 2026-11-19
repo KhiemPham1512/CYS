@@ -46,6 +46,11 @@ const duration = (
     ? DASH
     : `${data[key]} ${UNIT_VI[String(data[unitKey])] ?? ""}`.trim();
 
+const SUBJECT: Record<string, string> = {
+  members: "tài khoản",
+  branch_settings: "Cài đặt Chi nhánh",
+};
+
 const STOCK_LABEL: Record<string, string> = {
   use: "Ghi dùng",
   count: "Kiểm kho",
@@ -67,8 +72,9 @@ export function describeChange(e: AuditEntry): string[] {
     return [`${label}: ${show(qty)}${tail}`];
   }
   const name = String((e.new_data ?? e.old_data)?.name ?? "");
-  if (e.action === "insert") return [`Thêm: ${name}`];
-  if (e.action === "delete") return [`Xóa: ${name}`];
+  const subject = name || SUBJECT[e.table_name] || e.table_name;
+  if (e.action === "insert") return [`Thêm: ${subject}`];
+  if (e.action === "delete") return [`Xóa: ${subject}`];
 
   const oldD = e.old_data ?? {};
   const newD = e.new_data ?? {};

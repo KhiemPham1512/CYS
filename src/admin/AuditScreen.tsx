@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -48,21 +48,27 @@ export function AuditScreen({ branchId }: Props) {
 
   const from = dateOrNull(fromText);
   const to = dateOrNull(toText);
+  const datesOk = from.ok && to.ok;
+  const fromValue = from.ok ? from.value : null;
+  const toValue = to.ok ? to.value : null;
 
+  // Chỉ nhận kết quả của lần tải mới nhất (đổi bộ lọc nhanh không bị kết quả cũ ghi đè).
+  const latest = useRef(0);
   const fetchData = useCallback(async () => {
-    if (!from.ok || !to.ok) return;
+    if (!datesOk) return;
+    const request = ++latest.current;
     setLoading(true);
     const res = await loadAuditFeed(branchId, {
       actor,
-      from: from.value,
-      to: to.value,
+      from: fromValue,
+      to: toValue,
       itemId: null,
     });
+    if (request !== latest.current) return;
     setRows(res.rows);
     setError(res.error);
     setLoading(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [branchId, actor, fromText, toText]);
+  }, [branchId, actor, datesOk, fromValue, toValue]);
 
   useEffect(() => {
     void fetchData();

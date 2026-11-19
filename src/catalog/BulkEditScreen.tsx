@@ -102,7 +102,7 @@ export function BulkEditScreen({ branchId }: Props) {
     } else {
       setMessage({ ok: true, text: `Đã lưu ${res.done} món.` });
     }
-    setEdits({});
+    if (!res.error) setEdits({}); // lỗi giữa chừng: giữ các sửa chưa lưu để bấm Lưu lại
     await fetchData();
   };
 
