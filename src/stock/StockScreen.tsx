@@ -32,7 +32,7 @@ import {
   totalQty,
   type Lot,
 } from "./ledger";
-import { expiredLots } from "./expiry";
+import { expiredLots, usesMfgDate } from "./expiry";
 import { ReturnDamagedPanel } from "./ReturnDamagedPanel";
 import { formatQty, formatSheetQty, parseAdjust, parseQty } from "./qty";
 
@@ -376,6 +376,7 @@ export function StockScreen({ branchId }: Props) {
                 </Text>
               )}
               {lots &&
+                usesMfgDate(item) &&
                 lots.map((lot, idx) => (
                   <Text
                     key={`${lot.mfgDate ?? lot.enteredOn ?? "none"}-${idx}`}
@@ -444,22 +445,23 @@ export function StockScreen({ branchId }: Props) {
                         byPercent: selectedItem.record_by_percent,
                       })}
                     </Text>
-                    {selectedLots.map((lot) => (
-                      <Text
-                        key={lot.mfgDate ?? `none-${lot.enteredOn}`}
-                        style={styles.metaText}
-                      >
-                        {lot.mfgDate
-                          ? `Ngày sản xuất ${formatDate(lot.mfgDate)}`
-                          : `Chưa có Ngày sản xuất${enteredLabel(lot)}`}
-                        :{" "}
-                        {formatQty(lot.qty, {
-                          caseSize: selectedItem.case_size,
-                          unit: selectedItem.unit,
-                          byPercent: selectedItem.record_by_percent,
-                        })}
-                      </Text>
-                    ))}
+                    {usesMfgDate(selectedItem) &&
+                      selectedLots.map((lot) => (
+                        <Text
+                          key={lot.mfgDate ?? `none-${lot.enteredOn}`}
+                          style={styles.metaText}
+                        >
+                          {lot.mfgDate
+                            ? `Ngày sản xuất ${formatDate(lot.mfgDate)}`
+                            : `Chưa có Ngày sản xuất${enteredLabel(lot)}`}
+                          :{" "}
+                          {formatQty(lot.qty, {
+                            caseSize: selectedItem.case_size,
+                            unit: selectedItem.unit,
+                            byPercent: selectedItem.record_by_percent,
+                          })}
+                        </Text>
+                      ))}
                   </View>
 
                   <View style={styles.tabRow}>
@@ -469,27 +471,31 @@ export function StockScreen({ branchId }: Props) {
                         ["mfg", "Thêm Ngày sản xuất"],
                         ["return", "Trả hàng hư"],
                       ] as const
-                    ).map(([key, label]) => {
-                      const selected = mode === key;
-                      return (
-                        <Pressable
-                          key={key}
-                          style={[styles.tab, selected && styles.tabSelected]}
-                          onPress={() => setMode(key)}
-                          accessibilityRole="tab"
-                          accessibilityState={{ selected }}
-                        >
-                          <Text
-                            style={[
-                              styles.tabText,
-                              selected && styles.tabTextSelected,
-                            ]}
+                    )
+                      .filter(
+                        ([key]) => key !== "mfg" || usesMfgDate(selectedItem)
+                      )
+                      .map(([key, label]) => {
+                        const selected = mode === key;
+                        return (
+                          <Pressable
+                            key={key}
+                            style={[styles.tab, selected && styles.tabSelected]}
+                            onPress={() => setMode(key)}
+                            accessibilityRole="tab"
+                            accessibilityState={{ selected }}
                           >
-                            {label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
+                            <Text
+                              style={[
+                                styles.tabText,
+                                selected && styles.tabTextSelected,
+                              ]}
+                            >
+                              {label}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
                   </View>
 
                   {mode === "adjust" && (

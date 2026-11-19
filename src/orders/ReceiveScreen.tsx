@@ -1,3 +1,4 @@
+import { usesMfgDate } from "../stock/expiry";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -545,21 +546,27 @@ export function ReceiveScreen({ branchId }: Props) {
                     }
                   />
 
-                  <Text style={styles.label}>
-                    {editingItem?.track_mfg_date
-                      ? "Ngày sản xuất (bắt buộc)"
-                      : "Ngày sản xuất"}
-                  </Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder={
-                      editingItem?.track_mfg_date ? "bắt buộc, vd 28" : "vd 28"
-                    }
-                    value={mfgInputs[editingLine.id] ?? ""}
-                    onChangeText={(t) =>
-                      setMfgInputs((p) => ({ ...p, [editingLine.id]: t }))
-                    }
-                  />
+                  {editingItem && usesMfgDate(editingItem) && (
+                    <>
+                      <Text style={styles.label}>
+                        {editingItem?.track_mfg_date
+                          ? "Ngày sản xuất (bắt buộc)"
+                          : "Ngày sản xuất"}
+                      </Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder={
+                          editingItem?.track_mfg_date
+                            ? "bắt buộc, vd 28"
+                            : "vd 28"
+                        }
+                        value={mfgInputs[editingLine.id] ?? ""}
+                        onChangeText={(t) =>
+                          setMfgInputs((p) => ({ ...p, [editingLine.id]: t }))
+                        }
+                      />
+                    </>
+                  )}
 
                   <View style={styles.btnRow}>
                     <Pressable

@@ -76,6 +76,13 @@ export function expiryAlerts<T extends { expiry: string }>(
   };
 }
 
+// Món có Ngày sản xuất trên giao diện: món theo dõi hoặc có Thời hạn sử dụng. Món không hạn (nhóm Đóng gói) thì ẩn.
+export function usesMfgDate(
+  item: Pick<Tables<"items">, "track_mfg_date" | "shelf_life">
+): boolean {
+  return item.track_mfg_date || item.shelf_life !== null;
+}
+
 // Các Lô của một món đã quá hạn (hạn trước hôm nay).
 export function expiredLots(
   lots: Lot[],

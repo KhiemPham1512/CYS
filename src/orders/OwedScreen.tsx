@@ -1,3 +1,4 @@
+import { usesMfgDate } from "../stock/expiry";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -411,21 +412,27 @@ export function OwedScreen({ branchId }: Props) {
                     }
                   />
 
-                  <Text style={styles.label}>
-                    {editingItem.track_mfg_date
-                      ? "Ngày sản xuất (bắt buộc khi có nhận)"
-                      : "Ngày sản xuất"}
-                  </Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder={
-                      editingItem.track_mfg_date ? "bắt buộc, vd 28" : "vd 28"
-                    }
-                    value={mfgInputs[editingItem.id] ?? ""}
-                    onChangeText={(t) =>
-                      setMfgInputs((p) => ({ ...p, [editingItem.id]: t }))
-                    }
-                  />
+                  {usesMfgDate(editingItem) && (
+                    <>
+                      <Text style={styles.label}>
+                        {editingItem.track_mfg_date
+                          ? "Ngày sản xuất (bắt buộc khi có nhận)"
+                          : "Ngày sản xuất"}
+                      </Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder={
+                          editingItem.track_mfg_date
+                            ? "bắt buộc, vd 28"
+                            : "vd 28"
+                        }
+                        value={mfgInputs[editingItem.id] ?? ""}
+                        onChangeText={(t) =>
+                          setMfgInputs((p) => ({ ...p, [editingItem.id]: t }))
+                        }
+                      />
+                    </>
+                  )}
 
                   <View style={styles.btnRow}>
                     <Pressable

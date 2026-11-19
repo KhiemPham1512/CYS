@@ -7,6 +7,7 @@ import {
   inUseExpiry,
   lotExpiry,
   tracksInUse,
+  usesMfgDate,
   type ExpiryItem,
 } from "./expiry";
 
@@ -136,5 +137,15 @@ describe("expiredLots: Lô quá hạn của một món (để tô đỏ ở Tồ
     expect(
       expiredLots([{ mfgDate: "2020-01-01", qty: 1 }], item(), "2026-11-18")
     ).toEqual([]);
+  });
+});
+
+describe("usesMfgDate: món nào có Ngày sản xuất trên giao diện", () => {
+  it("món theo dõi hoặc có Thời hạn thì có; món không hạn (đóng gói) thì không", () => {
+    expect(usesMfgDate({ track_mfg_date: true, shelf_life: null })).toBe(true);
+    expect(usesMfgDate({ track_mfg_date: false, shelf_life: 6 })).toBe(true);
+    expect(usesMfgDate({ track_mfg_date: false, shelf_life: null })).toBe(
+      false
+    );
   });
 });
