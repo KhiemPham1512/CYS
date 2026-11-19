@@ -349,7 +349,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   branchTitle: { fontSize: 18, fontWeight: "700" },
-  navScroll: { flexGrow: 0 },
+  navScroll: { flexGrow: 0, flexShrink: 0 }, // trên web không để thanh tab bị ép nhỏ khi nội dung dài
   navBar: {
     flexDirection: "row",
     paddingHorizontal: 16,
