@@ -14,9 +14,9 @@ export type Database = {
   public: {
     Tables: {
       branch_settings: {
-        Row: { branch_id: string; branch_name: string };
-        Insert: { branch_id: string; branch_name: string };
-        Update: { branch_id?: string; branch_name?: string };
+        Row: { branch_id: string; branch_name: string; sheet: Json };
+        Insert: { branch_id: string; branch_name: string; sheet?: Json };
+        Update: { branch_id?: string; branch_name?: string; sheet?: Json };
         Relationships: [
           {
             foreignKeyName: "branch_settings_branch_id_fkey";
@@ -35,6 +35,7 @@ export type Database = {
       };
       item_groups: {
         Row: {
+          sheet: Json;
           branch_id: string;
           id: string;
           name: string;
@@ -42,6 +43,7 @@ export type Database = {
           sort_order: number;
         };
         Insert: {
+          sheet?: Json;
           branch_id: string;
           id?: string;
           name: string;
@@ -49,6 +51,7 @@ export type Database = {
           sort_order?: number;
         };
         Update: {
+          sheet?: Json;
           branch_id?: string;
           id?: string;
           name?: string;
@@ -67,6 +70,7 @@ export type Database = {
       };
       items: {
         Row: {
+          sheet: Json;
           branch_id: string;
           case_size: number | null;
           created_at: string;
@@ -88,6 +92,7 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          sheet?: Json;
           branch_id: string;
           case_size?: number | null;
           created_at?: string;
@@ -109,6 +114,7 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          sheet?: Json;
           branch_id?: string;
           case_size?: number | null;
           created_at?: string;
