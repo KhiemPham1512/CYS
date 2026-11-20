@@ -9,7 +9,9 @@ import {
 import { TextInput } from "../ui/TextInput";
 import { switchTrack, themedStyles } from "../theme/themedStyles";
 import type { Palette } from "../theme/themes";
+import { PageHeader } from "../ui/PageHeader";
 import { Text } from "../ui/Text";
+import { WIDE_LAYOUT } from "../navigation/adminWeb";
 import { Loading } from "../ui/Loading";
 import { validateNewUser } from "../../supabase/functions/admin-users/logic.ts";
 import { useOnline } from "../lib/useOnline";
@@ -21,11 +23,9 @@ import {
   type ManagedUser,
 } from "./api";
 
-const WIDE = 900; // từ bề rộng này trở lên: bảng + khung thêm người dùng đặt cạnh nhau (web máy tính)
-
 export function UsersScreen({ currentUserId }: { currentUserId: string }) {
   const online = useOnline();
-  const wide = useWindowDimensions().width >= WIDE;
+  const wide = useWindowDimensions().width >= WIDE_LAYOUT;
   const [users, setUsers] = useState<ManagedUser[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -161,10 +161,7 @@ export function UsersScreen({ currentUserId }: { currentUserId: string }) {
   return (
     <ScrollView contentContainerStyle={styles.pageWide}>
       <View style={styles.innerWide}>
-        <View style={styles.headWide}>
-          <Text style={styles.pageTitle}>Người dùng</Text>
-          <Text style={styles.pageSub}>{users.length} tài khoản</Text>
-        </View>
+        <PageHeader title="Người dùng" sub={`${users.length} tài khoản`} />
         {!online && (
           <Text style={styles.error}>Mất mạng — không thay đổi được</Text>
         )}
@@ -311,9 +308,6 @@ const styles = themedStyles((c: Palette) => ({
   form: { gap: 10, marginTop: 16 },
   pageWide: { padding: 24 },
   innerWide: { width: "100%", maxWidth: 1200, alignSelf: "center", gap: 16 },
-  headWide: { flexDirection: "row", alignItems: "baseline", gap: 12 },
-  pageTitle: { fontSize: 24, fontWeight: "700", color: c.ink },
-  pageSub: { fontSize: 14, color: c.muted },
   split: { flexDirection: "row", gap: 20, alignItems: "flex-start" },
   card: {
     backgroundColor: c.surface,

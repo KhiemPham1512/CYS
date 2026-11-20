@@ -10,9 +10,11 @@ import {
 import { TextInput } from "../ui/TextInput";
 import { switchTrack, themedStyles } from "../theme/themedStyles";
 import type { Palette } from "../theme/themes";
+import { PageHeader } from "../ui/PageHeader";
 import { Text } from "../ui/Text";
 import { Loading } from "../ui/Loading";
 import type { Tables } from "../lib/database.types";
+import { WIDE_LAYOUT } from "../navigation/adminWeb";
 import { loadCatalog, subscribeCatalog } from "./api";
 import { ItemForm } from "./ItemForm";
 import { buildSections } from "./sections";
@@ -26,10 +28,8 @@ type SectionData = {
   data: Tables<"items">[];
 };
 
-const WIDE = 900; // từ bề rộng này trở lên: bảng (web máy tính)
-
 export function CatalogScreen({ branchId }: Props) {
-  const wide = useWindowDimensions().width >= WIDE;
+  const wide = useWindowDimensions().width >= WIDE_LAYOUT;
   const [groups, setGroups] = useState<Tables<"item_groups">[]>([]);
   const [items, setItems] = useState<Tables<"items">[]>([]);
   const [loading, setLoading] = useState(true);
@@ -122,12 +122,11 @@ export function CatalogScreen({ branchId }: Props) {
   return (
     <View style={styles.container}>
       {wide && (
-        <View style={styles.headWide}>
-          <Text style={styles.pageTitle}>Danh mục</Text>
-          <Text style={styles.pageSub}>
-            {items.length} món · {groups.length} nhóm
-          </Text>
-        </View>
+        <PageHeader
+          title="Danh mục"
+          sub={`${items.length} món · ${groups.length} nhóm`}
+          style={styles.headWide}
+        />
       )}
       <View style={[styles.toolbar, wide && styles.toolbarWide]}>
         <TextInput
@@ -331,15 +330,10 @@ const styles = themedStyles((c: Palette) => ({
   addButtonText: { color: c.onAccent, fontSize: 15, fontWeight: "600" },
   listContent: { paddingBottom: 32 },
   headWide: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    gap: 12,
     paddingHorizontal: 24,
     paddingTop: 24,
     paddingBottom: 12,
   },
-  pageTitle: { fontSize: 24, fontWeight: "700", color: c.ink },
-  pageSub: { fontSize: 14, color: c.muted },
   toolbarWide: { paddingHorizontal: 24, borderBottomWidth: 0 },
   tablePage: { padding: 24, paddingTop: 8 },
   tableCard: {

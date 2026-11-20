@@ -8,6 +8,9 @@ export const ADMIN_PAGES: { key: AdminPageKey; label: string }[] = [
   { key: "bulk", label: "Sửa hàng loạt" },
 ];
 
+// Từ bề rộng này trở lên các màn quản trị dùng bố cục máy tính (thanh bên, bảng).
+export const WIDE_LAYOUT = 900;
+
 export function adminWebView(
   isWeb: boolean,
   isAdmin: boolean

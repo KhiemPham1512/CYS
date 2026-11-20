@@ -2,16 +2,19 @@ import { useState } from "react";
 import { Pressable, ScrollView, useWindowDimensions, View } from "react-native";
 import { CatalogScreen } from "../catalog/CatalogScreen";
 import { BulkEditScreen } from "../catalog/BulkEditScreen";
-import { ADMIN_PAGES, type AdminPageKey } from "../navigation/adminWeb";
+import {
+  ADMIN_PAGES,
+  WIDE_LAYOUT,
+  type AdminPageKey,
+} from "../navigation/adminWeb";
 import { themedStyles } from "../theme/themedStyles";
 import { useTheme } from "../theme/ThemeContext";
 import type { Palette } from "../theme/themes";
 import { Glyph, Logo } from "../ui/icons";
+import { useOnline } from "../lib/useOnline";
 import { Text } from "../ui/Text";
 import { UsersScreen } from "../users/UsersScreen";
 import { AuditScreen } from "./AuditScreen";
-
-const SIDEBAR_FROM = 900; // từ bề rộng này trở lên: thanh bên trái; hẹp hơn: dải mục nằm ngang ở trên
 
 // Web dành cho Quản trị: thanh bên trái + một trang một lúc. Dùng lại các màn quản trị đã có.
 export function AdminConsole({
@@ -29,7 +32,8 @@ export function AdminConsole({
 }) {
   const { theme } = useTheme();
   const { width } = useWindowDimensions();
-  const side = width >= SIDEBAR_FROM;
+  const side = width >= WIDE_LAYOUT;
+  const online = useOnline();
   const [page, setPage] = useState<AdminPageKey>("audit");
 
   const nav = ADMIN_PAGES.map((p) => (
@@ -84,6 +88,9 @@ export function AdminConsole({
       )}
 
       <View style={styles.content}>
+        {!online && (
+          <Text style={styles.offline}>Mất mạng — đang chờ kết nối lại</Text>
+        )}
         {page === "audit" && <AuditScreen branchId={branchId} />}
         {page === "users" && <UsersScreen currentUserId={userId} />}
         {page === "catalog" && <CatalogScreen branchId={branchId} />}
@@ -176,4 +183,11 @@ const styles = themedStyles((c: Palette) => ({
   },
   logoutText: { fontSize: 15, fontWeight: "600", color: c.red },
   content: { flex: 1 },
+  offline: {
+    backgroundColor: c.redSoft,
+    color: c.red,
+    textAlign: "center",
+    padding: 8,
+    fontWeight: "600",
+  },
 }));

@@ -38,8 +38,7 @@ import { MenuScreen } from "./src/ui/MenuScreen";
 import { fontFamily, useReduceMotion } from "./src/ui/motion";
 import { Splash } from "./src/ui/Splash";
 import { TabBar } from "./src/ui/TabBar";
-import { AdminConsole } from "./src/admin/AdminConsole";
-import { adminWebView } from "./src/navigation/adminWeb";
+import { AdminWebGate } from "./src/admin/AdminWebGate";
 import { CatalogScreen } from "./src/catalog/CatalogScreen";
 import { CountScreen } from "./src/stock/CountScreen";
 import { StockScreen } from "./src/stock/StockScreen";
@@ -471,48 +470,16 @@ function HomeScreen({
   }
 
   // Web chỉ dành cho Quản trị (điện thoại giữ nguyên app).
-  const mode = adminWebView(Platform.OS === "web", isAdmin);
-  if (branch && Platform.OS === "web" && !roleLoaded) return <Loading />;
-  if (branch && Platform.OS === "web" && roleError)
+  if (branch && Platform.OS === "web")
     return (
-      <View style={styles.form}>
-        <Text style={styles.error}>
-          Không kiểm tra được quyền. Tải lại trang hoặc kiểm tra mạng.
-        </Text>
-        <Pressable
-          style={styles.linkButton}
-          onPress={() => supabase.auth.signOut()}
-          accessibilityRole="button"
-        >
-          <Text style={styles.link}>Đăng xuất</Text>
-        </Pressable>
-      </View>
-    );
-  if (branch && mode === "console")
-    return (
-      <AdminConsole
-        branchId={branch.branch_id}
-        branchName={branch.branch_name}
+      <AdminWebGate
+        branch={branch}
+        roleLoaded={roleLoaded}
+        roleError={roleError}
+        isAdmin={isAdmin}
         userId={userId}
         email={email}
-        onSignOut={() => supabase.auth.signOut()}
       />
-    );
-  if (branch && mode === "forbidden")
-    return (
-      <View style={styles.form}>
-        <Text style={styles.error}>
-          Trang web này chỉ dành cho Quản trị. Nhân viên vui lòng dùng app trên
-          điện thoại.
-        </Text>
-        <Pressable
-          style={styles.linkButton}
-          onPress={() => supabase.auth.signOut()}
-          accessibilityRole="button"
-        >
-          <Text style={styles.link}>Đăng xuất</Text>
-        </Pressable>
-      </View>
     );
 
   if (branch) {
