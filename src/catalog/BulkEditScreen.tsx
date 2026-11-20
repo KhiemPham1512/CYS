@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,6 +8,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { Loading } from "../ui/Loading";
 import { saveItemEdits } from "../admin/api";
 import type { ShelfLifeUnit, Tables } from "../lib/database.types";
 import { loadCatalog } from "./api";
@@ -117,7 +117,7 @@ export function BulkEditScreen({ branchId }: Props) {
     [groups, items]
   );
 
-  if (loading) return <ActivityIndicator style={styles.center} />;
+  if (loading) return <Loading />;
   if (loadError)
     return (
       <View style={styles.center}>

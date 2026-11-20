@@ -1,7 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,6 +8,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { Loading } from "../ui/Loading";
 import { loadCatalog } from "../catalog/api";
 import type { Tables } from "../lib/database.types";
 import { loadMovements, subscribeMovements } from "./api";
@@ -146,7 +146,7 @@ export function ExpiryScreen({ branchId }: Props) {
     if (!err) void fetchData();
   };
 
-  if (loading) return <ActivityIndicator style={styles.center} />;
+  if (loading) return <Loading />;
   if (error)
     return (
       <View style={styles.center}>

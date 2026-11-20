@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   SectionList,
@@ -9,6 +8,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { Loading } from "../ui/Loading";
 import { loadCatalog } from "../catalog/api";
 import { buildSections } from "../catalog/sections";
 import { ItemQtyModal } from "../components/ItemQtyModal";
@@ -201,7 +201,7 @@ export function CountScreen({ branchId, onDone }: Props) {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator />
+        <Loading />
       </View>
     );
   }

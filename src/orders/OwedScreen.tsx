@@ -1,7 +1,6 @@
 import { formatMfg, usesMfgDate } from "../stock/expiry";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Modal,
   Pressable,
   ScrollView,
@@ -10,6 +9,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { Loading } from "../ui/Loading";
 import { loadCatalog } from "../catalog/api";
 import { compareGroups, compareItems } from "../catalog/sections";
 import type { Tables } from "../lib/database.types";
@@ -281,7 +281,7 @@ export function OwedScreen({ branchId }: Props) {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator />
+        <Loading />
       </View>
     );
   }

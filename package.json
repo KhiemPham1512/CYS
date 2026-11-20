@@ -21,15 +21,18 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@expo-google-fonts/be-vietnam-pro": "^0.4.1",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/netinfo": "12.0.1",
     "@supabase/supabase-js": "^2.119.0",
     "expo": "~58.0.26",
+    "expo-font": "~58.0.12",
     "expo-media-library": "~58.0.14",
     "expo-status-bar": "~58.0.5",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-native": "0.88.1",
+    "react-native-svg": "15.16.0",
     "react-native-url-polyfill": "^4.0.0",
     "react-native-view-shot": "6.1.1",
     "react-native-web": "^0.21.4"

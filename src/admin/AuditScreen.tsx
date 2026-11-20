@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,6 +8,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { Loading } from "../ui/Loading";
 import { parseShortDate } from "../stock/date";
 import { localDate, localTime } from "../stock/ledger";
 import { listUsers, type ManagedUser } from "../users/api";
@@ -158,7 +158,7 @@ export function AuditScreen({ branchId }: Props) {
         </View>
 
         {loading ? (
-          <ActivityIndicator style={styles.state} />
+          <Loading />
         ) : error ? (
           <View style={styles.state}>
             <Text style={styles.error}>{error}</Text>
