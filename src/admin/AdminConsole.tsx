@@ -40,7 +40,7 @@ export function AdminConsole({
       accessibilityState={{ selected: page === p.key }}
       style={({ pressed }) => [
         styles.item,
-        side ? styles.itemSide : styles.itemTop,
+        !side && styles.itemTop,
         page === p.key && styles.itemOn,
         pressed && styles.pressed,
       ]}
@@ -154,7 +154,6 @@ const styles = themedStyles((c: Palette) => ({
     paddingHorizontal: 14,
     borderRadius: 12,
   },
-  itemSide: {},
   itemTop: { borderWidth: 1, borderColor: c.line },
   itemOn: { backgroundColor: c.accentSoft, borderColor: c.accentDeep },
   itemText: { fontSize: 15, fontWeight: "500", color: c.ink },

@@ -383,6 +383,7 @@ function HomeScreen({
   const [error, setError] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [roleLoaded, setRoleLoaded] = useState(false);
+  const [roleError, setRoleError] = useState(false);
   const [view, setView] = useState<HomeView>("stock");
   const [hubOpen, setHubOpen] = useState(false);
 
@@ -398,13 +399,14 @@ function HomeScreen({
         setError(!!error);
         setBranch(data ?? null);
         if (!data) return;
-        const { data: me } = await supabase
+        const { data: me, error: meError } = await supabase
           .from("members")
           .select("is_admin")
           .eq("branch_id", data.branch_id)
           .eq("user_id", userId)
           .maybeSingle();
         setIsAdmin(me?.is_admin ?? false);
+        setRoleError(!!meError); // lỗi đọc quyền ≠ không phải Quản trị: web báo lỗi thay vì chặn nhầm
         setRoleLoaded(true);
       });
   }, [userId]);
@@ -471,6 +473,21 @@ function HomeScreen({
   // Web chỉ dành cho Quản trị (điện thoại giữ nguyên app).
   const mode = adminWebView(Platform.OS === "web", isAdmin);
   if (branch && Platform.OS === "web" && !roleLoaded) return <Loading />;
+  if (branch && Platform.OS === "web" && roleError)
+    return (
+      <View style={styles.form}>
+        <Text style={styles.error}>
+          Không kiểm tra được quyền. Tải lại trang hoặc kiểm tra mạng.
+        </Text>
+        <Pressable
+          style={styles.linkButton}
+          onPress={() => supabase.auth.signOut()}
+          accessibilityRole="button"
+        >
+          <Text style={styles.link}>Đăng xuất</Text>
+        </Pressable>
+      </View>
+    );
   if (branch && mode === "console")
     return (
       <AdminConsole

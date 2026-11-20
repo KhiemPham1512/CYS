@@ -193,6 +193,7 @@ export function CatalogScreen({ branchId }: Props) {
                     ]}
                     onPress={() => openEdit(item)}
                     accessibilityRole="button"
+                    accessibilityLabel={`Sửa món ${item.name}`}
                   >
                     <Text style={[styles.itemName, styles.colName]}>
                       {item.name}

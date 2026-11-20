@@ -90,6 +90,8 @@ export function UsersScreen({ currentUserId }: { currentUserId: string }) {
             act(u.user_id, () => setLocked(u.user_id, !u.is_locked))
           }
           accessibilityRole="button"
+          accessibilityLabel={`${u.is_locked ? "Mở khóa" : "Khóa"} ${u.email}`}
+          accessibilityState={{ disabled }}
         >
           <Text style={styles.smallButtonText}>
             {u.is_locked ? "Mở khóa" : "Khóa"}
@@ -100,6 +102,8 @@ export function UsersScreen({ currentUserId }: { currentUserId: string }) {
           disabled={disabled}
           onPress={() => act(u.user_id, () => setAdmin(u.user_id, !u.is_admin))}
           accessibilityRole="button"
+          accessibilityLabel={`${u.is_admin ? "Bỏ Quản trị" : "Cấp Quản trị"} ${u.email}`}
+          accessibilityState={{ disabled }}
         >
           <Text style={styles.smallButtonText}>
             {u.is_admin ? "Bỏ Quản trị" : "Cấp Quản trị"}
