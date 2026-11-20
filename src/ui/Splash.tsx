@@ -8,7 +8,8 @@ import { fontFamily, useReduceMotion } from "./motion";
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const HEX = 330; // chiều dài nét viền lục giác
 
-// Màn chờ khi mở app: viền lục giác tự vẽ, mũi tên bật lên, chữ CYS hiện dần (~1,1 giây).
+// Màn chờ khi mở app: viền lục giác tự vẽ, mũi tên bật lên, chữ CYS hiện dần (~0,7 giây).
+// shortcut: chạy đủ một lượt dù app đã sẵn sàng; chưa nối với việc tải dữ liệu.
 export function Splash({ onDone }: { onDone: () => void }) {
   const { theme, palette } = useTheme();
   const reduce = useReduceMotion();
@@ -31,20 +32,20 @@ export function Splash({ onDone }: { onDone: () => void }) {
       : Animated.sequence([
           Animated.timing(draw, {
             toValue: 1,
-            duration: 550,
+            duration: 350,
             easing: ease,
             useNativeDriver: false,
           }),
           Animated.parallel([
             Animated.spring(chev, {
               toValue: 1,
-              friction: 7,
-              tension: 160,
+              friction: 9,
+              tension: 220,
               useNativeDriver: true,
             }),
             Animated.timing(word, {
               toValue: 1,
-              duration: 300,
+              duration: 200,
               useNativeDriver: true,
             }),
           ]),
@@ -54,7 +55,7 @@ export function Splash({ onDone }: { onDone: () => void }) {
       if (finished)
         Animated.timing(out, {
           toValue: 0,
-          duration: 180,
+          duration: 140,
           useNativeDriver: true,
         }).start(onDone);
     });

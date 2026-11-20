@@ -39,21 +39,21 @@ export function HubSheet({
       else if (theme === "pink")
         Animated.spring(progress, {
           toValue: 1,
-          friction: 8,
-          tension: 70,
+          friction: 14,
+          tension: 170,
           useNativeDriver: true,
         }).start();
       else
         Animated.timing(progress, {
           toValue: 1,
-          duration: 280,
+          duration: 220,
           easing: Easing.bezier(0.2, 0.8, 0.2, 1),
           useNativeDriver: true,
         }).start();
     } else {
       Animated.timing(progress, {
         toValue: 0,
-        duration: reduce ? 1 : 200,
+        duration: reduce ? 1 : 150,
         useNativeDriver: true,
       }).start(({ finished }) => finished && setMounted(false));
     }
@@ -159,10 +159,10 @@ function Hearts() {
   useEffect(() => {
     const anims = hearts.map((h, i) =>
       Animated.sequence([
-        Animated.delay(i * 70 + 150),
+        Animated.delay(i * 40 + 60),
         Animated.timing(h.v, {
           toValue: 1,
-          duration: 950,
+          duration: 600,
           easing: Easing.out(Easing.quad),
           useNativeDriver: true,
         }),
