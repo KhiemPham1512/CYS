@@ -294,6 +294,61 @@ function Enter({
 type HomeView =
   "stock" | "use" | "catalog" | "menu" | HubKey | "audit" | "bulk" | "users";
 
+// Màn tự cập nhật theo thời gian thực: giữ lại khi chuyển tab. Màn khác dựng mới mỗi lần mở.
+const KEEP_ALIVE = new Set<HomeView>([
+  "stock",
+  "use",
+  "catalog",
+  "order",
+  "receive",
+  "owed",
+  "expiry",
+]);
+
+// Một màn trong khung chính: ẩn khi không chọn (vẫn giữ dữ liệu); hiện lại thì mờ dần + trượt nhẹ.
+function Pane({
+  active,
+  children,
+  style,
+}: {
+  active: boolean;
+  children: ReactNode;
+  style?: object;
+}) {
+  const reduce = useReduceMotion();
+  const v = useRef(new Animated.Value(active ? 0 : 1)).current;
+  useEffect(() => {
+    if (!active) return;
+    v.setValue(0);
+    Animated.timing(v, {
+      toValue: 1,
+      duration: reduce ? 100 : 180,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [active, reduce, v]);
+  return (
+    <Animated.View
+      style={[
+        style,
+        { display: active ? "flex" : "none" },
+        {
+          opacity: v,
+          transform: [
+            {
+              translateY: reduce
+                ? 0
+                : v.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }),
+            },
+          ],
+        },
+      ]}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
 const TITLES: Record<HomeView, string> = {
   stock: "Tồn kho",
   use: "Ghi dùng",
@@ -375,6 +430,55 @@ function HomeScreen({
     setView(key);
   };
 
+  const [mounted, setMounted] = useState<HomeView[]>(["stock"]);
+  useEffect(() => {
+    if (KEEP_ALIVE.has(view))
+      setMounted((m) => (m.includes(view) ? m : [...m, view]));
+  }, [view]);
+
+  function renderView(k: HomeView) {
+    if (!branch) return null;
+    const id = branch.branch_id;
+    switch (k) {
+      case "stock":
+        return <StockScreen branchId={id} />;
+      case "use":
+        return <UseScreen branchId={id} userId={userId} />;
+      case "order":
+        return <OrderScreen branchId={id} />;
+      case "receive":
+        return <ReceiveScreen branchId={id} />;
+      case "owed":
+        return <OwedScreen branchId={id} />;
+      case "expiry":
+        return <ExpiryScreen branchId={id} />;
+      case "export":
+        return <ExportScreen branchId={id} branchName={branch.branch_name} />;
+      case "count":
+        return <CountScreen branchId={id} onDone={() => setView("stock")} />;
+      case "menu":
+        return (
+          <MenuScreen
+            email={email}
+            isAdmin={isAdmin}
+            branchName={branch.branch_name}
+            online={online}
+            onSignOut={() => supabase.auth.signOut()}
+            onOpenAdmin={setView}
+          />
+        );
+      case "audit":
+        return isAdmin ? <AuditScreen branchId={id} /> : null;
+      case "bulk":
+        return isAdmin ? <BulkEditScreen branchId={id} /> : null;
+      case "users":
+        return isAdmin ? <UsersScreen currentUserId={userId} /> : null;
+      case "readOrder": // chưa có màn (sắp có), không mở được từ Hub
+      case "catalog":
+        return <CatalogScreen branchId={id} />;
+    }
+  }
+
   if (branch) {
     return (
       <View style={styles.homeContainer}>
@@ -393,48 +497,17 @@ function HomeScreen({
           )}
           <Logo theme={theme} size={34} />
         </View>
-        <Enter k={view} style={styles.content}>
-          {view === "stock" ? (
-            <StockScreen branchId={branch.branch_id} />
-          ) : view === "use" ? (
-            <UseScreen branchId={branch.branch_id} userId={userId} />
-          ) : view === "order" ? (
-            <OrderScreen branchId={branch.branch_id} />
-          ) : view === "receive" ? (
-            <ReceiveScreen branchId={branch.branch_id} />
-          ) : view === "owed" ? (
-            <OwedScreen branchId={branch.branch_id} />
-          ) : view === "expiry" ? (
-            <ExpiryScreen branchId={branch.branch_id} />
-          ) : view === "export" ? (
-            <ExportScreen
-              branchId={branch.branch_id}
-              branchName={branch.branch_name}
-            />
-          ) : view === "count" ? (
-            <CountScreen
-              branchId={branch.branch_id}
-              onDone={() => setView("stock")}
-            />
-          ) : view === "menu" ? (
-            <MenuScreen
-              email={email}
-              isAdmin={isAdmin}
-              branchName={branch.branch_name}
-              online={online}
-              onSignOut={() => supabase.auth.signOut()}
-              onOpenAdmin={setView}
-            />
-          ) : isAdmin && view === "audit" ? (
-            <AuditScreen branchId={branch.branch_id} />
-          ) : isAdmin && view === "bulk" ? (
-            <BulkEditScreen branchId={branch.branch_id} />
-          ) : isAdmin && view === "users" ? (
-            <UsersScreen currentUserId={userId} />
-          ) : (
-            <CatalogScreen branchId={branch.branch_id} />
-          )}
-        </Enter>
+        {/* Màn đã mở được giữ lại (ẩn đi) để quay lại tức thì, không tải lại; chỉ màn có cập nhật thời gian thực. */}
+        {mounted.map((k) => (
+          <Pane key={k} active={k === view} style={styles.content}>
+            {renderView(k)}
+          </Pane>
+        ))}
+        {!KEEP_ALIVE.has(view) && (
+          <Pane key={`fresh-${view}`} active style={styles.content}>
+            {renderView(view)}
+          </Pane>
+        )}
         {/* shortcut: số đỏ trên Hub chưa nối dữ liệu (đơn chờ nhận, hạn sắp tới); làm ở PR từng màn. */}
         <HubSheet
           open={hubOpen}
