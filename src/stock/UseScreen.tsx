@@ -294,7 +294,10 @@ export function UseScreen({ branchId, userId }: Props) {
         {saveError && <Text style={styles.error}>{saveError}</Text>}
       </View>
 
-      <ScrollView keyboardShouldPersistTaps="handled">
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.scrollContent}
+      >
         {list.map((item) => {
           const stock = totalQty(lotsByItem.get(item.id) ?? []);
           const qty = parsed.rows.find((r) => r.item_id === item.id)?.qty ?? 0;
@@ -428,34 +431,33 @@ const styles = themedStyles((c: Palette) => ({
   },
   toolbar: {
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingBottom: 8,
     gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: c.line,
   },
+  scrollContent: { padding: 16, paddingTop: 6, gap: 8, paddingBottom: 24 },
   input: {
     borderWidth: 1,
     borderColor: c.line,
-    borderRadius: 8,
-    padding: 10,
+    borderRadius: 14,
+    padding: 12,
     fontSize: 16,
     backgroundColor: c.surface,
   },
   row: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: c.accentSoft,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: c.line,
+    borderRadius: 18,
     backgroundColor: c.surface,
-    gap: 6,
+    gap: 10,
   },
   name: { fontSize: 16, fontWeight: "600", color: c.ink },
-  meta: { fontSize: 13, color: c.muted, paddingHorizontal: 16 },
+  meta: { fontSize: 13, color: c.muted },
   stepper: { flexDirection: "row", gap: 8, alignItems: "center" },
   stepBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
+    width: 56,
+    height: 56,
+    borderRadius: 18,
     backgroundColor: c.accentSoft,
     alignItems: "center",
     justifyContent: "center",
@@ -471,18 +473,21 @@ const styles = themedStyles((c: Palette) => ({
   warn: { color: c.amber, fontSize: 14 },
   error: { color: c.red, fontSize: 14, textAlign: "center" },
   section: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: c.accentDeep,
-    padding: 16,
-    backgroundColor: c.accentSoft,
+    fontSize: 11,
+    fontWeight: "600",
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    color: c.muted,
+    paddingTop: 12,
   },
   useRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: c.accentSoft,
+    paddingLeft: 14,
+    borderWidth: 1,
+    borderColor: c.line,
+    borderRadius: 14,
+    backgroundColor: c.surface,
   },
   useText: { flex: 1, fontSize: 14, color: c.ink },
   voidBtn: {
@@ -502,11 +507,11 @@ const styles = themedStyles((c: Palette) => ({
   },
   primary: {
     backgroundColor: c.accentDeep,
-    borderRadius: 8,
+    borderRadius: 16,
     padding: 14,
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 44,
+    minHeight: 52,
   },
   disabled: { opacity: 0.5 },
   primaryText: { color: c.onAccent, fontSize: 16, fontWeight: "600" },
