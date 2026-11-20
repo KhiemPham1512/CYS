@@ -290,7 +290,14 @@ export function PaperSheet({ model, date, orderer, width, shotRef }: Props) {
             {model.rows.map((r) => (
               <View
                 key={r.stt}
-                style={[cell, { height: rowH, paddingHorizontal: 1.4 * u }]}
+                style={[
+                  cell,
+                  {
+                    height: rowH,
+                    paddingHorizontal: 1.4 * u,
+                    alignItems: "center",
+                  },
+                ]}
               >
                 <Text
                   numberOfLines={1}
@@ -301,6 +308,7 @@ export function PaperSheet({ model, date, orderer, width, shotRef }: Props) {
                     fontWeight: "700",
                     fontSize: 3.4 * u,
                     color: BLUE,
+                    textAlign: "center",
                   }}
                 >
                   {r.qty}

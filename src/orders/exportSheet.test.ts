@@ -98,24 +98,25 @@ describe("stockSheetCell", () => {
       })
     ).toBe("3");
   });
-  it("hết sạch và không có hàng đang về: để trống ô, không ghi 0 (kể cả món theo dõi hạn)", () => {
+  it("hết sạch: ghi 0; món đặt cờ blankWhenEmpty thì để trống ô", () => {
+    const out = { ...base, incoming: 0, actual: 0, lastMfg: "2026-11-10" };
+    expect(stockSheetCell(out)).toBe("0");
+    expect(stockSheetCell({ ...out, trackMfg: true })).toBe("0(10)");
+    expect(stockSheetCell({ ...out, blankWhenEmpty: true })).toBe("");
     expect(
-      stockSheetCell({ ...base, incoming: 0, actual: 0, lastMfg: null })
+      stockSheetCell({ ...out, blankWhenEmpty: true, trackMfg: true })
     ).toBe("");
+  });
+  it("có hàng đang về mà tồn bằng 0: chỉ ghi số đang về (cờ blankWhenEmpty không đổi gì)", () => {
     expect(
       stockSheetCell({
         ...base,
-        trackMfg: true,
-        incoming: 0,
+        incoming: 12,
         actual: 0,
-        lastMfg: "2026-11-10",
+        lastMfg: null,
+        blankWhenEmpty: true,
       })
-    ).toBe("");
-  });
-  it("có hàng đang về nhưng tồn bằng 0: chỉ ghi phần đang về, không ghi +0", () => {
-    expect(
-      stockSheetCell({ ...base, incoming: 12, actual: 0, lastMfg: null })
-    ).toBe("12+");
+    ).toBe("12");
   });
 });
 

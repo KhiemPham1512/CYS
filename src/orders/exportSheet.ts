@@ -52,12 +52,19 @@ export function stockSheetCell(p: {
   trackMfg: boolean;
   caseSize: number | null;
   byPercent: boolean;
+  blankWhenEmpty?: boolean; // món chưa có gì (tồn 0, không hàng đang về) để trống ô thay vì ghi 0
 }): string {
   const opts = { caseSize: p.caseSize, byPercent: p.byPercent };
-  if (p.actual <= 0 && p.incoming <= 0) return "";
-  const actual = p.actual > 0 ? formatSheetQty(p.actual, opts) : "";
+  if (p.blankWhenEmpty && p.actual <= 0 && p.incoming <= 0) return "";
+  // Chỉ có một số thì ghi một số: hàng đang về mà tồn 0 chỉ ghi số đang về (không "12+0").
+  const incoming = formatSheetQty(p.incoming, opts);
+  const actual = formatSheetQty(p.actual, opts);
   const qty =
-    p.incoming > 0 ? `${formatSheetQty(p.incoming, opts)}+${actual}` : actual;
+    p.incoming > 0 && p.actual > 0
+      ? `${incoming}+${actual}`
+      : p.incoming > 0
+        ? incoming
+        : actual;
   if (!p.trackMfg || !p.lastMfg) return qty;
   const day = Number(p.lastMfg.slice(8, 10)); // tờ giấy chỉ ghi ngày trong tháng: 6+3(15)
   return `${qty}(${day})`;

@@ -163,6 +163,8 @@ export function ExportScreen({ branchId, branchName }: Props) {
               trackMfg: item.track_mfg_date,
               caseSize: item.case_size,
               byPercent: item.record_by_percent,
+              blankWhenEmpty:
+                sheetStrings(item.sheet, ["blank_zero"]).blank_zero === "1",
             }),
           ];
         })
