@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -8,6 +7,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { Loading } from "../ui/Loading";
 import { loadCatalog } from "../catalog/api";
 import { matchesQuery } from "../catalog/search";
 import { compareItems } from "../catalog/sections";
@@ -265,7 +265,7 @@ export function UseScreen({ branchId, userId }: Props) {
   if (loading)
     return (
       <View style={styles.center}>
-        <ActivityIndicator />
+        <Loading />
       </View>
     );
   if (error)

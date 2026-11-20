@@ -9,7 +9,6 @@ import {
   type ComponentRef,
 } from "react";
 import {
-  ActivityIndicator,
   Modal,
   Pressable,
   ScrollView,
@@ -18,6 +17,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { Loading } from "../ui/Loading";
 import { captureRef } from "react-native-view-shot";
 import { loadCatalog } from "../catalog/api";
 import { compareGroups, compareItems } from "../catalog/sections";
@@ -216,7 +216,7 @@ export function ExportScreen({ branchId, branchName }: Props) {
     }
   };
 
-  if (loading) return <ActivityIndicator style={styles.center} />;
+  if (loading) return <Loading />;
   if (error)
     return (
       <View style={styles.center}>

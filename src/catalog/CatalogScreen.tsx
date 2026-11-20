@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Pressable,
   SectionList,
   StyleSheet,
@@ -9,6 +8,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { Loading } from "../ui/Loading";
 import type { Tables } from "../lib/database.types";
 import { loadCatalog, subscribeCatalog } from "./api";
 import { ItemForm } from "./ItemForm";
@@ -86,7 +86,7 @@ export function CatalogScreen({ branchId }: Props) {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator />
+        <Loading />
       </View>
     );
   }

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
@@ -8,6 +7,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { Loading } from "../ui/Loading";
 import { loadCatalog } from "../catalog/api";
 import { compareGroups, compareItems } from "../catalog/sections";
 import { ItemQtyModal } from "../components/ItemQtyModal";
@@ -271,7 +271,7 @@ export function OrderScreen({ branchId }: Props) {
   if (loading)
     return (
       <View style={styles.center}>
-        <ActivityIndicator />
+        <Loading />
       </View>
     );
   if (error)

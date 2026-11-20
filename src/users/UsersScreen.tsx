@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,6 +8,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { Loading } from "../ui/Loading";
 import { validateNewUser } from "../../supabase/functions/admin-users/logic.ts";
 import { useOnline } from "../lib/useOnline";
 import {
@@ -68,7 +68,7 @@ export function UsersScreen({ currentUserId }: { currentUserId: string }) {
   if (!users) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator />
+        <Loading />
       </View>
     );
   }

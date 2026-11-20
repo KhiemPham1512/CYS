@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Modal,
   Pressable,
   ScrollView,
@@ -10,6 +9,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { Loading } from "../ui/Loading";
 import { loadCatalog, subscribeCatalog } from "../catalog/api";
 import { buildSections } from "../catalog/sections";
 import type { Tables } from "../lib/database.types";
@@ -289,7 +289,7 @@ export function StockScreen({ branchId }: Props) {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator />
+        <Loading />
       </View>
     );
   }

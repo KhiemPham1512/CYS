@@ -15,7 +15,6 @@ import {
   type ReactNode,
 } from "react";
 import {
-  ActivityIndicator,
   Animated,
   Easing,
   Pressable,
@@ -24,6 +23,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { Loading } from "./src/ui/Loading";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./src/lib/supabase";
 import { useOnline } from "./src/lib/useOnline";
@@ -103,7 +103,7 @@ function Root() {
       )}
       <View style={styles.body}>
         {session === undefined ? (
-          <ActivityIndicator color={palette.accent} />
+          <Loading />
         ) : session ? (
           <HomeScreen
             userId={session.user.id}
@@ -450,7 +450,7 @@ function HomeScreen({
   return (
     <View style={styles.form}>
       {branch === undefined ? (
-        <ActivityIndicator color={palette.accent} />
+        <Loading />
       ) : error ? (
         <Text style={styles.error}>Không tải được dữ liệu. Kiểm tra mạng.</Text>
       ) : (
@@ -484,9 +484,8 @@ const makeStyles = (c: Palette) =>
       flex: 1,
       alignItems: "center",
       justifyContent: "center",
-      padding: 16,
     },
-    form: { width: "100%", maxWidth: 360, gap: 8 },
+    form: { width: "100%", maxWidth: 392, gap: 8, padding: 16 },
     logoWrap: { alignSelf: "center", marginBottom: 12 },
     logoBow: {
       position: "absolute",
