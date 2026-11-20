@@ -36,6 +36,7 @@ import {
 } from "./ledger";
 import { expiredLots, formatDayMonth, formatMfg, usesMfgDate } from "./expiry";
 import { ReturnDamagedPanel } from "./ReturnDamagedPanel";
+import { filterByFlag, stockSummary, type StockFlag } from "./summary";
 import { formatQty, formatSheetQty, parseAdjust, parseQty } from "./qty";
 
 type Props = {
@@ -59,6 +60,7 @@ export function StockScreen({ branchId }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [query, setQuery] = useState("");
+  const [flag, setFlag] = useState<StockFlag | null>(null); // chip tóm tắt đang bấm để lọc
 
   const [selectedItem, setSelectedItem] = useState<Tables<"items"> | null>(
     null
@@ -127,14 +129,29 @@ export function StockScreen({ branchId }: Props) {
   const today = localDate(now);
   const checked = useMemo(() => checkedSince(movements, now), [movements, now]);
 
+  // Tóm tắt tính trên mọi món đang hiện (không phụ thuộc ô tìm), bấm chip để lọc.
+  const summary = useMemo(() => {
+    const visible = buildSections(groups, items, {
+      query: "",
+      showHidden: false,
+    }).flatMap((s) => s.items);
+    return stockSummary({
+      items: visible,
+      lotsByItem,
+      checked,
+      incoming,
+      today,
+    });
+  }, [groups, items, lotsByItem, checked, incoming, today]);
+
   const sections = useMemo<SectionData[]>(() => {
-    return buildSections(groups, items, { query, showHidden: false }).map(
-      (s) => ({
+    return buildSections(groups, items, { query, showHidden: false })
+      .map((s) => ({
         group: s.group,
-        data: s.items,
-      })
-    );
-  }, [groups, items, query]);
+        data: filterByFlag(s.items, summary, flag),
+      }))
+      .filter((s) => s.data.length > 0);
+  }, [groups, items, query, summary, flag]);
 
   const selectedLots: Lot[] = useMemo(() => {
     if (!selectedItem) return [];
@@ -325,6 +342,41 @@ export function StockScreen({ branchId }: Props) {
           value={query}
           onChangeText={setQuery}
         />
+        <View style={styles.sumRow}>
+          {(
+            [
+              ["unchecked", "Chưa kiểm", styles.sumAmber, styles.sumAmberOn],
+              ["expired", "Quá hạn", styles.sumRed, styles.sumRedOn],
+              ["incoming", "Đang về", styles.sumAccent, styles.sumAccentOn],
+            ] as const
+          ).map(([key, label, base, on]) => {
+            const selected = flag === key;
+            const n = summary.counts[key];
+            return (
+              <Pressable
+                key={key}
+                style={[
+                  styles.sumChip,
+                  selected ? on : base,
+                  n === 0 && !selected && styles.sumChipEmpty,
+                ]}
+                disabled={n === 0 && !selected}
+                onPress={() => setFlag(selected ? null : key)}
+                accessibilityRole="button"
+                accessibilityLabel={`${label}: ${n} món`}
+                accessibilityHint="Bấm để lọc danh sách"
+                accessibilityState={{ selected }}
+              >
+                <Text style={[styles.sumNum, selected && styles.sumTextOn]}>
+                  {n}
+                </Text>
+                <Text style={[styles.sumLabel, selected && styles.sumTextOn]}>
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
 
       <SectionList<Tables<"items">, SectionData>
@@ -335,7 +387,7 @@ export function StockScreen({ branchId }: Props) {
         renderSectionHeader={({ section }) => (
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>
-              {section.group.name}
+              {section.group.name.toUpperCase()}
               {section.group.name_zh ? ` (${section.group.name_zh})` : ""}
             </Text>
           </View>
@@ -347,57 +399,106 @@ export function StockScreen({ branchId }: Props) {
             unit: item.unit,
             byPercent: item.record_by_percent,
           };
-          const headerLine = lots
-            ? `${item.name} — ${formatQty(totalQty(lots), qtyOpts)}`
-            : `${item.name} — 0`;
+          const total = lots ? totalQty(lots) : 0;
           const coming = incoming.get(item.id) ?? 0;
           const expired = expiredLots(lots ?? [], item, today);
+          const stripe =
+            expired.length > 0
+              ? styles.stripeRed
+              : !checked.has(item.id)
+                ? styles.stripeAmber
+                : styles.stripeAccent;
 
           return (
             <Pressable
-              style={styles.itemRow}
+              style={styles.card}
               onPress={() => openItem(item)}
               accessibilityRole="button"
+              accessibilityLabel={[
+                `${item.name}, ${formatQty(total, qtyOpts)}`,
+                !checked.has(item.id) ? "chưa kiểm" : null,
+                expired.length > 0
+                  ? `quá hạn ${formatQty(totalQty(expired), qtyOpts)}`
+                  : null,
+                coming > 0
+                  ? `hàng đang về ${formatQty(coming, qtyOpts)}`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(", ")}
             >
-              <Text style={styles.itemTitle}>{headerLine}</Text>
-              {!checked.has(item.id) && (
-                <Text style={styles.uncheckedTag}>Chưa kiểm</Text>
-              )}
-              {expired.length > 0 && (
-                <Text style={styles.expiredTag}>
-                  Quá hạn: {formatQty(totalQty(expired), qtyOpts)}
-                </Text>
-              )}
-              {coming > 0 && (
-                <Text style={styles.lotLine}>
-                  Hàng đang về: {formatQty(coming, qtyOpts)} · Tồn kho dự tính:{" "}
-                  {formatQty(
-                    projectedQty(totalQty(lots ?? []), coming),
-                    qtyOpts
-                  )}
-                </Text>
-              )}
-              {lots &&
-                usesMfgDate(item) &&
-                lots.map((lot, idx) => (
-                  <Text
-                    key={`${lot.mfgDate ?? lot.enteredOn ?? "none"}-${idx}`}
-                    style={styles.lotLine}
-                  >
-                    {lot.mfgDate
-                      ? `NSX ${formatMfg(lot.mfgDate, item)}: ${formatQty(
-                          lot.qty,
-                          qtyOpts
-                        )}`
-                      : `Chưa có NSX${enteredLabel(lot)}: ${formatQty(lot.qty, qtyOpts)}`}
+              <View style={[styles.stripe, stripe]} />
+              <View style={styles.cardBody}>
+                <View style={styles.cardTop}>
+                  <Text style={styles.itemTitle} numberOfLines={2}>
+                    {item.name}
                   </Text>
-                ))}
+                  <Text style={styles.itemQty}>
+                    {formatQty(total, qtyOpts)}
+                  </Text>
+                </View>
+                {(!checked.has(item.id) ||
+                  expired.length > 0 ||
+                  coming > 0) && (
+                  <View style={styles.pills}>
+                    {!checked.has(item.id) && (
+                      <Text style={[styles.pill, styles.pillAmber]}>
+                        Chưa kiểm
+                      </Text>
+                    )}
+                    {expired.length > 0 && (
+                      <Text style={[styles.pill, styles.pillRed]}>
+                        Quá hạn: {formatQty(totalQty(expired), qtyOpts)}
+                      </Text>
+                    )}
+                    {coming > 0 && (
+                      <Text style={[styles.pill, styles.pillAccent]}>
+                        Hàng đang về {formatQty(coming, qtyOpts)}
+                      </Text>
+                    )}
+                  </View>
+                )}
+                {coming > 0 && (
+                  <Text style={styles.lotLine}>
+                    Tồn kho dự tính:{" "}
+                    {formatQty(projectedQty(total, coming), qtyOpts)}
+                  </Text>
+                )}
+                {lots &&
+                  usesMfgDate(item) &&
+                  lots.map((lot, idx) => (
+                    <Text
+                      key={`${lot.mfgDate ?? lot.enteredOn ?? "none"}-${idx}`}
+                      style={styles.lotLine}
+                    >
+                      {lot.mfgDate
+                        ? `NSX ${formatMfg(lot.mfgDate, item)}: ${formatQty(
+                            lot.qty,
+                            qtyOpts
+                          )}`
+                        : `Chưa có NSX${enteredLabel(lot)}: ${formatQty(lot.qty, qtyOpts)}`}
+                    </Text>
+                  ))}
+              </View>
             </Pressable>
           );
         }}
         ListEmptyComponent={
           <View style={styles.center}>
-            <Text style={styles.emptyText}>Không có món phù hợp.</Text>
+            <Text style={styles.emptyText}>
+              {flag
+                ? "Không có món nào thuộc loại này."
+                : "Không có món phù hợp."}
+            </Text>
+            {flag && (
+              <Pressable
+                style={styles.retryButton}
+                onPress={() => setFlag(null)}
+                accessibilityRole="button"
+              >
+                <Text style={styles.retryText}>Bỏ lọc</Text>
+              </Pressable>
+            )}
           </View>
         }
       />
@@ -681,27 +782,43 @@ const styles = themedStyles((c: Palette) => ({
   },
   toolbar: {
     paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: c.line,
+    paddingBottom: 8,
   },
   searchInput: {
     borderWidth: 1,
     borderColor: c.line,
-    borderRadius: 8,
+    borderRadius: 14,
     padding: 12,
     fontSize: 16,
     backgroundColor: c.surface,
   },
-  listContent: { paddingBottom: 32 },
-  sectionHeader: {
-    backgroundColor: c.accentSoft,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: c.line,
+  listContent: { paddingBottom: 130, paddingHorizontal: 16, gap: 8 },
+  sectionHeader: { paddingTop: 12, paddingBottom: 2 },
+  sectionTitle: {
+    fontSize: 11,
+    fontWeight: "600",
+    letterSpacing: 1.2,
+    color: c.muted,
   },
-  sectionTitle: { fontSize: 14, fontWeight: "700", color: c.accentDeep },
+  sumRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingTop: 10 },
+  sumChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    minHeight: 44,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+  },
+  sumChipEmpty: { opacity: 0.45 },
+  sumAmber: { backgroundColor: c.amberSoft },
+  sumRed: { backgroundColor: c.redSoft },
+  sumAccent: { backgroundColor: c.accentSoft },
+  sumAmberOn: { backgroundColor: c.amber },
+  sumRedOn: { backgroundColor: c.red },
+  sumAccentOn: { backgroundColor: c.accentDeep },
+  sumNum: { fontSize: 15, fontWeight: "700", color: c.ink },
+  sumLabel: { fontSize: 13, fontWeight: "500", color: c.ink },
+  sumTextOn: { color: c.onAccent },
   tabRow: { flexDirection: "row", gap: 8 },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {
@@ -725,19 +842,36 @@ const styles = themedStyles((c: Palette) => ({
   tabSelected: { backgroundColor: c.accentDeep },
   tabText: { color: c.accentDeep, fontWeight: "600", textAlign: "center" },
   tabTextSelected: { color: c.onAccent },
-  itemRow: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    minHeight: 48,
-    borderBottomWidth: 1,
-    borderBottomColor: c.accentSoft,
+  card: {
+    flexDirection: "row",
     backgroundColor: c.surface,
-    gap: 4,
+    borderWidth: 1,
+    borderColor: c.line,
+    borderRadius: 16,
+    overflow: "hidden",
+    minHeight: 56,
   },
-  expiredTag: { fontSize: 13, fontWeight: "700", color: c.red },
-  uncheckedTag: { fontSize: 12, fontWeight: "700", color: c.amber },
-  itemTitle: { fontSize: 16, fontWeight: "600", color: c.ink },
-  lotLine: { fontSize: 14, color: c.muted, paddingLeft: 8 },
+  stripe: { width: 4 },
+  stripeRed: { backgroundColor: c.red },
+  stripeAmber: { backgroundColor: c.amber },
+  stripeAccent: { backgroundColor: c.accent },
+  cardBody: { flex: 1, padding: 14, gap: 6 },
+  cardTop: { flexDirection: "row", alignItems: "center", gap: 12 },
+  itemTitle: { flex: 1, fontSize: 15, fontWeight: "600", color: c.ink },
+  itemQty: { fontSize: 16, fontWeight: "700", color: c.accentDeep },
+  pills: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  pill: {
+    fontSize: 12,
+    fontWeight: "600",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    overflow: "hidden",
+  },
+  pillAmber: { backgroundColor: c.amberSoft, color: c.amber },
+  pillRed: { backgroundColor: c.redSoft, color: c.red },
+  pillAccent: { backgroundColor: c.accentSoft, color: c.accentDeep },
+  lotLine: { fontSize: 13, color: c.muted },
   error: { color: c.red, textAlign: "center", fontSize: 15 },
   retryButton: {
     backgroundColor: c.accentDeep,
