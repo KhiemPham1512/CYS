@@ -17,6 +17,7 @@ import {
 import {
   Animated,
   Easing,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -37,8 +38,8 @@ import { MenuScreen } from "./src/ui/MenuScreen";
 import { fontFamily, useReduceMotion } from "./src/ui/motion";
 import { Splash } from "./src/ui/Splash";
 import { TabBar } from "./src/ui/TabBar";
-import { AuditScreen } from "./src/admin/AuditScreen";
-import { BulkEditScreen } from "./src/catalog/BulkEditScreen";
+import { AdminConsole } from "./src/admin/AdminConsole";
+import { adminWebView } from "./src/navigation/adminWeb";
 import { CatalogScreen } from "./src/catalog/CatalogScreen";
 import { CountScreen } from "./src/stock/CountScreen";
 import { StockScreen } from "./src/stock/StockScreen";
@@ -48,7 +49,6 @@ import { OrderScreen } from "./src/orders/OrderScreen";
 import { OwedScreen } from "./src/orders/OwedScreen";
 import { ReceiveScreen } from "./src/orders/ReceiveScreen";
 import { UseScreen } from "./src/stock/UseScreen";
-import { UsersScreen } from "./src/users/UsersScreen";
 
 const LOCKED_MESSAGE = "Người dùng này đã bị khóa. Liên hệ Quản trị.";
 // RLS không phân biệt bị khóa với bị gỡ khỏi Chi nhánh.
@@ -291,8 +291,7 @@ function Enter({
   );
 }
 
-type HomeView =
-  "stock" | "use" | "catalog" | "menu" | HubKey | "audit" | "bulk" | "users";
+type HomeView = "stock" | "use" | "catalog" | "menu" | HubKey;
 
 // Màn tự cập nhật theo thời gian thực: giữ lại khi chuyển tab. Màn khác dựng mới mỗi lần mở.
 const KEEP_ALIVE = new Set<HomeView>([
@@ -361,9 +360,6 @@ const TITLES: Record<HomeView, string> = {
   count: "Kiểm kho",
   expiry: "Hạn dùng",
   export: "Xuất ảnh",
-  audit: "Nhật ký thay đổi",
-  bulk: "Sửa hàng loạt",
-  users: "Người dùng",
 };
 
 function HomeScreen({
@@ -386,6 +382,7 @@ function HomeScreen({
   >();
   const [error, setError] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [roleLoaded, setRoleLoaded] = useState(false);
   const [view, setView] = useState<HomeView>("stock");
   const [hubOpen, setHubOpen] = useState(false);
 
@@ -408,15 +405,14 @@ function HomeScreen({
           .eq("user_id", userId)
           .maybeSingle();
         setIsAdmin(me?.is_admin ?? false);
+        setRoleLoaded(true);
       });
   }, [userId]);
 
   const selectedTab: MainTabKey =
     view === "stock" || view === "use" || view === "catalog" || view === "menu"
       ? view
-      : view === "audit" || view === "bulk" || view === "users"
-        ? "menu" // các màn quản trị trên web mở từ Menu
-        : "hub";
+      : "hub";
   const onTab = (key: MainTabKey) => {
     if (key === "hub") {
       setHubOpen((o) => !o);
@@ -464,20 +460,43 @@ function HomeScreen({
             branchName={branch.branch_name}
             online={online}
             onSignOut={() => supabase.auth.signOut()}
-            onOpenAdmin={setView}
           />
         );
-      case "audit":
-        return isAdmin ? <AuditScreen branchId={id} /> : null;
-      case "bulk":
-        return isAdmin ? <BulkEditScreen branchId={id} /> : null;
-      case "users":
-        return isAdmin ? <UsersScreen currentUserId={userId} /> : null;
       case "readOrder": // chưa có màn (sắp có), không mở được từ Hub
       case "catalog":
         return <CatalogScreen branchId={id} />;
     }
   }
+
+  // Web chỉ dành cho Quản trị (điện thoại giữ nguyên app).
+  const mode = adminWebView(Platform.OS === "web", isAdmin);
+  if (branch && Platform.OS === "web" && !roleLoaded) return <Loading />;
+  if (branch && mode === "console")
+    return (
+      <AdminConsole
+        branchId={branch.branch_id}
+        branchName={branch.branch_name}
+        userId={userId}
+        email={email}
+        onSignOut={() => supabase.auth.signOut()}
+      />
+    );
+  if (branch && mode === "forbidden")
+    return (
+      <View style={styles.form}>
+        <Text style={styles.error}>
+          Trang web này chỉ dành cho Quản trị. Nhân viên vui lòng dùng app trên
+          điện thoại.
+        </Text>
+        <Pressable
+          style={styles.linkButton}
+          onPress={() => supabase.auth.signOut()}
+          accessibilityRole="button"
+        >
+          <Text style={styles.link}>Đăng xuất</Text>
+        </Pressable>
+      </View>
+    );
 
   if (branch) {
     return (

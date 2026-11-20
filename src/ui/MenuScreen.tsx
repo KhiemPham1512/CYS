@@ -1,17 +1,8 @@
-import {
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "../theme/ThemeContext";
 import { PALETTES, type ThemeName } from "../theme/themes";
 import { Bow, Glyph, Logo } from "./icons";
 import { fontFamily } from "./motion";
-
-type AdminView = "audit" | "bulk" | "users";
 
 // Menu ≡: tài khoản, chi nhánh, kết nối, chủ đề, đăng xuất.
 export function MenuScreen({
@@ -20,19 +11,15 @@ export function MenuScreen({
   branchName,
   online,
   onSignOut,
-  onOpenAdmin,
 }: {
   email: string;
   isAdmin: boolean;
   branchName: string;
   online: boolean;
   onSignOut: () => void;
-  onOpenAdmin: (v: AdminView) => void;
 }) {
   const { theme, palette, setTheme } = useTheme();
   const initials = (email.split("@")[0] || "?").slice(0, 2).toUpperCase();
-  // shortcut: trên web vẫn mở được các màn quản trị cũ cho tới khi có web admin riêng (PR sau).
-  const webAdmin = isAdmin && Platform.OS === "web";
   const card = [
     styles.card,
     { backgroundColor: palette.surface, borderColor: palette.line },
@@ -84,30 +71,6 @@ export function MenuScreen({
         />
       </View>
 
-      {webAdmin && (
-        <>
-          <Text style={[styles.group, { color: palette.muted }]}>
-            QUẢN TRỊ (WEB)
-          </Text>
-          <View style={card}>
-            <Link
-              label="Nhật ký thay đổi"
-              onPress={() => onOpenAdmin("audit")}
-            />
-            <Link
-              label="Sửa hàng loạt"
-              onPress={() => onOpenAdmin("bulk")}
-              divider
-            />
-            <Link
-              label="Người dùng"
-              onPress={() => onOpenAdmin("users")}
-              divider
-            />
-          </View>
-        </>
-      )}
-
       <Pressable
         style={({ pressed }) => [
           card,
@@ -156,29 +119,6 @@ export function MenuScreen({
           {value}
         </Text>
       </View>
-    );
-  }
-  function Link({
-    label,
-    onPress,
-    divider,
-  }: {
-    label: string;
-    onPress: () => void;
-    divider?: boolean;
-  }) {
-    return (
-      <Pressable
-        style={[
-          styles.row,
-          divider && { borderTopWidth: 1, borderTopColor: palette.line },
-        ]}
-        onPress={onPress}
-        accessibilityRole="button"
-      >
-        <Text style={[styles.rowLabel, { color: palette.ink }]}>{label}</Text>
-        <Glyph name="chev" color={palette.muted} size={18} />
-      </Pressable>
     );
   }
 }
