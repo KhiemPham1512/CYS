@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { setActiveTheme } from "./themedStyles";
 import {
   DEFAULT_THEME,
   PALETTES,
@@ -47,6 +48,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     AsyncStorage.setItem(KEY, t).catch(() => {});
   }, []);
 
+  setActiveTheme(theme); // trước khi các màn con dựng style
   const value = useMemo(
     () => ({ theme, palette: PALETTES[theme], setTheme, ready }),
     [theme, setTheme, ready]

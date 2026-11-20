@@ -499,12 +499,16 @@ function HomeScreen({
         </View>
         {/* Màn đã mở được giữ lại (ẩn đi) để quay lại tức thì, không tải lại; chỉ màn có cập nhật thời gian thực. */}
         {mounted.map((k) => (
-          <Pane key={k} active={k === view} style={styles.content}>
+          <Pane
+            key={`${theme}-${k}`}
+            active={k === view}
+            style={styles.content}
+          >
             {renderView(k)}
           </Pane>
         ))}
         {!KEEP_ALIVE.has(view) && (
-          <Pane key={`fresh-${view}`} active style={styles.content}>
+          <Pane key={`fresh-${theme}-${view}`} active style={styles.content}>
             {renderView(view)}
           </Pane>
         )}

@@ -4,10 +4,12 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   TextInput,
   View,
 } from "react-native";
+import { themedStyles } from "../theme/themedStyles";
+import type { Palette } from "../theme/themes";
+import { Text } from "../ui/Text";
 import { Loading } from "../ui/Loading";
 import { loadCatalog } from "../catalog/api";
 import type { Tables } from "../lib/database.types";
@@ -237,44 +239,44 @@ export function ExpiryScreen({ branchId }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((c: Palette) => ({
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
   pad: { padding: 16, gap: 8 },
-  heading: { fontSize: 16, fontWeight: "700", color: "#18181b", marginTop: 8 },
-  meta: { fontSize: 13, color: "#52525b" },
-  row: { fontSize: 15, color: "#18181b" },
-  red: { color: "#b91c1c", fontWeight: "600" },
-  amber: { color: "#b45309" },
+  heading: { fontSize: 16, fontWeight: "700", color: c.ink, marginTop: 8 },
+  meta: { fontSize: 13, color: c.muted },
+  row: { fontSize: 15, color: c.ink },
+  red: { color: c.red, fontWeight: "600" },
+  amber: { color: c.amber },
   thresholdRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   thresholdInput: {
     borderWidth: 1,
-    borderColor: "#d4d4d8",
+    borderColor: c.line,
     borderRadius: 8,
     paddingVertical: 4,
     paddingHorizontal: 10,
     minWidth: 48,
     fontSize: 16,
     textAlign: "center",
-    backgroundColor: "#fff",
+    backgroundColor: c.surface,
   },
   useRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   useText: { flex: 1 },
   endButton: {
     borderWidth: 1,
-    borderColor: "#0f766e",
+    borderColor: c.accentDeep,
     borderRadius: 8,
     paddingVertical: 8,
     paddingHorizontal: 14,
     minHeight: 40,
     justifyContent: "center",
   },
-  endText: { color: "#0f766e", fontWeight: "600", fontSize: 15 },
+  endText: { color: c.accentDeep, fontWeight: "600", fontSize: 15 },
   button: {
-    backgroundColor: "#0f766e",
+    backgroundColor: c.accentDeep,
     borderRadius: 8,
     padding: 14,
     minHeight: 44,
     justifyContent: "center",
   },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-});
+  buttonText: { color: c.onAccent, fontSize: 16, fontWeight: "600" },
+}));

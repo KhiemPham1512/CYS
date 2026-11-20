@@ -4,10 +4,12 @@ import {
   SectionList,
   StyleSheet,
   Switch,
-  Text,
   TextInput,
   View,
 } from "react-native";
+import { switchTrack, themedStyles } from "../theme/themedStyles";
+import type { Palette } from "../theme/themes";
+import { Text } from "../ui/Text";
 import { Loading } from "../ui/Loading";
 import type { Tables } from "../lib/database.types";
 import { loadCatalog, subscribeCatalog } from "./api";
@@ -127,7 +129,7 @@ export function CatalogScreen({ branchId }: Props) {
             <Switch
               value={showHidden}
               onValueChange={setShowHidden}
-              trackColor={{ false: "#d4d4d8", true: "#0f766e" }}
+              trackColor={switchTrack()}
             />
             <Text style={styles.switchText}>Hiện món đã ẩn</Text>
           </View>
@@ -209,7 +211,7 @@ export function CatalogScreen({ branchId }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((c: Palette) => ({
   container: { flex: 1, width: "100%" },
   center: {
     flex: 1,
@@ -223,15 +225,15 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     gap: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "#e4e4e7",
+    borderBottomColor: c.line,
   },
   searchInput: {
     borderWidth: 1,
-    borderColor: "#d4d4d8",
+    borderColor: c.line,
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    backgroundColor: "#fff",
+    backgroundColor: c.surface,
   },
   controlsRow: {
     flexDirection: "row",
@@ -245,9 +247,9 @@ const styles = StyleSheet.create({
     gap: 8,
     minHeight: 44,
   },
-  switchText: { fontSize: 14, color: "#27272a" },
+  switchText: { fontSize: 14, color: c.ink },
   addButton: {
-    backgroundColor: "#0f766e",
+    backgroundColor: c.accentDeep,
     borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -255,16 +257,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  addButtonText: { color: "#fff", fontSize: 15, fontWeight: "600" },
+  addButtonText: { color: c.onAccent, fontSize: 15, fontWeight: "600" },
   listContent: { paddingBottom: 32 },
   sectionHeader: {
-    backgroundColor: "#f4f4f5",
+    backgroundColor: c.accentSoft,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: "#e4e4e7",
+    borderBottomColor: c.line,
   },
-  sectionTitle: { fontSize: 14, fontWeight: "700", color: "#0f766e" },
+  sectionTitle: { fontSize: 14, fontWeight: "700", color: c.accentDeep },
   itemRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -273,29 +275,29 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     minHeight: 52,
     borderBottomWidth: 1,
-    borderBottomColor: "#f4f4f5",
-    backgroundColor: "#fff",
+    borderBottomColor: c.accentSoft,
+    backgroundColor: c.surface,
     gap: 12,
   },
   itemMain: { flex: 1, gap: 2 },
-  itemName: { fontSize: 16, fontWeight: "600", color: "#18181b" },
-  itemSub: { fontSize: 14, color: "#52525b" },
+  itemName: { fontSize: 16, fontWeight: "600", color: c.ink },
+  itemSub: { fontSize: 14, color: c.muted },
   hiddenBadge: {
-    backgroundColor: "#f4f4f5",
+    backgroundColor: c.accentSoft,
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
-  hiddenBadgeText: { fontSize: 12, fontWeight: "600", color: "#71717a" },
-  error: { color: "#b91c1c", textAlign: "center", fontSize: 15 },
+  hiddenBadgeText: { fontSize: 12, fontWeight: "600", color: c.muted },
+  error: { color: c.red, textAlign: "center", fontSize: 15 },
   retryButton: {
-    backgroundColor: "#0f766e",
+    backgroundColor: c.accentDeep,
     borderRadius: 8,
     paddingHorizontal: 20,
     paddingVertical: 12,
     minHeight: 44,
     justifyContent: "center",
   },
-  retryText: { color: "#fff", fontSize: 15, fontWeight: "600" },
-  emptyText: { color: "#52525b", textAlign: "center", fontSize: 15 },
-});
+  retryText: { color: c.onAccent, fontSize: 15, fontWeight: "600" },
+  emptyText: { color: c.muted, textAlign: "center", fontSize: 15 },
+}));

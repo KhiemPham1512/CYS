@@ -5,10 +5,12 @@ import {
   ScrollView,
   StyleSheet,
   Switch,
-  Text,
   TextInput,
   View,
 } from "react-native";
+import { switchTrack, themedStyles } from "../theme/themedStyles";
+import type { Palette } from "../theme/themes";
+import { Text } from "../ui/Text";
 import type { ShelfLifeUnit, Tables } from "../lib/database.types";
 import { useOnline } from "../lib/useOnline";
 import { saveItem, setHidden } from "./api";
@@ -255,7 +257,7 @@ export function ItemForm({
             <Switch
               value={values.track_mfg_date}
               onValueChange={(val) => setField("track_mfg_date", val)}
-              trackColor={{ false: "#d4d4d8", true: "#0f766e" }}
+              trackColor={switchTrack()}
             />
           </View>
 
@@ -314,7 +316,7 @@ export function ItemForm({
             <Switch
               value={values.record_by_percent}
               onValueChange={(val) => setField("record_by_percent", val)}
-              trackColor={{ false: "#d4d4d8", true: "#0f766e" }}
+              trackColor={switchTrack()}
             />
           </View>
 
@@ -370,8 +372,8 @@ export function ItemForm({
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
+const styles = themedStyles((c: Palette) => ({
+  container: { flex: 1, backgroundColor: c.surface },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -380,58 +382,58 @@ const styles = StyleSheet.create({
     paddingTop: 48,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#e4e4e7",
+    borderBottomColor: c.line,
   },
-  headerTitle: { fontSize: 18, fontWeight: "700", color: "#18181b" },
+  headerTitle: { fontSize: 18, fontWeight: "700", color: c.ink },
   cancelHeaderBtn: { minHeight: 44, justifyContent: "center", padding: 8 },
-  cancelText: { color: "#0f766e", fontSize: 16, fontWeight: "600" },
+  cancelText: { color: c.accentDeep, fontSize: 16, fontWeight: "600" },
   scroll: { flex: 1 },
   scrollContent: { padding: 16, gap: 10, paddingBottom: 40 },
-  label: { fontSize: 14, fontWeight: "600", color: "#27272a", marginTop: 4 },
+  label: { fontSize: 14, fontWeight: "600", color: c.ink, marginTop: 4 },
   input: {
     borderWidth: 1,
-    borderColor: "#d4d4d8",
+    borderColor: c.line,
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    color: "#18181b",
+    color: c.ink,
   },
   durationRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   durationInput: { flex: 1 },
   unitGroup: { flexDirection: "row", gap: 6 },
   unitBtn: {
     borderWidth: 1,
-    borderColor: "#d4d4d8",
+    borderColor: c.line,
     borderRadius: 8,
     paddingHorizontal: 12,
     minHeight: 44,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#fff",
+    backgroundColor: c.surface,
   },
   unitBtnSelected: {
-    backgroundColor: "#0f766e",
-    borderColor: "#0f766e",
+    backgroundColor: c.accentDeep,
+    borderColor: c.accentDeep,
   },
-  unitBtnText: { fontSize: 14, fontWeight: "600", color: "#27272a" },
-  unitBtnTextSelected: { color: "#fff" },
+  unitBtnText: { fontSize: 14, fontWeight: "600", color: c.ink },
+  unitBtnTextSelected: { color: c.onAccent },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {
     borderWidth: 1,
-    borderColor: "#d4d4d8",
+    borderColor: c.line,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     minHeight: 44,
     justifyContent: "center",
-    backgroundColor: "#fff",
+    backgroundColor: c.surface,
   },
   chipSelected: {
-    backgroundColor: "#0f766e",
-    borderColor: "#0f766e",
+    backgroundColor: c.accentDeep,
+    borderColor: c.accentDeep,
   },
-  chipText: { fontSize: 14, fontWeight: "600", color: "#27272a" },
-  chipTextSelected: { color: "#fff" },
+  chipText: { fontSize: 14, fontWeight: "600", color: c.ink },
+  chipTextSelected: { color: c.onAccent },
   switchRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -439,34 +441,34 @@ const styles = StyleSheet.create({
     minHeight: 48,
     marginTop: 4,
   },
-  switchLabel: { fontSize: 15, fontWeight: "600", color: "#27272a", flex: 1 },
-  error: { color: "#b91c1c", fontSize: 13 },
+  switchLabel: { fontSize: 15, fontWeight: "600", color: c.ink, flex: 1 },
+  error: { color: c.red, fontSize: 13 },
   offlineNote: {
-    color: "#b91c1c",
+    color: c.red,
     fontWeight: "600",
     textAlign: "center",
     marginTop: 8,
   },
   actions: { gap: 10, marginTop: 12 },
   primaryButton: {
-    backgroundColor: "#0f766e",
+    backgroundColor: c.accentDeep,
     borderRadius: 8,
     padding: 14,
     alignItems: "center",
     justifyContent: "center",
     minHeight: 48,
   },
-  primaryButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  primaryButtonText: { color: c.onAccent, fontSize: 16, fontWeight: "600" },
   secondaryButton: {
     borderWidth: 1,
-    borderColor: "#0f766e",
+    borderColor: c.accentDeep,
     borderRadius: 8,
     padding: 14,
     alignItems: "center",
     justifyContent: "center",
     minHeight: 48,
   },
-  secondaryButtonText: { color: "#0f766e", fontSize: 16, fontWeight: "600" },
+  secondaryButtonText: { color: c.accentDeep, fontSize: 16, fontWeight: "600" },
   cancelButton: {
     padding: 12,
     alignItems: "center",
@@ -474,4 +476,4 @@ const styles = StyleSheet.create({
     minHeight: 44,
   },
   buttonDisabled: { opacity: 0.5 },
-});
+}));

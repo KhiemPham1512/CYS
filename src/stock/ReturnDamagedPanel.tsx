@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, TextInput, View } from "react-native";
+import { themedStyles } from "../theme/themedStyles";
+import type { Palette } from "../theme/themes";
+import { Text } from "../ui/Text";
 import type { Tables } from "../lib/database.types";
 import { planReturn } from "../orders/receiving";
 import { returnDamaged } from "../orders/receivingApi";
@@ -111,32 +114,32 @@ export function ReturnDamagedPanel({ item, lots, online }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((c: Palette) => ({
   box: { gap: 8 },
-  meta: { fontSize: 13, color: "#52525b" },
+  meta: { fontSize: 13, color: c.muted },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {
     borderWidth: 1,
-    borderColor: "#d4d4d8",
+    borderColor: c.line,
     borderRadius: 8,
     paddingVertical: 8,
     paddingHorizontal: 10,
   },
-  chipOn: { backgroundColor: "#0f766e", borderColor: "#0f766e" },
-  chipText: { fontSize: 14, color: "#18181b" },
-  chipTextOn: { color: "#fff" },
+  chipOn: { backgroundColor: c.accentDeep, borderColor: c.accentDeep },
+  chipText: { fontSize: 14, color: c.ink },
+  chipTextOn: { color: c.onAccent },
   input: {
     borderWidth: 1,
-    borderColor: "#d4d4d8",
+    borderColor: c.line,
     borderRadius: 8,
     padding: 10,
     fontSize: 16,
-    backgroundColor: "#fff",
+    backgroundColor: c.surface,
   },
-  error: { color: "#b91c1c", fontSize: 14 },
-  ok: { color: "#0f766e", fontSize: 14, fontWeight: "600" },
+  error: { color: c.red, fontSize: 14 },
+  ok: { color: c.accentDeep, fontSize: 14, fontWeight: "600" },
   save: {
-    backgroundColor: "#b45309",
+    backgroundColor: c.amber,
     borderRadius: 8,
     padding: 14,
     alignItems: "center",
@@ -144,5 +147,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   disabled: { opacity: 0.5 },
-  saveText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-});
+  saveText: { color: c.onAccent, fontSize: 16, fontWeight: "600" },
+}));

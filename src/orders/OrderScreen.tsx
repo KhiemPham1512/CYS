@@ -1,12 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { themedStyles } from "../theme/themedStyles";
+import type { Palette } from "../theme/themes";
+import { Text } from "../ui/Text";
 import { Loading } from "../ui/Loading";
 import { loadCatalog } from "../catalog/api";
 import { compareGroups, compareItems } from "../catalog/sections";
@@ -468,7 +464,7 @@ export function OrderScreen({ branchId }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((c: Palette) => ({
   container: { flex: 1, width: "100%" },
   center: {
     flex: 1,
@@ -477,68 +473,78 @@ const styles = StyleSheet.create({
     padding: 24,
     gap: 12,
   },
-  tabs: { flexGrow: 0, borderBottomWidth: 1, borderBottomColor: "#e4e4e7" },
+  tabs: {
+    flexGrow: 0,
+    flexShrink: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: c.line,
+  },
   tabsContent: { paddingHorizontal: 12, paddingVertical: 8, gap: 8 },
   chip: {
     paddingHorizontal: 14,
     minHeight: 44,
     justifyContent: "center",
     borderRadius: 22,
-    backgroundColor: "#f4f4f5",
+    backgroundColor: c.accentSoft,
   },
-  chipSelected: { backgroundColor: "#0f766e" },
-  chipText: { fontSize: 15, color: "#18181b" },
-  chipTextSelected: { color: "#fff", fontWeight: "600" },
+  chipSelected: { backgroundColor: c.accentDeep },
+  chipText: { fontSize: 15, color: c.ink },
+  chipTextSelected: { color: c.onAccent, fontWeight: "600" },
   section: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#0f766e",
+    color: c.accentDeep,
     padding: 16,
-    backgroundColor: "#f4f4f5",
+    backgroundColor: c.accentSoft,
   },
   row: {
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#f4f4f5",
-    backgroundColor: "#fff",
+    borderBottomColor: c.accentSoft,
+    backgroundColor: c.surface,
     gap: 6,
   },
-  name: { fontSize: 16, fontWeight: "600", color: "#18181b" },
-  meta: { fontSize: 13, color: "#52525b", paddingHorizontal: 16 },
-  summaryText: { fontSize: 13, color: "#0f766e", fontWeight: "600" },
-  fieldError: { color: "#b91c1c", fontSize: 14 },
-  error: { color: "#b91c1c", fontSize: 14, textAlign: "center" },
-  message: { color: "#0f766e", fontSize: 14, textAlign: "center", padding: 8 },
+  name: { fontSize: 16, fontWeight: "600", color: c.ink },
+  meta: { fontSize: 13, color: c.muted, paddingHorizontal: 16 },
+  summaryText: { fontSize: 13, color: c.accentDeep, fontWeight: "600" },
+  fieldError: { color: c.red, fontSize: 14 },
+  error: { color: c.red, fontSize: 14, textAlign: "center" },
+  message: {
+    color: c.accentDeep,
+    fontSize: 14,
+    textAlign: "center",
+    padding: 8,
+  },
   viewBtn: {
     marginHorizontal: 12,
     marginVertical: 6,
     minHeight: 44,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#0f766e",
+    borderColor: c.accentDeep,
     alignItems: "center",
     justifyContent: "center",
   },
-  viewBtnText: { color: "#0f766e", fontSize: 15, fontWeight: "600" },
+  viewBtnText: { color: c.accentDeep, fontSize: 15, fontWeight: "600" },
   footer: {
     padding: 16,
     gap: 8,
     borderTopWidth: 1,
-    borderTopColor: "#e4e4e7",
-    backgroundColor: "#fff",
+    borderTopColor: c.line,
+    backgroundColor: c.surface,
   },
   primary: {
-    backgroundColor: "#0f766e",
+    backgroundColor: c.accentDeep,
     borderRadius: 8,
     padding: 14,
     alignItems: "center",
     justifyContent: "center",
     minHeight: 44,
   },
-  place: { backgroundColor: "#b45309" },
+  place: { backgroundColor: c.amber },
   disabled: { opacity: 0.5 },
-  primaryText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  primaryText: { color: c.onAccent, fontSize: 16, fontWeight: "600" },
   linkBtn: { minHeight: 44, alignItems: "center", justifyContent: "center" },
-  danger: { color: "#b91c1c", fontSize: 15, fontWeight: "600" },
-});
+  danger: { color: c.red, fontSize: 15, fontWeight: "600" },
+}));

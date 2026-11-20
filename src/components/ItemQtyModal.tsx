@@ -3,10 +3,12 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   TextInput,
   View,
 } from "react-native";
+import { themedStyles } from "../theme/themedStyles";
+import type { Palette } from "../theme/themes";
+import { Text } from "../ui/Text";
 
 type Props = {
   visible: boolean;
@@ -91,7 +93,7 @@ export function ItemQtyModal({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((c: Palette) => ({
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.4)",
@@ -99,29 +101,29 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   modalCard: {
-    backgroundColor: "#fff",
+    backgroundColor: c.surface,
     borderRadius: 12,
     maxHeight: "85%",
     padding: 16,
   },
   modalContent: { gap: 8 },
-  modalTitle: { fontSize: 18, fontWeight: "700", color: "#18181b" },
-  infoText: { fontSize: 13, color: "#52525b" },
-  label: { fontSize: 14, fontWeight: "600", color: "#27272a", marginTop: 4 },
+  modalTitle: { fontSize: 18, fontWeight: "700", color: c.ink },
+  infoText: { fontSize: 13, color: c.muted },
+  label: { fontSize: 14, fontWeight: "600", color: c.ink, marginTop: 4 },
   input: {
     borderWidth: 1,
-    borderColor: "#d4d4d8",
+    borderColor: c.line,
     borderRadius: 8,
     padding: 10,
     fontSize: 16,
-    backgroundColor: "#fff",
+    backgroundColor: c.surface,
   },
-  fieldError: { color: "#b91c1c", fontSize: 14 },
-  previewText: { color: "#0f766e", fontSize: 14, fontWeight: "600" },
+  fieldError: { color: c.red, fontSize: 14 },
+  previewText: { color: c.accentDeep, fontSize: 14, fontWeight: "600" },
   btnRow: { flexDirection: "row", gap: 8, marginTop: 12 },
   btnHalf: { flex: 1 },
   primary: {
-    backgroundColor: "#0f766e",
+    backgroundColor: c.accentDeep,
     borderRadius: 8,
     padding: 14,
     alignItems: "center",
@@ -130,14 +132,14 @@ const styles = StyleSheet.create({
   },
   secondary: {
     borderWidth: 1,
-    borderColor: "#d4d4d8",
+    borderColor: c.line,
     borderRadius: 8,
     padding: 14,
     alignItems: "center",
     justifyContent: "center",
     minHeight: 44,
-    backgroundColor: "#fff",
+    backgroundColor: c.surface,
   },
-  primaryText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  secondaryText: { color: "#18181b", fontSize: 16, fontWeight: "600" },
-});
+  primaryText: { color: c.onAccent, fontSize: 16, fontWeight: "600" },
+  secondaryText: { color: c.ink, fontSize: 16, fontWeight: "600" },
+}));
