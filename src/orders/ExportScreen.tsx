@@ -15,11 +15,13 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { Loading } from "../ui/Loading";
 import { captureRef } from "react-native-view-shot";
 import { loadCatalog } from "../catalog/api";
+import { supabase } from "../lib/supabase";
 import { compareGroups, compareItems } from "../catalog/sections";
 import type { Tables } from "../lib/database.types";
 import { loadMovements } from "../stock/api";
@@ -27,11 +29,14 @@ import { formatDate } from "../stock/date";
 import { localDate, stockByItem, totalQty } from "../stock/ledger";
 import { loadOrders, type OrderLineRow, type OrderRow } from "./api";
 import {
+  buildSheetModel,
   orderSheetRows,
   rememberOrdererName,
+  sheetStrings,
   stockSheetCell,
-  type SheetRow,
+  type ItemSheet,
 } from "./exportSheet";
+import { PaperSheet } from "./PaperSheet";
 import { incomingByItem, sheetQtyByItem } from "./orders";
 import { loadReceivingData } from "./receivingApi";
 
@@ -49,6 +54,8 @@ export function ExportScreen({ branchId, branchName }: Props) {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [lines, setLines] = useState<OrderLineRow[]>([]);
   const [received, setReceived] = useState<Set<string>>(() => new Set());
+  const [branchSheet, setBranchSheet] = useState<unknown>(null);
+  const { width: screenW } = useWindowDimensions();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [kind, setKind] = useState<Kind>("order");
@@ -63,11 +70,16 @@ export function ExportScreen({ branchId, branchName }: Props) {
     setError(false);
     setLoading(true);
     try {
-      const [catalog, movs, ord, rec] = await Promise.all([
+      const [catalog, movs, ord, rec, bs] = await Promise.all([
         loadCatalog(branchId),
         loadMovements(branchId),
         loadOrders(branchId),
         loadReceivingData(branchId),
+        supabase
+          .from("branch_settings")
+          .select("sheet")
+          .eq("branch_id", branchId)
+          .maybeSingle(),
       ]);
       setGroups([...catalog.groups].sort(compareGroups));
       setItems(catalog.items);
@@ -75,6 +87,7 @@ export function ExportScreen({ branchId, branchName }: Props) {
       setOrders(ord.orders);
       setLines(ord.lines);
       setReceived(rec.receivedLineIds);
+      setBranchSheet(bs.data?.sheet ?? null);
     } catch {
       setError(true);
     } finally {
@@ -119,36 +132,41 @@ export function ExportScreen({ branchId, branchName }: Props) {
   );
 
   const today = formatDate(localDate(new Date().toISOString()));
-  const { rows, date } = useMemo((): { rows: SheetRow[]; date: string } => {
+  // Ô số lượng từng món (chuỗi như viết trên tờ) và ngày in trên tờ.
+  const { qtyByItem, date } = useMemo((): {
+    qtyByItem: Map<string, string>;
+    date: string;
+  } => {
     if (kind === "order") {
       const sheet = sheetQtyByItem(
         orders.filter((o) => o.group_id === target && o.placed_at !== null),
         lines,
         received
       );
+      const rows = orderSheetRows(groupItems, sheet.qty);
       return {
-        rows: orderSheetRows(groupItems, sheet.qty),
+        qtyByItem: new Map(groupItems.map((i, idx) => [i.id, rows[idx].qty])),
         date: sheet.placedAt ? formatDate(localDate(sheet.placedAt)) : today,
       };
     }
-    const base = orderSheetRows(groupItems, new Map());
     return {
-      rows: base.map((row, idx) => {
-        const item = groupItems[idx];
-        const lots = lotsByItem.get(item.id) ?? [];
-        const dated = lots.flatMap((l) => (l.mfgDate ? [l.mfgDate] : []));
-        return {
-          ...row,
-          qty: stockSheetCell({
-            incoming: incoming.get(item.id) ?? 0,
-            actual: totalQty(lots),
-            lastMfg: dated.sort().at(-1) ?? null,
-            trackMfg: item.track_mfg_date,
-            caseSize: item.case_size,
-            byPercent: item.record_by_percent,
-          }),
-        };
-      }),
+      qtyByItem: new Map(
+        groupItems.map((item) => {
+          const lots = lotsByItem.get(item.id) ?? [];
+          const dated = lots.flatMap((l) => (l.mfgDate ? [l.mfgDate] : []));
+          return [
+            item.id,
+            stockSheetCell({
+              incoming: incoming.get(item.id) ?? 0,
+              actual: totalQty(lots),
+              lastMfg: dated.sort().at(-1) ?? null,
+              trackMfg: item.track_mfg_date,
+              caseSize: item.case_size,
+              byPercent: item.record_by_percent,
+            }),
+          ];
+        })
+      ),
       date: today,
     };
   }, [
@@ -163,10 +181,57 @@ export function ExportScreen({ branchId, branchName }: Props) {
     today,
   ]);
 
+  const model = useMemo(
+    () =>
+      group
+        ? buildSheetModel({
+            kind,
+            branch: {
+              name: branchName,
+              sheet: sheetStrings(branchSheet, [
+                "title",
+                "order_zh",
+                "stock_zh",
+              ]),
+            },
+            group: {
+              name: group.name,
+              name_zh: group.name_zh,
+              sheet: sheetStrings(group.sheet, [
+                "qty_label",
+                "label",
+                "label_zh",
+              ]),
+            },
+            items: groupItems.map((i) => ({
+              id: i.id,
+              name: i.name,
+              unit: i.unit,
+              sheet: sheetStrings(i.sheet, [
+                "name",
+                "zh",
+                "unit",
+                "unit_zh",
+                "note",
+                "category",
+                "category_zh",
+              ]) satisfies ItemSheet,
+            })),
+            qtyByItem,
+          })
+        : null,
+    [group, kind, branchName, branchSheet, groupItems, qtyByItem]
+  );
+
   // Chụp bảng đang mở trong khung và lưu vào Thư viện ảnh.
   const captureAndSave = async () => {
     if (!shot.current) throw new Error("no sheet");
-    const uri = await captureRef(shot, { format: "png", quality: 1 });
+    const uri = await captureRef(shot, {
+      format: "png",
+      quality: 1,
+      width: 1240,
+      height: 1754,
+    });
     await MediaLibrary.saveToLibraryAsync(uri);
   };
 
@@ -227,7 +292,6 @@ export function ExportScreen({ branchId, branchName }: Props) {
       </View>
     );
 
-  const title = kind === "order" ? "ĐẶT HÀNG" : "TỒN KHO DỰ TÍNH";
   return (
     <View style={styles.container}>
       <View style={styles.kindRow}>
@@ -310,45 +374,17 @@ export function ExportScreen({ branchId, branchName }: Props) {
       >
         <View style={styles.modal}>
           <ScrollView>
-            <View ref={shot} collapsable={false} style={styles.paper}>
-              <Text style={styles.paperBranch}>{branchName}</Text>
-              <Text style={styles.paperTitle}>{title}</Text>
-              <Text style={styles.paperSub}>{group?.name}</Text>
-              <View style={styles.paperMetaRow}>
-                <Text style={styles.paperMeta}>Ngày: {date}</Text>
-                {kind === "order" && orderer.trim() ? (
-                  <Text style={styles.paperMeta}>
-                    Người đặt hàng: {orderer.trim()}
-                  </Text>
-                ) : null}
+            {model ? (
+              <View style={styles.paperWrap}>
+                <PaperSheet
+                  shotRef={shot}
+                  model={model}
+                  date={date}
+                  orderer={kind === "order" ? orderer.trim() : ""}
+                  width={Math.min(screenW - 24, 560)}
+                />
               </View>
-              <View style={[styles.tr, styles.thRow]}>
-                <Text style={[styles.cell, styles.stt, styles.th]}>STT</Text>
-                <Text style={[styles.cell, styles.name, styles.th]}>
-                  Tên nguyên vật liệu
-                </Text>
-                <Text style={[styles.cell, styles.unit, styles.th]}>
-                  Đơn vị
-                </Text>
-                <Text style={[styles.cell, styles.qty, styles.th]}>
-                  {kind === "order" ? "Số lượng" : "Tồn"}
-                </Text>
-              </View>
-              {rows.map((r) => (
-                <View key={r.stt} style={styles.tr}>
-                  <Text style={[styles.cell, styles.stt]}>{r.stt}</Text>
-                  <Text style={[styles.cell, styles.name]}>
-                    {r.name}
-                    {r.name_zh ? ` (${r.name_zh})` : ""}
-                  </Text>
-                  <Text style={[styles.cell, styles.unit]}>{r.unit}</Text>
-                  <Text style={[styles.cell, styles.qty, styles.qtyText]}>
-                    {r.qty}
-                  </Text>
-                </View>
-              ))}
-              <View style={styles.tableEnd} />
-            </View>
+            ) : null}
           </ScrollView>
           {message ? <Text style={styles.error}>{message}</Text> : null}
           <View style={styles.btnRow}>
@@ -374,8 +410,8 @@ export function ExportScreen({ branchId, branchName }: Props) {
   );
 }
 
-const BORDER = "#a1a1aa";
 const styles = StyleSheet.create({
+  paperWrap: { alignItems: "center", paddingVertical: 12 },
   container: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
   pad: { padding: 16, gap: 8 },
@@ -420,54 +456,6 @@ const styles = StyleSheet.create({
   groupText: { fontSize: 16, fontWeight: "600", color: "#0f766e" },
   error: { color: "#b91c1c", fontSize: 14, textAlign: "center", padding: 8 },
   modal: { flex: 1, backgroundColor: "#f4f4f5", paddingTop: 40 },
-  paper: {
-    backgroundColor: "#fff",
-    paddingVertical: 28,
-    paddingHorizontal: 12,
-  },
-  paperBranch: { fontSize: 13, color: "#52525b", textAlign: "center" },
-  paperTitle: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#18181b",
-    textAlign: "center",
-  },
-  paperSub: {
-    fontSize: 15,
-    color: "#52525b",
-    textAlign: "center",
-    marginBottom: 6,
-  },
-  paperMetaRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 8,
-  },
-  paperMeta: { fontSize: 14, paddingBottom: 6 },
-  tr: {
-    flexDirection: "row",
-    borderTopWidth: 1,
-    borderLeftWidth: 1,
-    borderColor: BORDER,
-    marginHorizontal: 8,
-  },
-  tableEnd: { borderTopWidth: 1, borderColor: BORDER, marginHorizontal: 8 },
-  thRow: { backgroundColor: "#e4e4e7" },
-  cell: {
-    borderRightWidth: 1,
-    borderColor: BORDER,
-    paddingVertical: 8,
-    paddingHorizontal: 6,
-    fontSize: 14,
-    color: "#18181b",
-    minHeight: 40,
-  },
-  th: { fontWeight: "700", textAlign: "center" },
-  stt: { width: 44, textAlign: "center" },
-  name: { flex: 1 },
-  unit: { width: 64, textAlign: "center" },
-  qty: { width: 96, textAlign: "center" },
-  qtyText: { fontWeight: "700", color: "#1d4ed8" },
   btnRow: { flexDirection: "row", gap: 8, padding: 16 },
   half: { flex: 1 },
   primary: {
