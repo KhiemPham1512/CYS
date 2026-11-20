@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, SectionList, StyleSheet, Switch, View } from "react-native";
+import {
+  Pressable,
+  ScrollView,
+  SectionList,
+  Switch,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import { TextInput } from "../ui/TextInput";
 import { switchTrack, themedStyles } from "../theme/themedStyles";
 import type { Palette } from "../theme/themes";
@@ -19,7 +26,10 @@ type SectionData = {
   data: Tables<"items">[];
 };
 
+const WIDE = 900; // từ bề rộng này trở lên: bảng (web máy tính)
+
 export function CatalogScreen({ branchId }: Props) {
+  const wide = useWindowDimensions().width >= WIDE;
   const [groups, setGroups] = useState<Tables<"item_groups">[]>([]);
   const [items, setItems] = useState<Tables<"items">[]>([]);
   const [loading, setLoading] = useState(true);
@@ -111,7 +121,15 @@ export function CatalogScreen({ branchId }: Props) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.toolbar}>
+      {wide && (
+        <View style={styles.headWide}>
+          <Text style={styles.pageTitle}>Danh mục</Text>
+          <Text style={styles.pageSub}>
+            {items.length} món · {groups.length} nhóm
+          </Text>
+        </View>
+      )}
+      <View style={[styles.toolbar, wide && styles.toolbarWide]}>
         <TextInput
           style={styles.searchInput}
           placeholder="Tìm món (gõ không dấu được)"
@@ -144,6 +162,64 @@ export function CatalogScreen({ branchId }: Props) {
             import-catalog).
           </Text>
         </View>
+      ) : wide ? (
+        <ScrollView contentContainerStyle={styles.tablePage}>
+          <View style={styles.tableCard}>
+            <View style={[styles.tr, styles.thRow]}>
+              <Text style={[styles.th, styles.colName]}>TÊN MÓN</Text>
+              <Text style={[styles.th, styles.colUnit]}>ĐƠN VỊ</Text>
+              <Text style={[styles.th, styles.colCase]}>QUY CÁCH</Text>
+              <Text style={[styles.th, styles.colState]}>TRẠNG THÁI</Text>
+            </View>
+            {sections.length === 0 && (
+              <Text style={[styles.emptyText, styles.emptyWide]}>
+                Không có món phù hợp.
+              </Text>
+            )}
+            {sections.map((sec) => (
+              <View key={sec.group.id}>
+                <View style={styles.groupRow}>
+                  <Text style={styles.sectionTitle}>
+                    {sec.group.name}
+                    {sec.group.name_zh ? ` (${sec.group.name_zh})` : ""}
+                  </Text>
+                </View>
+                {sec.data.map((item) => (
+                  <Pressable
+                    key={item.id}
+                    style={({ pressed }) => [
+                      styles.tr,
+                      pressed && styles.rowPressed,
+                    ]}
+                    onPress={() => openEdit(item)}
+                    accessibilityRole="button"
+                  >
+                    <Text style={[styles.itemName, styles.colName]}>
+                      {item.name}
+                      {item.name_zh ? ` · ${item.name_zh}` : ""}
+                    </Text>
+                    <Text style={[styles.cellText, styles.colUnit]}>
+                      {item.unit}
+                      {item.unit_zh ? ` (${item.unit_zh})` : ""}
+                    </Text>
+                    <Text style={[styles.cellText, styles.colCase]}>
+                      {item.case_size !== null
+                        ? `${item.case_size}/thùng`
+                        : "—"}
+                    </Text>
+                    <View style={styles.colState}>
+                      {item.is_hidden ? (
+                        <View style={styles.hiddenBadge}>
+                          <Text style={styles.hiddenBadgeText}>Đã ẩn</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  </Pressable>
+                ))}
+              </View>
+            ))}
+          </View>
+        </ScrollView>
       ) : (
         <SectionList<Tables<"items">, SectionData>
           sections={sections}
@@ -253,6 +329,54 @@ const styles = themedStyles((c: Palette) => ({
   },
   addButtonText: { color: c.onAccent, fontSize: 15, fontWeight: "600" },
   listContent: { paddingBottom: 32 },
+  headWide: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 12,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 12,
+  },
+  pageTitle: { fontSize: 24, fontWeight: "700", color: c.ink },
+  pageSub: { fontSize: 14, color: c.muted },
+  toolbarWide: { paddingHorizontal: 24, borderBottomWidth: 0 },
+  tablePage: { padding: 24, paddingTop: 8 },
+  tableCard: {
+    width: "100%",
+    maxWidth: 1200,
+    alignSelf: "center",
+    backgroundColor: c.surface,
+    borderWidth: 1,
+    borderColor: c.line,
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  tr: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    minHeight: 48,
+    borderBottomWidth: 1,
+    borderBottomColor: c.line,
+  },
+  rowPressed: { backgroundColor: c.accentSoft },
+  thRow: { minHeight: 40, backgroundColor: c.accentSoft },
+  th: { fontSize: 11, fontWeight: "700", letterSpacing: 1, color: c.muted },
+  groupRow: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: c.bg,
+    borderBottomWidth: 1,
+    borderBottomColor: c.line,
+  },
+  colName: { flex: 4 },
+  colUnit: { flex: 2 },
+  colCase: { flex: 1.5 },
+  colState: { flex: 1.5 },
+  cellText: { fontSize: 14, color: c.ink },
+  emptyWide: { padding: 24 },
   sectionHeader: {
     backgroundColor: c.accentSoft,
     paddingHorizontal: 16,
