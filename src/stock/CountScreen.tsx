@@ -4,10 +4,12 @@ import {
   ScrollView,
   SectionList,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from "react-native";
+import { TextInput } from "../ui/TextInput";
+import { themedStyles } from "../theme/themedStyles";
+import type { Palette } from "../theme/themes";
+import { Text } from "../ui/Text";
 import { Loading } from "../ui/Loading";
 import { loadCatalog } from "../catalog/api";
 import { buildSections } from "../catalog/sections";
@@ -421,9 +423,9 @@ export function CountScreen({ branchId, onDone }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((c: Palette) => ({
   linkButton: { minHeight: 44, justifyContent: "center" },
-  link: { color: "#0f766e", fontSize: 15, fontWeight: "600" },
+  link: { color: c.accentDeep, fontSize: 15, fontWeight: "600" },
   container: { flex: 1, width: "100%" },
   center: {
     flex: 1,
@@ -437,46 +439,46 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     gap: 8,
     borderBottomWidth: 1,
-    borderBottomColor: "#e4e4e7",
+    borderBottomColor: c.line,
   },
   searchInput: {
     borderWidth: 1,
-    borderColor: "#d4d4d8",
+    borderColor: c.line,
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    backgroundColor: "#fff",
+    backgroundColor: c.surface,
   },
   listContent: { paddingBottom: 24 },
   sectionHeader: {
-    backgroundColor: "#f4f4f5",
+    backgroundColor: c.accentSoft,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: "#e4e4e7",
+    borderBottomColor: c.line,
   },
-  sectionTitle: { fontSize: 14, fontWeight: "700", color: "#0f766e" },
+  sectionTitle: { fontSize: 14, fontWeight: "700", color: c.accentDeep },
   itemRow: {
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#f4f4f5",
-    backgroundColor: "#fff",
+    borderBottomColor: c.accentSoft,
+    backgroundColor: c.surface,
     gap: 6,
   },
-  uncheckedTag: { fontSize: 12, fontWeight: "700", color: "#b45309" },
-  itemName: { fontSize: 16, fontWeight: "600", color: "#18181b" },
-  itemMeta: { fontSize: 13, color: "#52525b" },
-  summaryText: { fontSize: 13, color: "#0f766e", fontWeight: "600" },
-  fieldError: { color: "#b91c1c", fontSize: 14 },
+  uncheckedTag: { fontSize: 12, fontWeight: "700", color: c.amber },
+  itemName: { fontSize: 16, fontWeight: "600", color: c.ink },
+  itemMeta: { fontSize: 13, color: c.muted },
+  summaryText: { fontSize: 13, color: c.accentDeep, fontWeight: "600" },
+  fieldError: { color: c.red, fontSize: 14 },
   footer: {
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: "#e4e4e7",
-    backgroundColor: "#fff",
+    borderTopColor: c.line,
+    backgroundColor: c.surface,
   },
   primaryButton: {
-    backgroundColor: "#0f766e",
+    backgroundColor: c.accentDeep,
     borderRadius: 8,
     padding: 14,
     alignItems: "center",
@@ -484,15 +486,15 @@ const styles = StyleSheet.create({
     minHeight: 44,
   },
   buttonDisabled: { opacity: 0.5 },
-  primaryButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  error: { color: "#b91c1c", textAlign: "center", fontSize: 15 },
-  emptyText: { color: "#52525b", textAlign: "center", fontSize: 15 },
+  primaryButtonText: { color: c.onAccent, fontSize: 16, fontWeight: "600" },
+  error: { color: c.red, textAlign: "center", fontSize: 15 },
+  emptyText: { color: c.muted, textAlign: "center", fontSize: 15 },
   diffContainer: { padding: 16, gap: 12 },
-  diffTitle: { fontSize: 18, fontWeight: "700", color: "#18181b" },
+  diffTitle: { fontSize: 18, fontWeight: "700", color: c.ink },
   diffRow: {
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "#f4f4f5",
+    borderBottomColor: c.accentSoft,
   },
-  diffLine: { fontSize: 15, color: "#18181b" },
-});
+  diffLine: { fontSize: 15, color: c.ink },
+}));

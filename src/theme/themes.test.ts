@@ -48,6 +48,11 @@ describe.each(["pink", "blue"] as const)("bảng màu %s", (name) => {
     }
   });
 
+  it("chữ phụ vẫn đọc được trên nền nhạt của điểm nhấn (hàng nhóm, huy hiệu)", () => {
+    expect(contrast(p.muted, p.accentSoft)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(p.ink, p.accentSoft)).toBeGreaterThanOrEqual(4.5);
+  });
+
   it("chữ trên nút và nhãn trạng thái đọc được", () => {
     expect(contrast(p.onAccent, p.accentDeep)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(p.accentDeep, p.accentSoft)).toBeGreaterThanOrEqual(4.5);

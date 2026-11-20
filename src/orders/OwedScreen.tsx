@@ -1,14 +1,10 @@
 import { formatMfg, usesMfgDate } from "../stock/expiry";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { TextInput } from "../ui/TextInput";
+import { themedStyles } from "../theme/themedStyles";
+import type { Palette } from "../theme/themes";
+import { Text } from "../ui/Text";
 import { Loading } from "../ui/Loading";
 import { loadCatalog } from "../catalog/api";
 import { compareGroups, compareItems } from "../catalog/sections";
@@ -465,7 +461,7 @@ export function OwedScreen({ branchId }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((c: Palette) => ({
   container: { flex: 1, width: "100%" },
   center: {
     flex: 1,
@@ -477,56 +473,61 @@ const styles = StyleSheet.create({
   section: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#0f766e",
+    color: c.accentDeep,
     padding: 16,
-    backgroundColor: "#f4f4f5",
+    backgroundColor: c.accentSoft,
   },
   groupBlock: {
     borderBottomWidth: 1,
-    borderBottomColor: "#e4e4e7",
-    backgroundColor: "#fff",
+    borderBottomColor: c.line,
+    backgroundColor: c.surface,
   },
   groupHeader: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#18181b",
+    color: c.ink,
     paddingHorizontal: 16,
     paddingTop: 14,
     paddingBottom: 6,
-    backgroundColor: "#fafafa",
+    backgroundColor: c.bg,
     borderBottomWidth: 1,
-    borderBottomColor: "#f4f4f5",
+    borderBottomColor: c.accentSoft,
   },
   row: {
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#f4f4f5",
-    backgroundColor: "#fff",
+    borderBottomColor: c.accentSoft,
+    backgroundColor: c.surface,
     gap: 4,
   },
-  name: { fontSize: 16, fontWeight: "600", color: "#18181b" },
-  meta: { fontSize: 13, color: "#52525b", padding: 16 },
-  metaInline: { fontSize: 13, color: "#52525b" },
-  summaryText: { fontSize: 13, color: "#0f766e", fontWeight: "600" },
+  name: { fontSize: 16, fontWeight: "600", color: c.ink },
+  meta: { fontSize: 13, color: c.muted, padding: 16 },
+  metaInline: { fontSize: 13, color: c.muted },
+  summaryText: { fontSize: 13, color: c.accentDeep, fontWeight: "600" },
   errorBox: { paddingHorizontal: 16, paddingTop: 10, gap: 4 },
   groupFooter: { padding: 16 },
   input: {
     borderWidth: 1,
-    borderColor: "#d4d4d8",
+    borderColor: c.line,
     borderRadius: 8,
     padding: 10,
     fontSize: 16,
-    backgroundColor: "#fff",
+    backgroundColor: c.surface,
   },
-  label: { fontSize: 14, fontWeight: "600", color: "#27272a", marginTop: 4 },
+  label: { fontSize: 14, fontWeight: "600", color: c.ink, marginTop: 4 },
   btnRow: { flexDirection: "row", gap: 8, marginTop: 12 },
   btnHalf: { flex: 1 },
-  error: { color: "#b91c1c", fontSize: 14, textAlign: "center", padding: 8 },
-  fieldError: { color: "#b91c1c", fontSize: 14 },
-  message: { color: "#0f766e", fontSize: 14, textAlign: "center", padding: 8 },
+  error: { color: c.red, fontSize: 14, textAlign: "center", padding: 8 },
+  fieldError: { color: c.red, fontSize: 14 },
+  message: {
+    color: c.accentDeep,
+    fontSize: 14,
+    textAlign: "center",
+    padding: 8,
+  },
   primary: {
-    backgroundColor: "#0f766e",
+    backgroundColor: c.accentDeep,
     borderRadius: 8,
     padding: 14,
     alignItems: "center",
@@ -535,17 +536,17 @@ const styles = StyleSheet.create({
   },
   secondary: {
     borderWidth: 1,
-    borderColor: "#d4d4d8",
+    borderColor: c.line,
     borderRadius: 8,
     padding: 14,
     alignItems: "center",
     justifyContent: "center",
     minHeight: 44,
-    backgroundColor: "#fff",
+    backgroundColor: c.surface,
   },
   disabled: { opacity: 0.5 },
-  primaryText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  secondaryText: { color: "#18181b", fontSize: 16, fontWeight: "600" },
+  primaryText: { color: c.onAccent, fontSize: 16, fontWeight: "600" },
+  secondaryText: { color: c.ink, fontSize: 16, fontWeight: "600" },
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.4)",
@@ -553,11 +554,11 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   modalCard: {
-    backgroundColor: "#fff",
+    backgroundColor: c.surface,
     borderRadius: 12,
     maxHeight: "85%",
     padding: 16,
   },
   modalContent: { gap: 8 },
-  modalTitle: { fontSize: 18, fontWeight: "700", color: "#18181b" },
-});
+  modalTitle: { fontSize: 18, fontWeight: "700", color: c.ink },
+}));

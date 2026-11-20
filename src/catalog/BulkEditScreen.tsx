@@ -1,13 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
+import { TextInput } from "../ui/TextInput";
+import { themedStyles } from "../theme/themedStyles";
+import type { Palette } from "../theme/themes";
+import { Text } from "../ui/Text";
 import { Loading } from "../ui/Loading";
 import { saveItemEdits } from "../admin/api";
 import type { ShelfLifeUnit, Tables } from "../lib/database.types";
@@ -355,60 +351,58 @@ function UnitToggle({
   );
 }
 
-const BORDER = "#d4d4d8";
-const TEAL = "#0f766e";
-const styles = StyleSheet.create({
+const styles = themedStyles((c: Palette) => ({
   container: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
   pad: { padding: 16, paddingBottom: 96, gap: 8 },
-  title: { fontSize: 20, fontWeight: "800", color: "#18181b" },
-  summaryError: { color: "#b91c1c", fontWeight: "600", fontSize: 14 },
-  errorText: { color: "#b91c1c", fontSize: 14 },
-  ok: { color: TEAL, fontWeight: "600", fontSize: 14 },
+  title: { fontSize: 20, fontWeight: "800", color: c.ink },
+  summaryError: { color: c.red, fontWeight: "600", fontSize: 14 },
+  errorText: { color: c.red, fontSize: 14 },
+  ok: { color: c.accentDeep, fontWeight: "600", fontSize: 14 },
   row: {
     flexDirection: "row",
     borderBottomWidth: 1,
-    borderColor: BORDER,
-    backgroundColor: "#fff",
+    borderColor: c.line,
+    backgroundColor: c.surface,
   },
-  rowChanged: { backgroundColor: "#fef9c3" },
-  head: { backgroundColor: "#e4e4e7" },
+  rowChanged: { backgroundColor: c.amberSoft },
+  head: { backgroundColor: c.line },
   headText: { fontWeight: "700", fontSize: 13 },
   groupHeader: {
     fontSize: 15,
     fontWeight: "700",
-    color: TEAL,
+    color: c.accentDeep,
     paddingVertical: 8,
     paddingHorizontal: 10,
-    backgroundColor: "#f0fdfa",
+    backgroundColor: c.accentSoft,
   },
-  cell: { padding: 6, justifyContent: "center", color: "#18181b" } as never,
-  name: { fontSize: 14, fontWeight: "600", color: "#18181b" },
-  undo: { fontSize: 12, color: "#a16207", textDecorationLine: "underline" },
+  cell: { padding: 6, justifyContent: "center", color: c.ink } as never,
+  name: { fontSize: 14, fontWeight: "600", color: c.ink },
+  undo: { fontSize: 12, color: c.amber, textDecorationLine: "underline" },
   input: {
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: c.line,
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 6,
     fontSize: 14,
-    backgroundColor: "#fff",
+    backgroundColor: c.surface,
     minHeight: 40,
   },
-  inputError: { borderColor: "#b91c1c" },
-  cellError: { color: "#b91c1c", fontSize: 12 },
+  inputError: { borderColor: c.red },
+  cellError: { color: c.red, fontSize: 12 },
   pair: { flexDirection: "row", gap: 4, alignItems: "center" },
   pairNum: { flex: 1, minWidth: 50 },
   unit: {
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: c.line,
     borderRadius: 6,
     paddingHorizontal: 8,
     minHeight: 40,
     justifyContent: "center",
-    backgroundColor: "#fff",
+    backgroundColor: c.surface,
   },
-  unitText: { fontSize: 13, color: "#18181b" },
+  unitText: { fontSize: 13, color: c.ink },
   bar: {
     position: "absolute",
     left: 0,
@@ -418,18 +412,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     padding: 12,
-    backgroundColor: "#fff",
+    backgroundColor: c.surface,
     borderTopWidth: 1,
-    borderColor: BORDER,
+    borderColor: c.line,
   },
-  barText: { fontSize: 15, fontWeight: "600", color: "#18181b" },
+  barText: { fontSize: 15, fontWeight: "600", color: c.ink },
   primary: {
-    backgroundColor: TEAL,
+    backgroundColor: c.accentDeep,
     borderRadius: 8,
     paddingHorizontal: 18,
     minHeight: 44,
     justifyContent: "center",
   },
-  primaryText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  primaryText: { color: c.onAccent, fontSize: 16, fontWeight: "600" },
   disabled: { opacity: 0.5 },
-});
+}));

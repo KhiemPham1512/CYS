@@ -1,12 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { TextInput } from "../ui/TextInput";
+import { themedStyles } from "../theme/themedStyles";
+import type { Palette } from "../theme/themes";
+import { Text } from "../ui/Text";
 import { Loading } from "../ui/Loading";
 import { loadCatalog } from "../catalog/api";
 import { matchesQuery } from "../catalog/search";
@@ -420,7 +417,7 @@ export function UseScreen({ branchId, userId }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((c: Palette) => ({
   container: { flex: 1, width: "100%" },
   center: {
     flex: 1,
@@ -434,60 +431,60 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     gap: 8,
     borderBottomWidth: 1,
-    borderBottomColor: "#e4e4e7",
+    borderBottomColor: c.line,
   },
   input: {
     borderWidth: 1,
-    borderColor: "#d4d4d8",
+    borderColor: c.line,
     borderRadius: 8,
     padding: 10,
     fontSize: 16,
-    backgroundColor: "#fff",
+    backgroundColor: c.surface,
   },
   row: {
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#f4f4f5",
-    backgroundColor: "#fff",
+    borderBottomColor: c.accentSoft,
+    backgroundColor: c.surface,
     gap: 6,
   },
-  name: { fontSize: 16, fontWeight: "600", color: "#18181b" },
-  meta: { fontSize: 13, color: "#52525b", paddingHorizontal: 16 },
+  name: { fontSize: 16, fontWeight: "600", color: c.ink },
+  meta: { fontSize: 13, color: c.muted, paddingHorizontal: 16 },
   stepper: { flexDirection: "row", gap: 8, alignItems: "center" },
   stepBtn: {
     width: 48,
     height: 48,
     borderRadius: 8,
-    backgroundColor: "#f4f4f5",
+    backgroundColor: c.accentSoft,
     alignItems: "center",
     justifyContent: "center",
   },
-  stepText: { fontSize: 24, fontWeight: "700", color: "#0f766e" },
+  stepText: { fontSize: 24, fontWeight: "700", color: c.accentDeep },
   stockText: {
     flex: 1,
     textAlign: "center",
     fontSize: 18,
     fontWeight: "700",
-    color: "#18181b",
+    color: c.ink,
   },
-  warn: { color: "#b45309", fontSize: 14 },
-  error: { color: "#b91c1c", fontSize: 14, textAlign: "center" },
+  warn: { color: c.amber, fontSize: 14 },
+  error: { color: c.red, fontSize: 14, textAlign: "center" },
   section: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#0f766e",
+    color: c.accentDeep,
     padding: 16,
-    backgroundColor: "#f4f4f5",
+    backgroundColor: c.accentSoft,
   },
   useRow: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#f4f4f5",
+    borderBottomColor: c.accentSoft,
   },
-  useText: { flex: 1, fontSize: 14, color: "#18181b" },
+  useText: { flex: 1, fontSize: 14, color: c.ink },
   voidBtn: {
     minHeight: 44,
     minWidth: 44,
@@ -495,16 +492,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   editInput: { width: 90 },
-  okLink: { color: "#0f766e", fontSize: 15, fontWeight: "600" },
-  link: { color: "#b91c1c", fontSize: 15, fontWeight: "600" },
+  okLink: { color: c.accentDeep, fontSize: 15, fontWeight: "600" },
+  link: { color: c.red, fontSize: 15, fontWeight: "600" },
   footer: {
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: "#e4e4e7",
-    backgroundColor: "#fff",
+    borderTopColor: c.line,
+    backgroundColor: c.surface,
   },
   primary: {
-    backgroundColor: "#0f766e",
+    backgroundColor: c.accentDeep,
     borderRadius: 8,
     padding: 14,
     alignItems: "center",
@@ -512,5 +509,5 @@ const styles = StyleSheet.create({
     minHeight: 44,
   },
   disabled: { opacity: 0.5 },
-  primaryText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-});
+  primaryText: { color: c.onAccent, fontSize: 16, fontWeight: "600" },
+}));

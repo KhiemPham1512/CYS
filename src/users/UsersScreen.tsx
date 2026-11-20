@@ -1,13 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
+import { TextInput } from "../ui/TextInput";
+import { switchTrack, themedStyles } from "../theme/themedStyles";
+import type { Palette } from "../theme/themes";
+import { Text } from "../ui/Text";
 import { Loading } from "../ui/Loading";
 import { validateNewUser } from "../../supabase/functions/admin-users/logic.ts";
 import { useOnline } from "../lib/useOnline";
@@ -201,7 +197,7 @@ function NewUserForm({
         <Switch
           value={isAdmin}
           onValueChange={setIsAdmin}
-          trackColor={{ false: "#d4d4d8", true: "#0f766e" }}
+          trackColor={switchTrack()}
         />
         <Text>Là Quản trị</Text>
       </View>
@@ -222,55 +218,55 @@ function NewUserForm({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((c: Palette) => ({
   container: { padding: 16, gap: 12 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
   row: {
     borderBottomWidth: 1,
-    borderBottomColor: "#e4e4e7",
+    borderBottomColor: c.line,
     paddingVertical: 10,
     gap: 6,
   },
   email: { fontSize: 16, fontWeight: "600" },
   badges: { flexDirection: "row", gap: 6 },
   badge: {
-    backgroundColor: "#ccfbf1",
-    color: "#0f766e",
+    backgroundColor: c.accentSoft,
+    color: c.accentDeep,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 6,
     overflow: "hidden",
   },
-  badgeLocked: { backgroundColor: "#fee2e2", color: "#b91c1c" },
+  badgeLocked: { backgroundColor: c.redSoft, color: c.red },
   actions: { flexDirection: "row", gap: 8 },
   smallButton: {
     borderWidth: 1,
-    borderColor: "#0f766e",
+    borderColor: c.accentDeep,
     borderRadius: 8,
     paddingHorizontal: 12,
     minHeight: 44,
     justifyContent: "center",
   },
-  smallButtonText: { color: "#0f766e", fontWeight: "600" },
+  smallButtonText: { color: c.accentDeep, fontWeight: "600" },
   form: { gap: 10, marginTop: 16 },
   title: { fontSize: 18, fontWeight: "700" },
   input: {
     borderWidth: 1,
-    borderColor: "#d4d4d8",
+    borderColor: c.line,
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
   },
   switchRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   button: {
-    backgroundColor: "#0f766e",
+    backgroundColor: c.accentDeep,
     borderRadius: 8,
     padding: 14,
     alignItems: "center",
     minHeight: 48,
   },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  buttonText: { color: c.onAccent, fontSize: 16, fontWeight: "600" },
   disabled: { opacity: 0.5 },
-  error: { color: "#b91c1c" },
-  ok: { color: "#0f766e" },
-});
+  error: { color: c.red },
+  ok: { color: c.accentDeep },
+}));
