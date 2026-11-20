@@ -7,7 +7,7 @@ import {
   View,
 } from "react-native";
 import { useTheme } from "../theme/ThemeContext";
-import type { ThemeName } from "../theme/themes";
+import { PALETTES, type ThemeName } from "../theme/themes";
 import { Bow, Glyph, Logo } from "./icons";
 import { fontFamily } from "./motion";
 
@@ -196,8 +196,7 @@ function ThemeCard({
 }) {
   const { palette } = useTheme();
   const on = current === name;
-  const swatch =
-    name === "pink" ? ["#F9A8C9", "#D23B76"] : ["#4FA3F7", "#1450B0"];
+  const swatch = [PALETTES[name].gradFrom, PALETTES[name].gradTo];
   return (
     <Pressable
       style={({ pressed }) => [

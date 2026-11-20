@@ -9,7 +9,7 @@ import Svg, {
   Stop,
 } from "react-native-svg";
 import type { IconKey } from "../navigation/tabs";
-import type { ThemeName } from "../theme/themes";
+import { PALETTES, type ThemeName } from "../theme/themes";
 
 // Mỗi icon là danh sách hình vẽ trên khung 24x24, nét tròn. Hai bộ: xanh (hình học) và hồng (dễ thương).
 type Node = [
@@ -316,8 +316,7 @@ export function Logo({
   theme: ThemeName;
   size?: number;
 }) {
-  const [a, b] =
-    theme === "pink" ? ["#F9A8C9", "#D23B76"] : ["#4FA3F7", "#1450B0"];
+  const { gradFrom: a, gradTo: b } = PALETTES[theme];
   return (
     <Svg width={size} height={size} viewBox="0 0 128 128" fill="none">
       <Defs>

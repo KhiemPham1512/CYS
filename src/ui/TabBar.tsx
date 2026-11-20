@@ -30,6 +30,7 @@ export function TabBar({
           <HubButton
             key={tab.key}
             open={hubOpen}
+            active={selected === "hub"}
             onPress={() => onSelect("hub")}
             label={hubOpen ? "Đóng chức năng" : "Mở chức năng"}
           />
@@ -109,10 +110,12 @@ function TabButton({
 
 function HubButton({
   open,
+  active,
   onPress,
   label,
 }: {
   open: boolean;
+  active: boolean; // đang ở một chức năng của Hub
   onPress: () => void;
   label: string;
 }) {
@@ -140,7 +143,8 @@ function HubButton({
         style={({ pressed }) => [
           styles.hub,
           {
-            backgroundColor: open ? palette.accentDeep : palette.hubFrom,
+            backgroundColor:
+              open || active ? palette.accentDeep : palette.hubFrom,
             borderColor: palette.bg,
             borderRadius: theme === "pink" ? 28 : 18,
             transform: [{ scale: pressed ? 0.94 : 1 }],

@@ -22,20 +22,24 @@ type Ctx = {
   theme: ThemeName;
   palette: Palette;
   setTheme: (t: ThemeName) => void;
+  ready: boolean; // đã đọc xong lựa chọn đã lưu (tránh nháy sai chủ đề lúc mở app)
 };
 const ThemeCtx = createContext<Ctx>({
   theme: DEFAULT_THEME,
   palette: PALETTES[DEFAULT_THEME],
   setTheme: () => {},
+  ready: true,
 });
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<ThemeName>(DEFAULT_THEME);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem(KEY)
       .then((raw) => setThemeState(parseTheme(raw)))
-      .catch(() => {}); // không đọc được thì giữ mặc định
+      .catch(() => {}) // không đọc được thì giữ mặc định
+      .finally(() => setReady(true));
   }, []);
 
   const setTheme = useCallback((t: ThemeName) => {
@@ -44,8 +48,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ theme, palette: PALETTES[theme], setTheme }),
-    [theme, setTheme]
+    () => ({ theme, palette: PALETTES[theme], setTheme, ready }),
+    [theme, setTheme, ready]
   );
   return <ThemeCtx.Provider value={value}>{children}</ThemeCtx.Provider>;
 }

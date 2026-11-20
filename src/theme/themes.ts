@@ -14,6 +14,8 @@ export type Palette = {
   accentDeep: string; // nền chữ trắng trên nút
   accentSoft: string; // nền nhạt của điểm nhấn
   hubFrom: string; // đầu dải màu nút Hub
+  gradFrom: string; // dải màu logo: đầu
+  gradTo: string; // dải màu logo: cuối
   ink: string; // chữ chính
   muted: string; // chữ phụ
   onAccent: string; // chữ trên nền accentDeep
@@ -43,6 +45,8 @@ export const PALETTES: Record<ThemeName, Palette> = {
     accentDeep: "#BE356B",
     accentSoft: "#FDE6EF",
     hubFrom: "#F48DB7",
+    gradFrom: "#F9A8C9",
+    gradTo: "#D23B76",
     ink: "#4A2235",
     muted: "#946478",
     onAccent: "#FFFFFF",
@@ -56,6 +60,8 @@ export const PALETTES: Record<ThemeName, Palette> = {
     accentDeep: "#1450B0",
     accentSoft: "#E8F1FD",
     hubFrom: "#3B8BF0",
+    gradFrom: "#4FA3F7",
+    gradTo: "#1450B0",
     ink: "#102A43",
     muted: "#5A6E87",
     onAccent: "#FFFFFF",

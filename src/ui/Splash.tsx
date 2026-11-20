@@ -31,36 +31,38 @@ export function Splash({ onDone }: { onDone: () => void }) {
       : Animated.sequence([
           Animated.timing(draw, {
             toValue: 1,
-            duration: 750,
+            duration: 550,
             easing: ease,
             useNativeDriver: false,
           }),
           Animated.parallel([
             Animated.spring(chev, {
               toValue: 1,
-              friction: 6,
+              friction: 7,
+              tension: 160,
               useNativeDriver: true,
             }),
             Animated.timing(word, {
               toValue: 1,
-              duration: 450,
+              duration: 300,
               useNativeDriver: true,
             }),
           ]),
-          Animated.delay(150),
         ]);
-    run.start(() =>
-      Animated.timing(out, {
-        toValue: 0,
-        duration: 220,
-        useNativeDriver: true,
-      }).start(onDone)
-    );
+    // Chỉ kết thúc khi chạy trọn; bị dừng giữa chừng (đổi Giảm chuyển động) thì chạy lại, không bỏ qua màn chờ.
+    run.start(({ finished }) => {
+      if (finished)
+        Animated.timing(out, {
+          toValue: 0,
+          duration: 180,
+          useNativeDriver: true,
+        }).start(onDone);
+    });
     return () => run.stop();
   }, [reduce, draw, chev, word, out, onDone]);
 
-  const [a, b] =
-    theme === "pink" ? ["#F9A8C9", "#D23B76"] : ["#4FA3F7", "#1450B0"];
+  const a = palette.gradFrom;
+  const b = palette.gradTo;
   const dashOffset = reduce
     ? 0
     : draw.interpolate({ inputRange: [0, 1], outputRange: [HEX, 0] });
@@ -128,7 +130,6 @@ export function Splash({ onDone }: { onDone: () => void }) {
       >
         CYS
       </Animated.Text>
-      <Text style={styles.hidden}> </Text>
     </Animated.View>
   );
 }
@@ -153,5 +154,4 @@ const styles = StyleSheet.create({
     right: -16,
     transform: [{ rotate: "14deg" }],
   },
-  hidden: { height: 0 },
 });

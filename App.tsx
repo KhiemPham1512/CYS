@@ -64,8 +64,8 @@ export default function App() {
 }
 
 function Root() {
-  const { palette } = useTheme();
-  const [fontsLoaded] = useFonts({
+  const { palette, ready: themeReady } = useTheme();
+  const [fontsLoaded, fontError] = useFonts({
     BeVietnamPro_400Regular,
     BeVietnamPro_500Medium,
     BeVietnamPro_600SemiBold,
@@ -91,7 +91,9 @@ function Root() {
   }, []);
 
   const styles = useMemo(() => makeStyles(palette), [palette]);
-  if (!fontsLoaded) return <View style={styles.root} />;
+  // Font lỗi thì dùng font hệ thống, không treo màn trắng.
+  if (!themeReady || (!fontsLoaded && !fontError))
+    return <View style={styles.root} />;
   return (
     <View style={styles.root}>
       {!online && (
@@ -357,7 +359,9 @@ function HomeScreen({
   const selectedTab: MainTabKey =
     view === "stock" || view === "use" || view === "catalog" || view === "menu"
       ? view
-      : "hub";
+      : view === "audit" || view === "bulk" || view === "users"
+        ? "menu" // các màn quản trị trên web mở từ Menu
+        : "hub";
   const onTab = (key: MainTabKey) => {
     if (key === "hub") {
       setHubOpen((o) => !o);
