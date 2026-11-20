@@ -39,6 +39,7 @@ import { fontFamily, useReduceMotion } from "./src/ui/motion";
 import { Splash } from "./src/ui/Splash";
 import { TabBar } from "./src/ui/TabBar";
 import { AdminWebGate } from "./src/admin/AdminWebGate";
+import { adminWebView } from "./src/navigation/adminWeb";
 import { CatalogScreen } from "./src/catalog/CatalogScreen";
 import { CountScreen } from "./src/stock/CountScreen";
 import { StockScreen } from "./src/stock/StockScreen";
@@ -469,14 +470,18 @@ function HomeScreen({
     }
   }
 
-  // Web chỉ dành cho Quản trị (điện thoại giữ nguyên app).
-  if (branch && Platform.OS === "web")
+  // Web: Quản trị vào bảng điều khiển; nhân viên và điện thoại dùng app.
+  const onWeb = Platform.OS === "web";
+  if (
+    branch &&
+    onWeb &&
+    (!roleLoaded || roleError || adminWebView(true, isAdmin) === "console")
+  )
     return (
       <AdminWebGate
         branch={branch}
         roleLoaded={roleLoaded}
         roleError={roleError}
-        isAdmin={isAdmin}
         userId={userId}
         email={email}
       />

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { confirmAction } from "../ui/confirm";
 import { themedStyles } from "../theme/themedStyles";
 import type { Palette } from "../theme/themes";
 import { Text } from "../ui/Text";
@@ -217,51 +218,45 @@ export function OrderScreen({ branchId }: Props) {
       setMessage("Đơn chưa có món nào");
       return;
     }
-    Alert.alert(
-      "Đã đặt đúng như đơn?",
-      "Đơn sẽ khóa, không sửa được nữa và các món thành Hàng đang về.",
-      [
-        { text: "Hủy", style: "cancel" },
-        {
-          text: "Đã đặt",
-          onPress: () =>
-            void run(async () => {
-              const cur = latest.current;
-              const saved = await saveDraft(
-                branchId,
-                groupId,
-                { order: cur.draft, lines: cur.draftLines },
-                cur.wanted,
-                cur.scope
-              );
-              if (saved.error || !saved.orderId) return saved.error;
-              const placed = await placeOrder(saved.orderId);
-              if (!placed.error) setInitFor(null); // nạp lại cho đơn nháp mới (rỗng)
-              return placed.error ?? "Đã đặt: các món thành Hàng đang về";
-            }),
-        },
-      ]
-    );
+    confirmAction({
+      title: "Đã đặt đúng như đơn?",
+      message: "Đơn sẽ khóa, không sửa được nữa và các món thành Hàng đang về.",
+      confirmText: "Đã đặt",
+      onConfirm: () =>
+        void run(async () => {
+          const cur = latest.current;
+          const saved = await saveDraft(
+            branchId,
+            groupId,
+            { order: cur.draft, lines: cur.draftLines },
+            cur.wanted,
+            cur.scope
+          );
+          if (saved.error || !saved.orderId) return saved.error;
+          const placed = await placeOrder(saved.orderId);
+          if (!placed.error) setInitFor(null); // nạp lại cho đơn nháp mới (rỗng)
+          return placed.error ?? "Đã đặt: các món thành Hàng đang về";
+        }),
+    });
   };
 
   const handleDelete = () => {
     if (!draft) return;
-    Alert.alert("Xóa đơn nháp?", "Các số đã lưu trong nháp sẽ mất.", [
-      { text: "Hủy", style: "cancel" },
-      {
-        text: "Xóa",
-        style: "destructive",
-        onPress: () =>
-          void run(async () => {
-            const { error: err } = await deleteDraft(draft.id);
-            if (!err) {
-              setInputs({});
-              setInitFor(groupId);
-            }
-            return err;
-          }),
-      },
-    ]);
+    confirmAction({
+      title: "Xóa đơn nháp?",
+      message: "Các số đã lưu trong nháp sẽ mất.",
+      confirmText: "Xóa",
+      destructive: true,
+      onConfirm: () =>
+        void run(async () => {
+          const { error: err } = await deleteDraft(draft.id);
+          if (!err) {
+            setInputs({});
+            setInitFor(groupId);
+          }
+          return err;
+        }),
+    });
   };
 
   if (loading)

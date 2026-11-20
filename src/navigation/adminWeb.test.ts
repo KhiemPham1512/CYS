@@ -9,8 +9,8 @@ describe("adminWebView", () => {
   it("web + Quản trị: bảng điều khiển quản trị", () => {
     expect(adminWebView(true, true)).toBe("console");
   });
-  it("web + nhân viên: bị chặn, không thấy gì khác", () => {
-    expect(adminWebView(true, false)).toBe("forbidden");
+  it("web + nhân viên: dùng app đầy đủ như điện thoại (iPhone qua Safari, Thêm vào màn hình chính)", () => {
+    expect(adminWebView(true, false)).toBe("app");
   });
 });
 
