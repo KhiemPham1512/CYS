@@ -48,7 +48,7 @@ export const PALETTES: Record<ThemeName, Palette> = {
     gradFrom: "#F9A8C9",
     gradTo: "#D23B76",
     ink: "#4A2235",
-    muted: "#946478",
+    muted: "#8A5A6E",
     onAccent: "#FFFFFF",
     ...status,
   },

@@ -30,5 +30,5 @@ export function themedStyles<S extends Styles>(
 // Màu đường ray của công tắc theo chủ đề đang chọn.
 export function switchTrack() {
   const c = PALETTES[active];
-  return { false: c.line, true: c.accentDeep };
+  return { false: "#9CA3AF", true: c.accentDeep }; // ray tắt xám trung tính, đủ thấy trên nền trắng
 }

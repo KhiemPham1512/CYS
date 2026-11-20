@@ -6,9 +6,9 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
+import { TextInput } from "../ui/TextInput";
 import { themedStyles } from "../theme/themedStyles";
 import type { Palette } from "../theme/themes";
 import { Text } from "../ui/Text";

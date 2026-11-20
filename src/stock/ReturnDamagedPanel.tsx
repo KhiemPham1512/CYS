@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Pressable, StyleSheet, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
+import { TextInput } from "../ui/TextInput";
 import { themedStyles } from "../theme/themedStyles";
 import type { Palette } from "../theme/themes";
 import { Text } from "../ui/Text";

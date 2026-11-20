@@ -1,12 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Pressable,
-  SectionList,
-  StyleSheet,
-  Switch,
-  TextInput,
-  View,
-} from "react-native";
+import { Pressable, SectionList, StyleSheet, Switch, View } from "react-native";
+import { TextInput } from "../ui/TextInput";
 import { switchTrack, themedStyles } from "../theme/themedStyles";
 import type { Palette } from "../theme/themes";
 import { Text } from "../ui/Text";
