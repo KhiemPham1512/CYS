@@ -54,6 +54,10 @@ Lần đầu `wrangler` mở trình duyệt để đăng nhập Cloudflare. Đ�
 
 Danh mục thật nạp bằng script chạy trên máy (`npm run import-catalog`, xem `scripts/import-catalog.ts`) hoặc sửa trực tiếp ở mục Danh mục trên web. Dữ liệu thật không được đưa vào repo.
 
-### Bảo mật cần bật một lần
+### Rủi ro đã chấp nhận: mật khẩu bị lộ
 
-Trong Supabase Dashboard → Authentication → **Password security**, bật **Leaked password protection** (chặn mật khẩu từng bị lộ).
+Tính năng **Leaked password protection** của Supabase (chặn mật khẩu từng bị lộ) chỉ có ở gói Pro, nên dự án đang bỏ qua. Hệ quả:
+
+- Mật khẩu Quản trị đặt cho nhân viên không được kiểm với danh sách mật khẩu đã lộ.
+- Quản trị đặt mật khẩu ban đầu đủ mạnh (không dùng dãy số, không dùng tên quán), và yêu cầu nhân viên tự đổi sau lần đăng nhập đầu tiên.
+- Nếu nâng lên gói Pro sau này, bật lại tính năng này trong Supabase Dashboard → Authentication → Password security.
