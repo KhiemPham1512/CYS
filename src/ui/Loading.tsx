@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 import { useTheme } from "../theme/ThemeContext";
@@ -8,8 +8,16 @@ const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 // Màn chờ dùng chung cho mọi màn đang tải. Mỗi chủ đề một kiểu:
 // Hồng nơ = giọt rơi, gợn nước lan ra; Xanh trắng = lõi năng lượng (viền lục giác sáng chạy, quỹ đạo xoay).
+// Tải nhanh (< ~0,4 giây) thì không hiện hoạt ảnh: tránh nhấp nháy vô nghĩa.
+const SHOW_AFTER_MS = 400;
+
 export function Loading() {
   const { theme } = useTheme();
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setShow(true), SHOW_AFTER_MS);
+    return () => clearTimeout(timer);
+  }, []);
   return (
     <View
       style={styles.root}
@@ -17,7 +25,7 @@ export function Loading() {
       accessibilityRole="progressbar"
       accessibilityLabel="Đang tải"
     >
-      {theme === "pink" ? <Ripple /> : <Core />}
+      {show ? theme === "pink" ? <Ripple /> : <Core /> : null}
     </View>
   );
 }
