@@ -1,11 +1,7 @@
-import {
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Modal, Pressable, ScrollView, View } from "react-native";
+import { Text } from "../ui/Text";
+import { themedStyles } from "../theme/themedStyles";
+import type { Palette } from "../theme/themes";
 import type { Tables } from "../lib/database.types";
 import { formatDate } from "../stock/date";
 import { localDate } from "../stock/ledger";
@@ -92,21 +88,21 @@ export function PlacedOrderSheet({
 
 const BORDER = "#a1a1aa";
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff", paddingTop: 48 },
+const styles = themedStyles((c: Palette) => ({
+  container: { flex: 1, backgroundColor: c.bg, paddingTop: 48 },
   title: {
     fontSize: 20,
     fontWeight: "800",
-    color: "#18181b",
+    color: c.ink,
     textAlign: "center",
   },
   sub: {
     fontSize: 15,
-    color: "#52525b",
+    color: c.muted,
     textAlign: "center",
     marginBottom: 8,
   },
-  empty: { padding: 24, textAlign: "center", color: "#52525b", fontSize: 15 },
+  empty: { padding: 24, textAlign: "center", color: c.muted, fontSize: 15 },
   date: { paddingHorizontal: 16, paddingBottom: 6, fontSize: 14 },
   tr: {
     flexDirection: "row",
@@ -116,14 +112,14 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
   },
   tableEnd: { borderTopWidth: 1, borderColor: BORDER, marginHorizontal: 8 },
-  thRow: { backgroundColor: "#e4e4e7" },
+  thRow: { backgroundColor: c.accentSoft },
   cell: {
     borderRightWidth: 1,
     borderColor: BORDER,
     paddingVertical: 10,
     paddingHorizontal: 6,
     fontSize: 14,
-    color: "#18181b",
+    color: c.ink,
     minHeight: 44,
     textAlignVertical: "center",
   },
@@ -135,11 +131,11 @@ const styles = StyleSheet.create({
   qtyText: { fontWeight: "700", color: "#1d4ed8" },
   close: {
     margin: 16,
-    backgroundColor: "#0f766e",
-    borderRadius: 8,
-    minHeight: 44,
+    backgroundColor: c.accentDeep,
+    borderRadius: 14,
+    minHeight: 48,
     alignItems: "center",
     justifyContent: "center",
   },
-  closeText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-});
+  closeText: { color: c.onAccent, fontSize: 16, fontWeight: "600" },
+}));

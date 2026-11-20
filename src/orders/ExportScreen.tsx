@@ -12,13 +12,14 @@ import {
   Modal,
   Pressable,
   ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
   useWindowDimensions,
   View,
 } from "react-native";
 import { Loading } from "../ui/Loading";
+import { Text } from "../ui/Text";
+import { TextInput } from "../ui/TextInput";
+import { themedStyles } from "../theme/themedStyles";
+import type { Palette } from "../theme/themes";
 import { captureRef } from "react-native-view-shot";
 import { loadCatalog } from "../catalog/api";
 import { supabase } from "../lib/supabase";
@@ -410,7 +411,7 @@ export function ExportScreen({ branchId, branchName }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((c: Palette) => ({
   paperWrap: { alignItems: "center", paddingVertical: 12 },
   container: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
@@ -418,64 +419,71 @@ const styles = StyleSheet.create({
   kindRow: { flexDirection: "row", gap: 8, padding: 16, paddingBottom: 0 },
   kind: {
     flex: 1,
+    minHeight: 44,
     borderWidth: 1,
-    borderColor: "#d4d4d8",
-    borderRadius: 8,
+    borderColor: c.line,
+    backgroundColor: c.surface,
+    borderRadius: 14,
     padding: 12,
     alignItems: "center",
+    justifyContent: "center",
   },
-  kindOn: { backgroundColor: "#0f766e", borderColor: "#0f766e" },
-  kindText: { fontSize: 15, fontWeight: "600", color: "#18181b" },
-  kindTextOn: { color: "#fff" },
-  label: { fontSize: 14, fontWeight: "600", color: "#27272a" },
+  kindOn: { backgroundColor: c.accentDeep, borderColor: c.accentDeep },
+  kindText: { fontSize: 15, fontWeight: "600", color: c.ink },
+  kindTextOn: { color: c.onAccent },
+  label: { fontSize: 14, fontWeight: "600", color: c.ink },
   input: {
     borderWidth: 1,
-    borderColor: "#d4d4d8",
-    borderRadius: 8,
-    padding: 10,
+    borderColor: c.line,
+    borderRadius: 14,
+    padding: 12,
     fontSize: 16,
-    backgroundColor: "#fff",
+    color: c.ink,
+    backgroundColor: c.surface,
   },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {
-    borderWidth: 1,
-    borderColor: "#d4d4d8",
-    borderRadius: 16,
-    paddingVertical: 6,
-    paddingHorizontal: 0,
-  },
-  chipText: { fontSize: 14, color: "#18181b" },
-  groupBtn: {
-    borderWidth: 1,
-    borderColor: "#0f766e",
-    borderRadius: 8,
-    padding: 14,
     minHeight: 44,
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: c.accentDeep,
+    backgroundColor: c.accentSoft,
+    borderRadius: 12,
+    paddingHorizontal: 14,
   },
-  groupText: { fontSize: 16, fontWeight: "600", color: "#0f766e" },
-  error: { color: "#b91c1c", fontSize: 14, textAlign: "center", padding: 8 },
-  modal: { flex: 1, backgroundColor: "#f4f4f5", paddingTop: 40 },
+  chipText: { fontSize: 14, color: c.ink },
+  groupBtn: {
+    borderWidth: 1,
+    borderColor: c.line,
+    backgroundColor: c.surface,
+    borderRadius: 14,
+    padding: 14,
+    minHeight: 48,
+    justifyContent: "center",
+  },
+  groupText: { fontSize: 16, fontWeight: "600", color: c.accentDeep },
+  error: { color: c.red, fontSize: 14, textAlign: "center", padding: 8 },
+  modal: { flex: 1, backgroundColor: c.bg, paddingTop: 40 },
   btnRow: { flexDirection: "row", gap: 8, padding: 16 },
   half: { flex: 1 },
   primary: {
-    backgroundColor: "#0f766e",
-    borderRadius: 8,
+    backgroundColor: c.accentDeep,
+    borderRadius: 14,
     padding: 14,
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 44,
+    minHeight: 48,
   },
-  primaryText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  primaryText: { color: c.onAccent, fontSize: 16, fontWeight: "600" },
   secondary: {
     borderWidth: 1,
-    borderColor: "#d4d4d8",
-    borderRadius: 8,
+    borderColor: c.line,
+    borderRadius: 14,
     padding: 14,
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 44,
-    backgroundColor: "#fff",
+    minHeight: 48,
+    backgroundColor: c.surface,
   },
-  secondaryText: { color: "#18181b", fontSize: 16, fontWeight: "600" },
-});
+  secondaryText: { color: c.ink, fontSize: 16, fontWeight: "600" },
+}));
