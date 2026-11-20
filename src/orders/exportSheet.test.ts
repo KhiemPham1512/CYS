@@ -98,10 +98,24 @@ describe("stockSheetCell", () => {
       })
     ).toBe("3");
   });
-  it("hết sạch: 0", () => {
+  it("hết sạch và không có hàng đang về: để trống ô, không ghi 0 (kể cả món theo dõi hạn)", () => {
     expect(
       stockSheetCell({ ...base, incoming: 0, actual: 0, lastMfg: null })
-    ).toBe("0");
+    ).toBe("");
+    expect(
+      stockSheetCell({
+        ...base,
+        trackMfg: true,
+        incoming: 0,
+        actual: 0,
+        lastMfg: "2026-11-10",
+      })
+    ).toBe("");
+  });
+  it("có hàng đang về nhưng tồn bằng 0: chỉ ghi phần đang về, không ghi +0", () => {
+    expect(
+      stockSheetCell({ ...base, incoming: 12, actual: 0, lastMfg: null })
+    ).toBe("12+");
   });
 });
 

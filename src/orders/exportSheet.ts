@@ -54,7 +54,8 @@ export function stockSheetCell(p: {
   byPercent: boolean;
 }): string {
   const opts = { caseSize: p.caseSize, byPercent: p.byPercent };
-  const actual = formatSheetQty(p.actual, opts);
+  if (p.actual <= 0 && p.incoming <= 0) return "";
+  const actual = p.actual > 0 ? formatSheetQty(p.actual, opts) : "";
   const qty =
     p.incoming > 0 ? `${formatSheetQty(p.incoming, opts)}+${actual}` : actual;
   if (!p.trackMfg || !p.lastMfg) return qty;
