@@ -130,7 +130,7 @@ export function CatalogScreen({ branchId }: Props) {
       )}
       <View style={[styles.toolbar, wide && styles.toolbarWide]}>
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, wide && styles.searchWide]}
           placeholder="Tìm món (gõ không dấu được)"
           value={query}
           onChangeText={setQuery}
@@ -334,7 +334,14 @@ const styles = themedStyles((c: Palette) => ({
     paddingTop: 24,
     paddingBottom: 12,
   },
-  toolbarWide: { paddingHorizontal: 24, borderBottomWidth: 0 },
+  toolbarWide: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+    paddingHorizontal: 24,
+    borderBottomWidth: 0,
+  },
+  searchWide: { flex: 1, maxWidth: 480 },
   tablePage: { padding: 24, paddingTop: 8 },
   tableCard: {
     width: "100%",

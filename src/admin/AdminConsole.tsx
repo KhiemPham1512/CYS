@@ -131,7 +131,7 @@ function Account({
 }
 
 const styles = themedStyles((c: Palette) => ({
-  root: { flex: 1, backgroundColor: c.bg },
+  root: { flex: 1, width: "100%", alignSelf: "stretch", backgroundColor: c.bg },
   rootSide: { flexDirection: "row" },
   grow: { flex: 1 },
   pressed: { opacity: 0.7 },

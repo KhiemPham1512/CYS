@@ -9,6 +9,7 @@ import {
 import { TextInput } from "../ui/TextInput";
 import { themedStyles } from "../theme/themedStyles";
 import type { Palette } from "../theme/themes";
+import { PageHeader } from "../ui/PageHeader";
 import { Text } from "../ui/Text";
 import { WIDE_LAYOUT } from "../navigation/adminWeb";
 import { Loading } from "../ui/Loading";
@@ -97,7 +98,7 @@ export function AuditScreen({ branchId }: Props) {
   return (
     <ScrollView contentContainerStyle={styles.page}>
       <View style={styles.inner}>
-        <Text style={styles.title}>Nhật ký thay đổi</Text>
+        <PageHeader title="Nhật ký thay đổi" />
 
         <View style={[styles.filters, wide && styles.filtersWide]}>
           <View style={styles.field}>
@@ -285,7 +286,6 @@ function LogRow({ row, wide }: { row: AuditRow; wide: boolean }) {
 const styles = themedStyles((c: Palette) => ({
   page: { padding: 16 },
   inner: { width: "100%", maxWidth: 1200, alignSelf: "center", gap: 12 },
-  title: { fontSize: 20, fontWeight: "800", color: c.ink },
   filters: { gap: 12 },
   filtersWide: {
     flexDirection: "row",

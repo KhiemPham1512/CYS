@@ -108,4 +108,27 @@ describe("describeChange", () => {
       )
     ).toEqual(["Kiểm kho: 7 (sổ 9)"]);
   });
+
+  it("đổi dữ liệu in trên tờ: một dòng 'đã đổi' (không phơi nội dung), kể cả khi chỉ đổi cột này", () => {
+    expect(
+      describeChange(
+        entry({
+          table_name: "items",
+          action: "update",
+          old_data: { name: "A", sheet: {} },
+          new_data: { name: "A", sheet: { zh: "中" } },
+        })
+      )
+    ).toEqual(["Dữ liệu in trên tờ: đã đổi"]);
+    expect(
+      describeChange(
+        entry({
+          table_name: "items",
+          action: "update",
+          old_data: { name: "A", sheet: { zh: "中" } },
+          new_data: { name: "A", sheet: { zh: "中" } },
+        })
+      )
+    ).toEqual([]);
+  });
 });

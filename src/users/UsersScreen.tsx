@@ -295,7 +295,7 @@ const styles = themedStyles((c: Palette) => ({
     overflow: "hidden",
   },
   badgeLocked: { backgroundColor: c.redSoft, color: c.red },
-  actions: { flexDirection: "row", gap: 8 },
+  actions: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   smallButton: {
     borderWidth: 1,
     borderColor: c.accentDeep,
@@ -331,9 +331,9 @@ const styles = themedStyles((c: Palette) => ({
   thWide: { minHeight: 40, backgroundColor: c.accentSoft },
   th: { fontSize: 11, fontWeight: "700", letterSpacing: 1, color: c.muted },
   thRight: { textAlign: "right" },
-  colEmail: { flex: 3 },
+  colEmail: { flex: 3, minWidth: 200 },
   colState: { flex: 2 },
-  colActions: { flex: 3, alignItems: "flex-end" },
+  colActions: { flex: 3, minWidth: 250, alignItems: "flex-end" },
   title: { fontSize: 18, fontWeight: "700", color: c.ink },
   input: {
     borderWidth: 1,
