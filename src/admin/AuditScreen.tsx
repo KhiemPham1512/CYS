@@ -10,6 +10,7 @@ import { TextInput } from "../ui/TextInput";
 import { themedStyles } from "../theme/themedStyles";
 import type { Palette } from "../theme/themes";
 import { Text } from "../ui/Text";
+import { WIDE_LAYOUT } from "../navigation/adminWeb";
 import { Loading } from "../ui/Loading";
 import { parseShortDate } from "../stock/date";
 import { localDate, localTime } from "../stock/ledger";
@@ -18,8 +19,6 @@ import { loadAuditFeed, type AuditRow } from "./api";
 import { describeChange, type AuditEntry } from "./auditLog";
 
 type Props = { branchId: string };
-
-const WIDE = 720; // từ bề rộng này trở lên hiện dạng bảng, hẹp hơn hiện dạng thẻ
 
 const TABLE_LABEL: Record<string, string> = {
   items: "Món",
@@ -38,7 +37,7 @@ const dateOrNull = (raw: string) => {
 // Nhật ký thay đổi: ai, lúc nào, thay đổi gì (cũ → mới). Chỉ Quản trị (máy chủ kiểm lại).
 export function AuditScreen({ branchId }: Props) {
   const { width } = useWindowDimensions();
-  const wide = width >= WIDE;
+  const wide = width >= WIDE_LAYOUT;
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [actor, setActor] = useState<string | null>(null);
   const [fromText, setFromText] = useState("");

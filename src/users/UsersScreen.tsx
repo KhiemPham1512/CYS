@@ -1,9 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
+import {
+  Pressable,
+  ScrollView,
+  Switch,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import { TextInput } from "../ui/TextInput";
 import { switchTrack, themedStyles } from "../theme/themedStyles";
 import type { Palette } from "../theme/themes";
+import { PageHeader } from "../ui/PageHeader";
 import { Text } from "../ui/Text";
+import { WIDE_LAYOUT } from "../navigation/adminWeb";
 import { Loading } from "../ui/Loading";
 import { validateNewUser } from "../../supabase/functions/admin-users/logic.ts";
 import { useOnline } from "../lib/useOnline";
@@ -17,6 +25,7 @@ import {
 
 export function UsersScreen({ currentUserId }: { currentUserId: string }) {
   const online = useOnline();
+  const wide = useWindowDimensions().width >= WIDE_LAYOUT;
   const [users, setUsers] = useState<ManagedUser[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -70,60 +79,108 @@ export function UsersScreen({ currentUserId }: { currentUserId: string }) {
   }
 
   const disabled = !online || busyId !== null;
+  const rows = users.map((u) => {
+    const self = u.user_id === currentUserId;
+    const actions = !self && (
+      <View style={styles.actions}>
+        <Pressable
+          style={[styles.smallButton, disabled && styles.disabled]}
+          disabled={disabled}
+          onPress={() =>
+            act(u.user_id, () => setLocked(u.user_id, !u.is_locked))
+          }
+          accessibilityRole="button"
+          accessibilityLabel={`${u.is_locked ? "Mở khóa" : "Khóa"} ${u.email}`}
+          accessibilityState={{ disabled }}
+        >
+          <Text style={styles.smallButtonText}>
+            {u.is_locked ? "Mở khóa" : "Khóa"}
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.smallButton, disabled && styles.disabled]}
+          disabled={disabled}
+          onPress={() => act(u.user_id, () => setAdmin(u.user_id, !u.is_admin))}
+          accessibilityRole="button"
+          accessibilityLabel={`${u.is_admin ? "Bỏ Quản trị" : "Cấp Quản trị"} ${u.email}`}
+          accessibilityState={{ disabled }}
+        >
+          <Text style={styles.smallButtonText}>
+            {u.is_admin ? "Bỏ Quản trị" : "Cấp Quản trị"}
+          </Text>
+        </Pressable>
+      </View>
+    );
+    const badges = (
+      <View style={styles.badges}>
+        {u.is_admin && <Text style={styles.badge}>Quản trị</Text>}
+        {u.is_locked && (
+          <Text style={[styles.badge, styles.badgeLocked]}>Đã khóa</Text>
+        )}
+      </View>
+    );
+    const err = rowError?.id === u.user_id && (
+      <Text style={styles.error}>{rowError.msg}</Text>
+    );
+    return wide ? (
+      <View key={u.user_id} style={styles.trWide}>
+        <View style={styles.colEmail}>
+          <Text style={styles.email}>
+            {u.email}
+            {self ? " (bạn)" : ""}
+          </Text>
+          {err}
+        </View>
+        <View style={styles.colState}>{badges}</View>
+        <View style={styles.colActions}>{actions}</View>
+      </View>
+    ) : (
+      <View key={u.user_id} style={styles.row}>
+        <Text style={styles.email}>
+          {u.email}
+          {self ? " (bạn)" : ""}
+        </Text>
+        {badges}
+        {actions}
+        {err}
+      </View>
+    );
+  });
+
+  if (!wide) {
+    return (
+      <ScrollView contentContainerStyle={styles.container}>
+        {!online && (
+          <Text style={styles.error}>Mất mạng — không thay đổi được</Text>
+        )}
+        {rows}
+        <NewUserForm disabled={!online} onCreated={reload} />
+      </ScrollView>
+    );
+  }
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      {!online && (
-        <Text style={styles.error}>Mất mạng — không thay đổi được</Text>
-      )}
-      {users.map((u) => {
-        const self = u.user_id === currentUserId;
-        return (
-          <View key={u.user_id} style={styles.row}>
-            <Text style={styles.email}>
-              {u.email}
-              {self ? " (bạn)" : ""}
-            </Text>
-            <View style={styles.badges}>
-              {u.is_admin && <Text style={styles.badge}>Quản trị</Text>}
-              {u.is_locked && (
-                <Text style={[styles.badge, styles.badgeLocked]}>Đã khóa</Text>
-              )}
+    <ScrollView contentContainerStyle={styles.pageWide}>
+      <View style={styles.innerWide}>
+        <PageHeader title="Người dùng" sub={`${users.length} tài khoản`} />
+        {!online && (
+          <Text style={styles.error}>Mất mạng — không thay đổi được</Text>
+        )}
+        <View style={styles.split}>
+          <View style={[styles.card, styles.tableCard]}>
+            <View style={[styles.trWide, styles.thWide]}>
+              <Text style={[styles.th, styles.colEmail]}>EMAIL</Text>
+              <Text style={[styles.th, styles.colState]}>VAI TRÒ</Text>
+              <Text style={[styles.th, styles.colActions, styles.thRight]}>
+                THAO TÁC
+              </Text>
             </View>
-            {!self && (
-              <View style={styles.actions}>
-                <Pressable
-                  style={[styles.smallButton, disabled && styles.disabled]}
-                  disabled={disabled}
-                  onPress={() =>
-                    act(u.user_id, () => setLocked(u.user_id, !u.is_locked))
-                  }
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.smallButtonText}>
-                    {u.is_locked ? "Mở khóa" : "Khóa"}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.smallButton, disabled && styles.disabled]}
-                  disabled={disabled}
-                  onPress={() =>
-                    act(u.user_id, () => setAdmin(u.user_id, !u.is_admin))
-                  }
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.smallButtonText}>
-                    {u.is_admin ? "Bỏ Quản trị" : "Cấp Quản trị"}
-                  </Text>
-                </Pressable>
-              </View>
-            )}
-            {rowError?.id === u.user_id && (
-              <Text style={styles.error}>{rowError.msg}</Text>
-            )}
+            {rows}
           </View>
-        );
-      })}
-      <NewUserForm disabled={!online} onCreated={reload} />
+          <View style={[styles.card, styles.formCard]}>
+            <NewUserForm disabled={!online} onCreated={reload} />
+          </View>
+        </View>
+      </View>
     </ScrollView>
   );
 }
@@ -227,7 +284,7 @@ const styles = themedStyles((c: Palette) => ({
     paddingVertical: 10,
     gap: 6,
   },
-  email: { fontSize: 16, fontWeight: "600" },
+  email: { fontSize: 16, fontWeight: "600", color: c.ink },
   badges: { flexDirection: "row", gap: 6 },
   badge: {
     backgroundColor: c.accentSoft,
@@ -249,7 +306,35 @@ const styles = themedStyles((c: Palette) => ({
   },
   smallButtonText: { color: c.accentDeep, fontWeight: "600" },
   form: { gap: 10, marginTop: 16 },
-  title: { fontSize: 18, fontWeight: "700" },
+  pageWide: { padding: 24 },
+  innerWide: { width: "100%", maxWidth: 1200, alignSelf: "center", gap: 16 },
+  split: { flexDirection: "row", gap: 20, alignItems: "flex-start" },
+  card: {
+    backgroundColor: c.surface,
+    borderWidth: 1,
+    borderColor: c.line,
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  tableCard: { flex: 1 },
+  formCard: { width: 340, padding: 16 },
+  trWide: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    minHeight: 60,
+    borderBottomWidth: 1,
+    borderBottomColor: c.line,
+  },
+  thWide: { minHeight: 40, backgroundColor: c.accentSoft },
+  th: { fontSize: 11, fontWeight: "700", letterSpacing: 1, color: c.muted },
+  thRight: { textAlign: "right" },
+  colEmail: { flex: 3 },
+  colState: { flex: 2 },
+  colActions: { flex: 3, alignItems: "flex-end" },
+  title: { fontSize: 18, fontWeight: "700", color: c.ink },
   input: {
     borderWidth: 1,
     borderColor: c.line,
