@@ -1,0 +1,53 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import {
+  DEFAULT_THEME,
+  PALETTES,
+  parseTheme,
+  type Palette,
+  type ThemeName,
+} from "./themes";
+
+const KEY = "cys-theme";
+
+type Ctx = {
+  theme: ThemeName;
+  palette: Palette;
+  setTheme: (t: ThemeName) => void;
+};
+const ThemeCtx = createContext<Ctx>({
+  theme: DEFAULT_THEME,
+  palette: PALETTES[DEFAULT_THEME],
+  setTheme: () => {},
+});
+
+export function ThemeProvider({ children }: { children: ReactNode }) {
+  const [theme, setThemeState] = useState<ThemeName>(DEFAULT_THEME);
+
+  useEffect(() => {
+    AsyncStorage.getItem(KEY)
+      .then((raw) => setThemeState(parseTheme(raw)))
+      .catch(() => {}); // không đọc được thì giữ mặc định
+  }, []);
+
+  const setTheme = useCallback((t: ThemeName) => {
+    setThemeState(t);
+    AsyncStorage.setItem(KEY, t).catch(() => {});
+  }, []);
+
+  const value = useMemo(
+    () => ({ theme, palette: PALETTES[theme], setTheme }),
+    [theme, setTheme]
+  );
+  return <ThemeCtx.Provider value={value}>{children}</ThemeCtx.Provider>;
+}
+
+export const useTheme = () => useContext(ThemeCtx);
