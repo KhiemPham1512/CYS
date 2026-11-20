@@ -29,7 +29,8 @@ const publishableKey = JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")!)[
   "default"
 ];
 const geminiKey = Deno.env.get("GEMINI_API_KEY");
-const model = Deno.env.get("GEMINI_MODEL") ?? "gemini-2.5-flash";
+const model = Deno.env.get("GEMINI_MODEL") ?? "gemini-3.8-flash";
+const FALLBACK_MODEL = "gemini-3.1-flash-lite";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -57,11 +58,13 @@ Deno.serve(async (req) => {
   )
     return fail(400, "Yêu cầu không hợp lệ");
 
-  // is_active_member chạy với quyền của người gọi: không phải thành viên đang hoạt động thì false.
-  const { data: member } = await userClient.rpc("is_active_member", {
-    p_branch_id: body.branch_id,
-  });
-  if (member !== true) return fail(403, "Không có quyền");
+  // RLS của branches chỉ trả dòng cho thành viên đang hoạt động (token người gọi).
+  const { data: branch } = await userClient
+    .from("branches")
+    .select("id")
+    .eq("id", body.branch_id)
+    .maybeSingle();
+  if (!branch) return fail(403, "Không có quyền");
 
   const valid = validateImages(body.images);
   if (!valid.ok) return fail(400, valid.error);
@@ -71,25 +74,33 @@ Deno.serve(async (req) => {
       "Chưa cấu hình đọc ảnh. Chọn 'Đã đặt đúng như đơn' hoặc báo Quản trị."
     );
 
-  let geminiBody: unknown;
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": geminiKey,
-        },
-        body: JSON.stringify(buildGeminiRequest(body.images)),
-      }
-    );
-    geminiBody = await res.json();
-  } catch {
-    return fail(502, "Không kết nối được dịch vụ đọc ảnh. Thử lại sau.");
+  // Model chính hay quá tải (503) hoặc treo: giới hạn 40s rồi thử model nhẹ hơn.
+  const payload = JSON.stringify(buildGeminiRequest(body.images));
+  let parsed = parseGeminiResponse(null);
+  let reached = false;
+  for (const m of [model, FALLBACK_MODEL]) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": geminiKey,
+          },
+          body: payload,
+          signal: AbortSignal.timeout(40_000),
+        }
+      );
+      reached = true;
+      parsed = parseGeminiResponse(await res.json());
+      if (parsed.ok || res.status !== 503) break;
+    } catch {
+      // hết giờ hoặc lỗi mạng: thử model kế
+    }
   }
-
-  const parsed = parseGeminiResponse(geminiBody);
+  if (!reached)
+    return fail(502, "Không kết nối được dịch vụ đọc ảnh. Thử lại sau.");
   if (!parsed.ok) return fail(502, parsed.error);
   return json(200, { lines: parsed.lines });
 });

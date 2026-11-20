@@ -35,10 +35,10 @@ export function buildPrompt(): string {
   return [
     "Đây là ảnh chụp màn hình đơn đặt hàng của một nhà cung cấp (tiếng Việt).",
     "Chỉ đọc bảng sản phẩm. Với mỗi dòng trả về: name (tên sản phẩm đúng như hiển thị, giữ cả tên tiếng Trung nếu có),",
-    "qty (số lượng, là số), unit (đơn vị), description (dòng Mô tả về quy cách nếu có, ví dụ 12 lon/thùng, không có thì null),",
-    "order_code (mã đơn như #S524692 nếu thấy trong ảnh, không thì null).",
+    "qty (số lượng, là số), unit (đơn vị), description (dòng Mô tả về quy cách nếu có trong ảnh, không có thì null),",
+    "order_code (mã đơn nếu thấy trong ảnh, không thì null).",
     "Bỏ qua số điện thoại, địa chỉ, tên người, giá, thành tiền và mọi thông tin khác; không trả về chúng.",
-    "Không bịa dòng; không đọc được thì bỏ qua dòng đó. Trả JSON đúng schema.",
+    "Chỉ chép những gì đọc được trong ảnh. Ảnh không có bảng sản phẩm thì trả lines rỗng. Không bịa dòng; không đọc được thì bỏ qua dòng đó. Trả JSON đúng schema.",
   ].join(" ");
 }
 
