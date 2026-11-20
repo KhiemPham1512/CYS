@@ -39,10 +39,10 @@ const BLUE: Record<IconKey, Node[]> = {
     p("M9 14h6"),
   ],
   hub: [
-    ["rect", { x: 3, y: 3, width: 7, height: 9, rx: 1 }],
-    ["rect", { x: 14, y: 3, width: 7, height: 5, rx: 1 }],
-    ["rect", { x: 14, y: 12, width: 7, height: 9, rx: 1 }],
-    ["rect", { x: 3, y: 16, width: 7, height: 5, rx: 1 }],
+    // lõi năng lượng: lục giác, nhân sáng ở giữa, vòng quỹ đạo đứt nét
+    p("M12 6.6 L16.7 9.3 V14.7 L12 17.4 L7.3 14.7 V9.3 Z"),
+    ["circle", { cx: 12, cy: 12, r: 1.9, fill: "$c" }],
+    ["circle", { cx: 12, cy: 12, r: 10, strokeDasharray: "2 3.4" }],
   ],
   catalog: [
     p("M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"),
@@ -126,10 +126,43 @@ const PINK: Record<IconKey, Node[]> = {
     dot(11.8, 14.8),
   ],
   hub: [
-    ["circle", { cx: 12, cy: 12, r: 2.6 }],
-    p(
-      "M12 16.5A4.5 4.5 0 1 1 7.5 12 4.5 4.5 0 1 1 12 7.5a4.5 4.5 0 1 1 4.5 4.5 4.5 4.5 0 1 1-4.5 4.5"
-    ),
+    // bông hoa năm cánh
+    [
+      "path",
+      {
+        d: "M12 12 C9.4 9.6 9.2 5.6 12 3 C14.8 5.6 14.6 9.6 12 12Z",
+        transform: "rotate(0 12 12)",
+      },
+    ],
+    [
+      "path",
+      {
+        d: "M12 12 C9.4 9.6 9.2 5.6 12 3 C14.8 5.6 14.6 9.6 12 12Z",
+        transform: "rotate(72 12 12)",
+      },
+    ],
+    [
+      "path",
+      {
+        d: "M12 12 C9.4 9.6 9.2 5.6 12 3 C14.8 5.6 14.6 9.6 12 12Z",
+        transform: "rotate(144 12 12)",
+      },
+    ],
+    [
+      "path",
+      {
+        d: "M12 12 C9.4 9.6 9.2 5.6 12 3 C14.8 5.6 14.6 9.6 12 12Z",
+        transform: "rotate(216 12 12)",
+      },
+    ],
+    [
+      "path",
+      {
+        d: "M12 12 C9.4 9.6 9.2 5.6 12 3 C14.8 5.6 14.6 9.6 12 12Z",
+        transform: "rotate(288 12 12)",
+      },
+    ],
+    ["circle", { cx: 12, cy: 12, r: 1.7 }],
   ],
   catalog: [
     p(

@@ -157,7 +157,7 @@ function HubButton({
               {
                 rotate: turn.interpolate({
                   inputRange: [0, 1],
-                  outputRange: ["0deg", "90deg"],
+                  outputRange: ["0deg", theme === "pink" ? "135deg" : "90deg"],
                 }),
               },
             ],

@@ -1,11 +1,21 @@
 import { useEffect, useRef, useState } from "react";
-import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Animated,
+  Easing,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import Svg, { Path } from "react-native-svg";
 import { HUB_SECTIONS, type HubKey } from "../navigation/tabs";
 import { useTheme } from "../theme/ThemeContext";
 import { Icon } from "./icons";
 import { fontFamily, useReduceMotion } from "./motion";
 
-// Bảng chức năng trượt từ dưới lên, nền mờ phía sau; ô bật lần lượt. Số đỏ = việc đang chờ.
+// Bảng chức năng trượt từ dưới lên, nền mờ phía sau. Số đỏ = việc đang chờ.
+// Hồng nơ: bảng nảy mềm, ô nở ra từ nút Hub như cánh hoa, trái tim nhỏ bay lên.
+// Xanh trắng: bảng trượt dứt khoát, ô lần lượt trượt vào như xếp lên kệ, một vệt sáng quét xuống.
 export function HubSheet({
   open,
   badges,
@@ -26,11 +36,18 @@ export function HubSheet({
     if (open) {
       setMounted(true);
       if (reduce) progress.setValue(1);
-      else
+      else if (theme === "pink")
         Animated.spring(progress, {
           toValue: 1,
-          friction: 9,
+          friction: 8,
           tension: 70,
+          useNativeDriver: true,
+        }).start();
+      else
+        Animated.timing(progress, {
+          toValue: 1,
+          duration: 280,
+          easing: Easing.bezier(0.2, 0.8, 0.2, 1),
           useNativeDriver: true,
         }).start();
     } else {
@@ -40,7 +57,7 @@ export function HubSheet({
         useNativeDriver: true,
       }).start(({ finished }) => finished && setMounted(false));
     }
-  }, [open, reduce, progress]);
+  }, [open, reduce, theme, progress]);
 
   if (!mounted) return null;
   const slide = progress.interpolate({
@@ -52,15 +69,17 @@ export function HubSheet({
       <Animated.View
         style={[
           StyleSheet.absoluteFill,
-          { opacity: progress, backgroundColor: "rgba(40,16,30,0.38)" },
+          { opacity: progress, backgroundColor: "rgba(30,20,30,0.38)" },
         ]}
       >
         <Pressable
           style={StyleSheet.absoluteFill}
           onPress={onClose}
+          accessibilityRole="button"
           accessibilityLabel="Đóng chức năng"
         />
       </Animated.View>
+      {theme === "pink" && open && !reduce && <Hearts />}
       <Animated.View
         accessibilityViewIsModal
         style={[
@@ -73,6 +92,28 @@ export function HubSheet({
           },
         ]}
       >
+        {theme === "blue" && !reduce && (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.sweep,
+              {
+                opacity: progress.interpolate({
+                  inputRange: [0, 0.15, 0.85, 1],
+                  outputRange: [0, 1, 0.3, 0],
+                }),
+                transform: [
+                  {
+                    translateY: progress.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [-20, 280],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          />
+        )}
         <View style={[styles.handle, { backgroundColor: palette.line }]} />
         <Text style={[styles.title, { color: palette.ink }]}>Chức năng</Text>
         {HUB_SECTIONS.map((section, si) => (
@@ -85,6 +126,8 @@ export function HubSheet({
                 <Tile
                   key={item.key}
                   index={si * 4 + i}
+                  col={i}
+                  row={si}
                   progress={progress}
                   reduce={reduce}
                   label={item.label}
@@ -103,8 +146,86 @@ export function HubSheet({
   );
 }
 
+// Vài trái tim nhỏ bay lên từ nút Hub (chủ đề Hồng nơ).
+function Hearts() {
+  const { palette } = useTheme();
+  const hearts = useRef(
+    [0, 1, 2, 3, 4].map((i) => ({
+      v: new Animated.Value(0),
+      dx: (i - 2) * 24 + (i % 2 ? 10 : -10),
+      rot: (i - 2) * 8,
+    }))
+  ).current;
+  useEffect(() => {
+    const anims = hearts.map((h, i) =>
+      Animated.sequence([
+        Animated.delay(i * 70 + 150),
+        Animated.timing(h.v, {
+          toValue: 1,
+          duration: 950,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    anims.forEach((a) => a.start());
+    return () => anims.forEach((a) => a.stop());
+  }, [hearts]);
+  return (
+    <View style={styles.hearts} pointerEvents="none">
+      {hearts.map((h, i) => (
+        <Animated.View
+          key={i}
+          style={{
+            position: "absolute",
+            opacity: h.v.interpolate({
+              inputRange: [0, 0.2, 1],
+              outputRange: [0, 1, 0],
+            }),
+            transform: [
+              {
+                translateX: h.v.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, h.dx],
+                }),
+              },
+              {
+                translateY: h.v.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, -150],
+                }),
+              },
+              {
+                scale: h.v.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.5, 1.1],
+                }),
+              },
+              {
+                rotate: h.v.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ["0deg", `${h.rot}deg`],
+                }),
+              },
+            ],
+          }}
+        >
+          <Svg width={14} height={14} viewBox="0 0 24 24">
+            <Path
+              d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.6 4.5c2 0 3.7 1.1 5.4 3 1.7-1.9 3.4-3 5.4-3 3.6 0 5.7 3.9 4.2 7.3C19.5 16.4 12 21 12 21z"
+              fill={palette.accent}
+            />
+          </Svg>
+        </Animated.View>
+      ))}
+    </View>
+  );
+}
+
 function Tile({
   index,
+  col,
+  row,
   progress,
   reduce,
   label,
@@ -115,6 +236,8 @@ function Tile({
   onPress,
 }: {
   index: number;
+  col: number;
+  row: number;
   progress: Animated.Value;
   reduce: boolean;
   label: string;
@@ -125,15 +248,36 @@ function Tile({
   onPress: () => void;
 }) {
   const { theme, palette } = useTheme();
-  // Mỗi ô bật trễ hơn ô trước một chút (so với tiến độ mở bảng).
-  const start = Math.min(0.55, 0.15 + index * 0.06);
-  const scale = reduce
+  // Mỗi ô vào trễ hơn ô trước một chút (theo tiến độ mở bảng).
+  const start = Math.min(0.55, 0.12 + index * 0.05);
+  const t = reduce
     ? 1
     : progress.interpolate({
-        inputRange: [start, Math.min(1, start + 0.4)],
-        outputRange: [0.85, 1],
+        inputRange: [start, Math.min(1, start + 0.45)],
+        outputRange: [0, 1],
         extrapolate: "clamp",
       });
+  const at = (from: number | string, to: number | string) =>
+    typeof t === "number"
+      ? to
+      : t.interpolate({ inputRange: [0, 1], outputRange: [from, to] as never });
+  // Hồng: ô bay ra từ nút Hub (ở giữa dưới) về đúng chỗ, xoay nhẹ như cánh hoa nở.
+  // Xanh: ô trượt ngang vào như xếp lên kệ.
+  const enter =
+    theme === "pink"
+      ? {
+          opacity: at(0, 1),
+          transform: [
+            { translateX: at(-(col - 1.5) * 80, 0) },
+            { translateY: at(row === 0 ? 190 : 110, 0) },
+            { scale: at(0.2, 1) },
+            { rotate: at("-35deg", "0deg") },
+          ],
+        }
+      : {
+          opacity: at(0, 1),
+          transform: [{ translateX: at(-18, 0) }],
+        };
   const boxBg = alt ? palette.bg : palette.accentSoft;
   const tint = alt ? palette.ink : palette.accent;
   return (
@@ -157,7 +301,7 @@ function Tile({
       }
       accessibilityState={{ disabled: !!soon }}
     >
-      <Animated.View style={{ transform: [{ scale }] }}>
+      <Animated.View style={reduce ? undefined : (enter as never)}>
         <View
           style={[
             styles.box,
@@ -200,6 +344,23 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     gap: 14,
     elevation: 12,
+    overflow: "hidden",
+  },
+  sweep: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 18,
+    backgroundColor: "rgba(29,111,224,0.18)",
+  },
+  hearts: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 100,
+    height: 16,
+    alignItems: "center",
   },
   handle: { alignSelf: "center", width: 36, height: 4, borderRadius: 2 },
   title: { fontSize: 18, fontFamily: fontFamily.bold },
