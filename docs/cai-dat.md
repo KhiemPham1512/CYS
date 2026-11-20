@@ -40,21 +40,32 @@ Việc này làm trên máy có sẵn môi trường dự án (xem `CLAUDE.md`).
 
 Kết quả: `.local-artifacts\release\cys-<phiên bản>.apk` (ký bằng khóa riêng, chỉ cho điện thoại arm64, tức mọi máy Android hiện nay). Cần file `.env` có `EXPO_PUBLIC_SUPABASE_URL` và `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Tăng `version` trong `app.json` trước khi dựng bản mới.
 
-### Đưa web lên mạng (Cloudflare Pages)
+### Web: Cloudflare tự dựng và đưa lên mạng
 
-Dự án Cloudflare tên `cys`, địa chỉ ổn định `https://cys-ar9.pages.dev` (mỗi lần deploy còn có thêm một địa chỉ riêng có mã, chỉ dùng để xem thử đúng bản đó).
+Web chạy trên Cloudflare (Workers & Pages), nối với kho GitHub này. **Mỗi lần nhánh `main` thay đổi, Cloudflare tự dựng lại và cập nhật web**, không cần chạy lệnh tay. Mỗi nhánh/PR khác còn có một địa chỉ xem thử riêng (nếu bật Preview builds).
 
-```powershell
-# Đứng ở nhánh main, đã pull bản mới nhất
-$env:npm_config_cache='D:\Cache\npm-cache'; $env:TEMP=$env:TMP='D:\Cache\tmp'
-npm run build:web
-npx wrangler pages deploy dist --project-name cys --branch main
-```
+Địa chỉ web dạng `https://<tên dự án>.<tên tài khoản>.workers.dev`. Địa chỉ thật do Quản trị giữ và gửi cho nhân viên, **không ghi vào repo** (repo công khai).
 
-- Dùng `npm run build:web`, không chạy thẳng `expo export`: Cloudflare Pages bỏ qua thư mục `node_modules`, nên script đổi chỗ để phông chữ không bị mất.
-- `--branch main` là bản chính (địa chỉ ổn định). Deploy từ nhánh khác chỉ ra bản xem thử.
-- **Mỗi lần mã nguồn thay đổi trên `main` (trừ tài liệu), phải deploy lại web**: dự án chưa nối với GitHub nên không tự cập nhật.
-- Lần đầu `wrangler` mở trình duyệt để đăng nhập Cloudflare. Bản web chỉ chứa khóa công khai của Supabase (dữ liệu được RLS bảo vệ), không chứa khóa bí mật.
+#### Cấu hình ở Cloudflare (làm một lần)
+
+Workers & Pages → Create → Connect to Git → chọn đúng repo này, rồi điền:
+
+- **Production branch:** `main`
+- **Build command:** `npm run build:web`
+- **Deploy command:** `npx wrangler deploy --assets=./dist --name <tên dự án> --compatibility-date=2025-11-01` (tên trong lệnh phải khớp tên dự án).
+- **Non-production branch deploy command** (bản xem thử): `npx wrangler versions upload --assets=./dist --name <tên dự án> --compatibility-date=2025-11-01`
+- **Variables** (xem file `.env` trên máy): `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NODE_VERSION` = `22`, `HUSKY` = `0`.
+- Tắt **Protect with Cloudflare Access**, nếu không nhân viên không vào được web.
+
+Bản web chỉ chứa khóa công khai của Supabase (dữ liệu được RLS bảo vệ), không chứa khóa bí mật.
+
+#### Điều cần biết
+
+- Dùng `npm run build:web`, không chạy thẳng `expo export`: Cloudflare bỏ qua thư mục `node_modules`, nên script đổi chỗ phông chữ để không bị mất.
+- Chỉ cần chờ vài phút sau khi merge vào `main`; xem tiến trình ở dự án → tab **Deployments**.
+- Dựng lỗi: mở bản dựng ở tab **Deployments** và xem dòng lỗi đỏ trong nhật ký.
+- Đổi phần tên tài khoản trong địa chỉ: Workers & Pages → trang danh sách → Account details → Subdomain (đổi xong địa chỉ cũ ngừng dùng được).
+- Dự án Pages cũ tạo bằng `wrangler pages deploy` (nếu còn) không tự dựng được; xóa đi khi web mới đã chạy tốt.
 
 ### Danh mục
 
