@@ -355,10 +355,16 @@ export function StockScreen({ branchId }: Props) {
             return (
               <Pressable
                 key={key}
-                style={[styles.sumChip, selected ? on : base]}
+                style={[
+                  styles.sumChip,
+                  selected ? on : base,
+                  n === 0 && !selected && styles.sumChipEmpty,
+                ]}
+                disabled={n === 0 && !selected}
                 onPress={() => setFlag(selected ? null : key)}
                 accessibilityRole="button"
                 accessibilityLabel={`${label}: ${n} món`}
+                accessibilityHint="Bấm để lọc danh sách"
                 accessibilityState={{ selected }}
               >
                 <Text style={[styles.sumNum, selected && styles.sumTextOn]}>
@@ -408,7 +414,18 @@ export function StockScreen({ branchId }: Props) {
               style={styles.card}
               onPress={() => openItem(item)}
               accessibilityRole="button"
-              accessibilityLabel={`${item.name}, ${formatQty(total, qtyOpts)}`}
+              accessibilityLabel={[
+                `${item.name}, ${formatQty(total, qtyOpts)}`,
+                !checked.has(item.id) ? "chưa kiểm" : null,
+                expired.length > 0
+                  ? `quá hạn ${formatQty(totalQty(expired), qtyOpts)}`
+                  : null,
+                coming > 0
+                  ? `hàng đang về ${formatQty(coming, qtyOpts)}`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(", ")}
             >
               <View style={[styles.stripe, stripe]} />
               <View style={styles.cardBody}>
@@ -436,7 +453,7 @@ export function StockScreen({ branchId }: Props) {
                     )}
                     {coming > 0 && (
                       <Text style={[styles.pill, styles.pillAccent]}>
-                        Đang về {formatQty(coming, qtyOpts)}
+                        Hàng đang về {formatQty(coming, qtyOpts)}
                       </Text>
                     )}
                   </View>
@@ -468,7 +485,20 @@ export function StockScreen({ branchId }: Props) {
         }}
         ListEmptyComponent={
           <View style={styles.center}>
-            <Text style={styles.emptyText}>Không có món phù hợp.</Text>
+            <Text style={styles.emptyText}>
+              {flag
+                ? "Không có món nào thuộc loại này."
+                : "Không có món phù hợp."}
+            </Text>
+            {flag && (
+              <Pressable
+                style={styles.retryButton}
+                onPress={() => setFlag(null)}
+                accessibilityRole="button"
+              >
+                <Text style={styles.retryText}>Bỏ lọc</Text>
+              </Pressable>
+            )}
           </View>
         }
       />
@@ -775,10 +805,11 @@ const styles = themedStyles((c: Palette) => ({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    minHeight: 40,
+    minHeight: 44,
     paddingHorizontal: 12,
     borderRadius: 12,
   },
+  sumChipEmpty: { opacity: 0.45 },
   sumAmber: { backgroundColor: c.amberSoft },
   sumRed: { backgroundColor: c.redSoft },
   sumAccent: { backgroundColor: c.accentSoft },
