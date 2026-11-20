@@ -1,13 +1,7 @@
 import { formatDayMonth, formatMfg, usesMfgDate } from "../stock/expiry";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Alert,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-} from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { confirmAction } from "../ui/confirm";
 import { TextInput } from "../ui/TextInput";
 import { themedStyles } from "../theme/themedStyles";
 import type { Palette } from "../theme/themes";
@@ -411,13 +405,11 @@ export function ReceiveScreen({ branchId }: Props) {
       return;
     }
 
-    Alert.alert(`Nhận ${plan.lines.length} món của ${group.name}?`, undefined, [
-      { text: "Hủy", style: "cancel" },
-      {
-        text: "Đã nhận hàng",
-        onPress: () => void commitGroupReceive(group.id, plan.lines, lineItems),
-      },
-    ]);
+    confirmAction({
+      title: `Nhận ${plan.lines.length} món của ${group.name}?`,
+      confirmText: "Đã nhận hàng",
+      onConfirm: () => void commitGroupReceive(group.id, plan.lines, lineItems),
+    });
   }
 
   if (loading) {

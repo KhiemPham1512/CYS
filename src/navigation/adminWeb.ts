@@ -1,4 +1,4 @@
-// Web chỉ dành cho Quản trị: bảng điều khiển có thanh bên trái. Điện thoại giữ nguyên app.
+// Web: Quản trị vào bảng điều khiển có thanh bên trái; nhân viên dùng app đầy đủ (iPhone qua Safari). Điện thoại giữ nguyên app.
 export type AdminPageKey = "audit" | "users" | "catalog" | "bulk";
 
 export const ADMIN_PAGES: { key: AdminPageKey; label: string }[] = [
@@ -14,7 +14,6 @@ export const WIDE_LAYOUT = 900;
 export function adminWebView(
   isWeb: boolean,
   isAdmin: boolean
-): "app" | "console" | "forbidden" {
-  if (!isWeb) return "app";
-  return isAdmin ? "console" : "forbidden";
+): "app" | "console" {
+  return isWeb && isAdmin ? "console" : "app";
 }
