@@ -42,18 +42,28 @@ Kết quả: `.local-artifacts\release\cys-<phiên bản>.apk` (ký bằng khóa
 
 ### Đưa web lên mạng (Cloudflare Pages)
 
+Dự án Cloudflare tên `cys`, địa chỉ ổn định `https://cys-ar9.pages.dev` (mỗi lần deploy còn có thêm một địa chỉ riêng có mã, chỉ dùng để xem thử đúng bản đó).
+
 ```powershell
+# Đứng ở nhánh main, đã pull bản mới nhất
 $env:npm_config_cache='D:\Cache\npm-cache'; $env:TEMP=$env:TMP='D:\Cache\tmp'
-npx expo export --platform web --output-dir dist
-npx wrangler pages deploy dist --project-name cys
+npm run build:web
+npx wrangler pages deploy dist --project-name cys --branch main
 ```
 
-Lần đầu `wrangler` mở trình duyệt để đăng nhập Cloudflare. Địa chỉ công khai có dạng `https://cys.pages.dev`. Bản web chỉ chứa khóa công khai của Supabase (dữ liệu được RLS bảo vệ), không chứa khóa bí mật.
+- Dùng `npm run build:web`, không chạy thẳng `expo export`: Cloudflare Pages bỏ qua thư mục `node_modules`, nên script đổi chỗ để phông chữ không bị mất.
+- `--branch main` là bản chính (địa chỉ ổn định). Deploy từ nhánh khác chỉ ra bản xem thử.
+- **Mỗi lần mã nguồn thay đổi trên `main` (trừ tài liệu), phải deploy lại web**: dự án chưa nối với GitHub nên không tự cập nhật.
+- Lần đầu `wrangler` mở trình duyệt để đăng nhập Cloudflare. Bản web chỉ chứa khóa công khai của Supabase (dữ liệu được RLS bảo vệ), không chứa khóa bí mật.
 
 ### Danh mục
 
 Danh mục thật nạp bằng script chạy trên máy (`npm run import-catalog`, xem `scripts/import-catalog.ts`) hoặc sửa trực tiếp ở mục Danh mục trên web. Dữ liệu thật không được đưa vào repo.
 
-### Bảo mật cần bật một lần
+### Rủi ro đã chấp nhận: mật khẩu bị lộ
 
-Trong Supabase Dashboard → Authentication → **Password security**, bật **Leaked password protection** (chặn mật khẩu từng bị lộ).
+Tính năng **Leaked password protection** của Supabase (chặn mật khẩu từng bị lộ) chỉ có ở gói Pro, nên dự án đang bỏ qua. Hệ quả:
+
+- Mật khẩu Quản trị đặt cho nhân viên không được kiểm với danh sách mật khẩu đã lộ.
+- Quản trị đặt mật khẩu ban đầu đủ mạnh (không dùng dãy số, không dùng tên quán), và yêu cầu nhân viên tự đổi sau lần đăng nhập đầu tiên.
+- Nếu nâng lên gói Pro sau này, bật lại tính năng này trong Supabase Dashboard → Authentication → Password security.

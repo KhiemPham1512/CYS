@@ -17,6 +17,7 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "build:web": "node scripts/build-web.mjs",
     "import-catalog": "node --env-file=.env scripts/import-catalog.ts",
     "prepare": "husky"
   },

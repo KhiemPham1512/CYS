@@ -88,6 +88,12 @@ export function describeChange(e: AuditEntry): string[] {
       BOOLEAN_FIELDS.has(key) ? YES_NO(d[key]) : show(d[key]);
     lines.push(`${label}: ${f(oldD)} → ${f(newD)}`);
   }
+  // Dữ liệu in trên tờ (Xuất ảnh): chỉ báo đã đổi, không liệt kê nội dung.
+  if (
+    "sheet" in newD &&
+    JSON.stringify(oldD.sheet) !== JSON.stringify(newD.sheet)
+  )
+    lines.push("Dữ liệu in trên tờ: đã đổi");
   if (e.table_name === "items") {
     if (!same("shelf_life") || !same("shelf_life_unit"))
       lines.push(
