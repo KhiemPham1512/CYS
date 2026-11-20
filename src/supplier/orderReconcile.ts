@@ -2,7 +2,7 @@ import { normalizeVi } from "../catalog/search";
 import { round4 } from "../stock/qty";
 
 export type RawLine = {
-  name: string; // "Mứt Nho - 葡萄醬": tên Việt, có thể kèm tên Trung sau dấu "-"
+  name: string; // "Mứt Cam - 橙醬": tên Việt, có thể kèm tên Trung sau dấu "-"
   qty: number;
   unit: string;
   pack: string | null; // mô tả quy cách, ví dụ "12 lon/thùng"
@@ -31,9 +31,12 @@ export const nameKey = (name: string) => tokens(vietnamesePart(name)).join(" ");
 export function mergeRawLines(images: RawLine[][]): RawLine[] {
   const out: RawLine[] = [];
   const seenBefore = new Set<string>();
+  let lastCode: string | null = null; // mã đơn thường chỉ hiện ở đầu ảnh đầu; dòng sau thừa hưởng
   for (const image of images) {
     const thisImage: string[] = [];
-    for (const line of image) {
+    for (const raw of image) {
+      if (raw.orderCode) lastCode = raw.orderCode;
+      const line = { ...raw, orderCode: raw.orderCode ?? lastCode };
       const key = `${line.orderCode ?? ""}|${nameKey(line.name)}|${normalizeVi(line.unit)}|${line.qty}`;
       if (seenBefore.has(key)) continue;
       out.push(line);

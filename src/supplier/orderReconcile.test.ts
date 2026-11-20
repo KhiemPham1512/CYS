@@ -10,7 +10,7 @@ import {
 } from "./orderReconcile";
 
 const raw = (over: Partial<RawLine>): RawLine => ({
-  name: "Mứt Nho - 葡萄醬",
+  name: "Mứt Cam - 橙醬",
   qty: 5,
   unit: "Lon",
   pack: "12 lon/thùng",
@@ -20,7 +20,7 @@ const raw = (over: Partial<RawLine>): RawLine => ({
 
 const item = (over: Partial<MatchItem> = {}): MatchItem => ({
   id: "i1",
-  name: "Mứt nho",
+  name: "Mứt cam",
   unit: "Lon",
   case_size: 12,
   ...over,
@@ -43,6 +43,19 @@ describe("mergeRawLines (gộp ảnh chồng nhau)", () => {
     expect(merged).toHaveLength(2);
   });
 
+  it("ảnh sau không thấy mã đơn (chỉ ở đầu ảnh trước) vẫn nhận dòng chồng là cùng đơn", () => {
+    const image1 = [raw({ name: "B", qty: 2, orderCode: "S1" })];
+    const image2 = [
+      raw({ name: "B", qty: 2, orderCode: null }),
+      raw({ name: "C", qty: 1, orderCode: null }),
+    ];
+    const merged = mergeRawLines([image1, image2]);
+    expect(merged.map((l) => [l.name, l.orderCode])).toEqual([
+      ["B", "S1"],
+      ["C", "S1"],
+    ]);
+  });
+
   it("khác mã đơn thì là hai dòng khác nhau dù cùng tên và số", () => {
     const merged = mergeRawLines([
       [raw({ orderCode: "S1" })],
@@ -54,18 +67,18 @@ describe("mergeRawLines (gộp ảnh chồng nhau)", () => {
 
 describe("matchSupplierName", () => {
   const items = [
-    item({ id: "mut", name: "Mứt nho" }),
+    item({ id: "mut", name: "Mứt cam" }),
     item({
       id: "kem",
-      name: "Kem béo thực vật Rich's",
+      name: "Kem béo thực vật hiệu X",
       unit: "Hộp",
       case_size: 12,
     }),
-    item({ id: "sua", name: "Sữa tươi VPMILK", unit: "Bình", case_size: 12 }),
+    item({ id: "sua", name: "Sữa tươi hiệu Y", unit: "Bình", case_size: 12 }),
   ];
 
   it("khớp phần tên tiếng Việt, bỏ tên Trung sau dấu '-' và không phân biệt hoa thường/dấu", () => {
-    expect(matchSupplierName("MỨT NHO - 葡萄醬", items, {})).toEqual({
+    expect(matchSupplierName("MỨT CAM - 橙醬", items, {})).toEqual({
       itemId: "mut",
       via: "exact",
     });
