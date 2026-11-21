@@ -1,3 +1,4 @@
+import { localDate } from "../stock/ledger";
 import { round4 } from "../stock/qty";
 
 export type Order = { id: string; placed_at: string | null };
@@ -29,21 +30,55 @@ export function incomingByItem(
 export const projectedQty = (actual: number, incoming: number): number =>
   round4(actual + incoming);
 
-// Bảng "đơn đã đặt" của một Nhóm, gộp thành một: cộng số lượng các dòng đã đặt mà chưa nhận hàng
-// (đặt thêm lần nữa thì cộng dồn). Nhận hết rồi thì hiện lại đơn gần nhất để bảng không trống.
-// `orders` là các đơn đã đặt của Nhóm đó. `placedAt` là giờ đặt của đơn mới nhất.
-export function sheetQtyByItem(
+const nextDay = (day: string): string =>
+  new Date(Date.parse(`${day}T00:00:00Z`) + 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+
+// Ngày của đơn (giờ VN): đặt sau khi đã Kiểm kho trong ngày thì là đơn ngày mai.
+// countTimes = thời điểm các dòng Kiểm kho (created_at). Cũng dùng làm "ngày hiện tại" của ảnh Xuất (truyền giờ hiện tại).
+export function businessDay(at: string, countTimes: string[]): string {
+  const day = localDate(at);
+  const atMs = Date.parse(at);
+  const counted = countTimes.some(
+    (t) => localDate(t) === day && Date.parse(t) < atMs
+  );
+  return counted ? nextDay(day) : day;
+}
+
+type DatedOrder = Order & { placed_at: string };
+const placedOn = (
+  orders: Order[],
+  countTimes: string[],
+  keep: (day: string) => boolean
+): DatedOrder[] =>
+  orders.filter(
+    (o): o is DatedOrder =>
+      o.placed_at !== null && keep(businessDay(o.placed_at, countTimes))
+  );
+
+// Ảnh Đặt hàng ngày D: mọi dòng của các đơn ngày D (kể cả đã nhận), không cộng đơn ngày khác.
+export const orderedOnDay = (
   orders: Order[],
   lines: OrderLine[],
-  receivedLineIds: Set<string>
-): { qty: Map<string, number>; placedAt: string | null } {
-  const placed = orders.filter((o) => !isEditable(o));
-  const latest = [...placed].sort((a, b) =>
-    (b.placed_at ?? "").localeCompare(a.placed_at ?? "")
-  )[0];
-  if (!latest) return { qty: new Map(), placedAt: null };
-  const pending = incomingByItem(placed, lines, receivedLineIds);
-  const qty =
-    pending.size > 0 ? pending : incomingByItem([latest], lines, new Set());
-  return { qty, placedAt: latest.placed_at };
-}
+  day: string,
+  countTimes: string[]
+): Map<string, number> =>
+  incomingByItem(
+    placedOn(orders, countTimes, (d) => d === day),
+    lines
+  );
+
+// Ảnh Tồn kho ngày D: Hàng đang về chỉ của các đơn trước ngày D (đơn ngày D chưa tính).
+export const incomingBefore = (
+  orders: Order[],
+  lines: OrderLine[],
+  receivedLineIds: Set<string>,
+  day: string,
+  countTimes: string[]
+): Map<string, number> =>
+  incomingByItem(
+    placedOn(orders, countTimes, (d) => d < day),
+    lines,
+    receivedLineIds
+  );

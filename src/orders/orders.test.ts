@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   incomingByItem,
+  businessDay,
+  incomingBefore,
   isEditable,
+  orderedOnDay,
   projectedQty,
-  sheetQtyByItem,
   type Order,
   type OrderLine,
 } from "./orders";
@@ -56,37 +58,59 @@ describe("projectedQty", () => {
   });
 });
 
-describe("sheetQtyByItem (bảng đơn đã đặt gộp một)", () => {
-  const o1: Order = { id: "o1", placed_at: "2026-11-17T03:00:00Z" };
-  const o2: Order = { id: "o2", placed_at: "2026-11-18T03:00:00Z" };
+// Giờ VN = UTC+7: 02:00Z = 9h sáng, 13:00Z = 20h tối, 14:00Z = 21h tối.
+describe("businessDay (Ngày của đơn)", () => {
+  const countedTonight = ["2026-11-21T13:00:00Z"];
+
+  it("đặt trước khi Kiểm kho trong ngày: đơn hôm nay", () => {
+    expect(businessDay("2026-11-21T02:00:00Z", countedTonight)).toBe(
+      "2026-11-21"
+    );
+  });
+  it("đặt sau khi đã Kiểm kho hôm nay: đơn ngày mai", () => {
+    expect(businessDay("2026-11-21T14:00:00Z", countedTonight)).toBe(
+      "2026-11-22"
+    );
+  });
+  it("Kiểm kho của hôm qua không đẩy đơn sáng nay sang mai", () => {
+    expect(businessDay("2026-11-22T02:00:00Z", countedTonight)).toBe(
+      "2026-11-22"
+    );
+  });
+  it("qua tháng", () => {
+    expect(businessDay("2026-11-30T14:00:00Z", ["2026-11-30T13:00:00Z"])).toBe(
+      "2026-12-01"
+    );
+  });
+});
+
+describe("đơn theo ngày: không cộng dồn đơn ngày mai vào hôm nay", () => {
+  const counts = ["2026-11-21T13:00:00Z"];
+  const o21: Order = { id: "o21", placed_at: "2026-11-21T02:00:00Z" };
+  const o22: Order = { id: "o22", placed_at: "2026-11-21T14:00:00Z" }; // đặt gấp tối 21 sau Kiểm kho
+  const nháp: Order = { id: "d", placed_at: null };
   const lines: OrderLine[] = [
-    { id: "l1", order_id: "o1", item_id: "x", qty: 6 },
-    { id: "l2", order_id: "o2", item_id: "x", qty: 6 },
-    { id: "l3", order_id: "o2", item_id: "y", qty: 2 },
+    { id: "a", order_id: "o21", item_id: "x", qty: 6 },
+    { id: "b", order_id: "o22", item_id: "x", qty: 3 },
+    { id: "c", order_id: "o22", item_id: "y", qty: 2 },
+    { id: "e", order_id: "d", item_id: "z", qty: 9 },
   ];
+  const all = [o21, o22, nháp];
 
-  it("đặt thêm lần nữa thì cộng dồn; ngày là của đơn mới nhất", () => {
-    const r = sheetQtyByItem([o1, o2], lines, new Set());
-    expect(r.qty.get("x")).toBe(12);
-    expect(r.qty.get("y")).toBe(2);
-    expect(r.placedAt).toBe("2026-11-18T03:00:00Z");
+  it("ảnh Đặt hàng ngày 22 chỉ có đơn 22", () => {
+    expect([...orderedOnDay(all, lines, "2026-11-22", counts)]).toEqual([
+      ["x", 3],
+      ["y", 2],
+    ]);
   });
-
-  it("dòng đã nhận hàng không còn tính", () => {
-    const r = sheetQtyByItem([o1, o2], lines, new Set(["l1"]));
-    expect(r.qty.get("x")).toBe(6);
+  it("ảnh Tồn kho ngày 22 chỉ tính đang về của đơn trước ngày 22", () => {
+    expect([
+      ...incomingBefore(all, lines, new Set(), "2026-11-22", counts),
+    ]).toEqual([["x", 6]]);
   });
-
-  it("nhận hết thì hiện lại đơn gần nhất để không trống", () => {
-    const r = sheetQtyByItem([o1, o2], lines, new Set(["l1", "l2", "l3"]));
-    expect(r.qty.get("x")).toBe(6);
-    expect(r.qty.get("y")).toBe(2);
-    expect(r.placedAt).toBe("2026-11-18T03:00:00Z");
-  });
-
-  it("chưa đặt đơn nào: rỗng", () => {
-    const r = sheetQtyByItem([], lines, new Set());
-    expect(r.qty.size).toBe(0);
-    expect(r.placedAt).toBeNull();
+  it("đơn trước đã nhận hàng thì không còn đang về", () => {
+    expect(
+      incomingBefore(all, lines, new Set(["a"]), "2026-11-22", counts).size
+    ).toBe(0);
   });
 });

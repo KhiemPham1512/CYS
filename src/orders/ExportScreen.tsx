@@ -22,23 +22,26 @@ import { themedStyles } from "../theme/themedStyles";
 import type { Palette } from "../theme/themes";
 import { captureRef } from "react-native-view-shot";
 import { loadCatalog } from "../catalog/api";
-import { supabase } from "../lib/supabase";
 import { compareGroups, compareItems } from "../catalog/sections";
 import type { Tables } from "../lib/database.types";
 import { loadMovements } from "../stock/api";
 import { formatDate } from "../stock/date";
-import { localDate, stockByItem, totalQty } from "../stock/ledger";
-import { loadOrders, type OrderLineRow, type OrderRow } from "./api";
+import { stockByItem } from "../stock/ledger";
 import {
-  buildSheetModel,
+  loadBranchSheet,
+  loadOrders,
+  type OrderLineRow,
+  type OrderRow,
+} from "./api";
+import {
+  blankZero,
   orderSheetRows,
   rememberOrdererName,
-  sheetStrings,
+  sheetModelFor,
   stockSheetCell,
-  type ItemSheet,
 } from "./exportSheet";
 import { PaperSheet } from "./PaperSheet";
-import { incomingByItem, sheetQtyByItem } from "./orders";
+import { businessDay, incomingBefore, orderedOnDay } from "./orders";
 import { loadReceivingData } from "./receivingApi";
 
 type Props = { branchId: string; branchName: string };
@@ -76,11 +79,7 @@ export function ExportScreen({ branchId, branchName }: Props) {
         loadMovements(branchId),
         loadOrders(branchId),
         loadReceivingData(branchId),
-        supabase
-          .from("branch_settings")
-          .select("sheet")
-          .eq("branch_id", branchId)
-          .maybeSingle(),
+        loadBranchSheet(branchId),
       ]);
       setGroups([...catalog.groups].sort(compareGroups));
       setItems(catalog.items);
@@ -88,7 +87,7 @@ export function ExportScreen({ branchId, branchName }: Props) {
       setOrders(ord.orders);
       setLines(ord.lines);
       setReceived(rec.receivedLineIds);
-      setBranchSheet(bs.data?.sheet ?? null);
+      setBranchSheet(bs);
     } catch {
       setError(true);
     } finally {
@@ -118,9 +117,15 @@ export function ExportScreen({ branchId, branchName }: Props) {
   }, [message]);
 
   const lotsByItem = useMemo(() => stockByItem(movements), [movements]);
+  // Ngày D của ảnh = Ngày của đơn nếu đặt lúc này (đã Kiểm kho hôm nay thì là ngày mai).
+  const countTimes = useMemo(
+    () => movements.filter((m) => m.kind === "count").map((m) => m.created_at),
+    [movements]
+  );
+  const day = businessDay(new Date().toISOString(), countTimes);
   const incoming = useMemo(
-    () => incomingByItem(orders, lines, received),
-    [orders, lines, received]
+    () => incomingBefore(orders, lines, received, day, countTimes),
+    [orders, lines, received, day, countTimes]
   );
 
   const group = groups.find((g) => g.id === target) ?? null;
@@ -132,92 +137,57 @@ export function ExportScreen({ branchId, branchName }: Props) {
     [items, target]
   );
 
-  const today = formatDate(localDate(new Date().toISOString()));
-  // Ô số lượng từng món (chuỗi như viết trên tờ) và ngày in trên tờ.
-  const { qtyByItem, date } = useMemo((): {
-    qtyByItem: Map<string, string>;
-    date: string;
-  } => {
+  // Ô số lượng từng món (chuỗi như viết trên tờ). Cả hai ảnh ghi ngày D.
+  const qtyByItem = useMemo((): Map<string, string> => {
     if (kind === "order") {
-      const sheet = sheetQtyByItem(
-        orders.filter((o) => o.group_id === target && o.placed_at !== null),
+      const ordered = orderedOnDay(
+        orders.filter((o) => o.group_id === target),
         lines,
-        received
+        day,
+        countTimes
       );
-      const rows = orderSheetRows(groupItems, sheet.qty);
-      return {
-        qtyByItem: new Map(groupItems.map((i, idx) => [i.id, rows[idx].qty])),
-        date: sheet.placedAt ? formatDate(localDate(sheet.placedAt)) : today,
-      };
+      const rows = orderSheetRows(groupItems, ordered);
+      return new Map(groupItems.map((i, idx) => [i.id, rows[idx].qty]));
     }
-    return {
-      qtyByItem: new Map(
-        groupItems.map((item) => {
-          const lots = lotsByItem.get(item.id) ?? [];
-          const dated = lots.flatMap((l) => (l.mfgDate ? [l.mfgDate] : []));
-          return [
-            item.id,
-            stockSheetCell({
-              incoming: incoming.get(item.id) ?? 0,
-              actual: totalQty(lots),
-              lastMfg: dated.sort().at(-1) ?? null,
-              trackMfg: item.track_mfg_date,
-              caseSize: item.case_size,
-              byPercent: item.record_by_percent,
-            }),
-          ];
-        })
-      ),
-      date: today,
-    };
+    return new Map(
+      groupItems.map((item) => {
+        const lots = lotsByItem.get(item.id) ?? [];
+        return [
+          item.id,
+          stockSheetCell({
+            incoming: incoming.get(item.id) ?? 0,
+            lots,
+            trackMfg: item.track_mfg_date,
+            caseSize: item.case_size,
+            byPercent: item.record_by_percent,
+            blankZero: blankZero(group?.sheet, item.sheet),
+          }),
+        ];
+      })
+    );
   }, [
     kind,
     target,
     orders,
     lines,
-    received,
+    day,
+    countTimes,
     groupItems,
     lotsByItem,
     incoming,
-    today,
+    group,
   ]);
+  const date = formatDate(day);
 
   const model = useMemo(
     () =>
       group
-        ? buildSheetModel({
+        ? sheetModelFor({
             kind,
-            branch: {
-              name: branchName,
-              sheet: sheetStrings(branchSheet, [
-                "title",
-                "order_zh",
-                "stock_zh",
-              ]),
-            },
-            group: {
-              name: group.name,
-              name_zh: group.name_zh,
-              sheet: sheetStrings(group.sheet, [
-                "qty_label",
-                "label",
-                "label_zh",
-              ]),
-            },
-            items: groupItems.map((i) => ({
-              id: i.id,
-              name: i.name,
-              unit: i.unit,
-              sheet: sheetStrings(i.sheet, [
-                "name",
-                "zh",
-                "unit",
-                "unit_zh",
-                "note",
-                "category",
-                "category_zh",
-              ]) satisfies ItemSheet,
-            })),
+            branchName,
+            branchSheet,
+            group,
+            items: groupItems,
             qtyByItem,
           })
         : null,
