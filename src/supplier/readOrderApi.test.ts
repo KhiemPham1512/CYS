@@ -2,12 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Ranh giới ngoài: chỉ giả lập Supabase (hàm server và bảng), không giả lập hàm nội bộ.
 const invoke = vi.fn();
-const upsert = vi.fn();
+const insert = vi.fn();
+const update = vi.fn();
 const select = vi.fn();
 vi.mock("../lib/supabase", () => ({
   supabase: {
     functions: { invoke },
-    from: () => ({ upsert, select }),
+    from: () => ({ insert, update, select }),
   },
 }));
 
@@ -16,7 +17,8 @@ const { readOrderImages, loadAliases, saveAlias } =
 
 beforeEach(() => {
   invoke.mockReset();
-  upsert.mockReset();
+  insert.mockReset();
+  update.mockReset();
   select.mockReset();
 });
 
@@ -66,14 +68,39 @@ describe("alias tên nhà cung cấp", () => {
     expect(await loadAliases("b1")).toEqual({ "hang x": "i1" });
   });
 
-  it("saveAlias lưu theo khóa đã chuẩn hóa (bỏ tên Trung, khối lượng), ghi đè khi nhớ lại", async () => {
-    upsert.mockResolvedValue({ error: null });
+  it("saveAlias thêm mới theo khóa đã chuẩn hóa (bỏ tên Trung, khối lượng)", async () => {
+    insert.mockResolvedValue({ error: null });
     expect(await saveAlias("b1", "Hàng X 1kg - 某", "i1")).toEqual({
       error: null,
     });
-    expect(upsert).toHaveBeenCalledWith(
-      { branch_id: "b1", alias_key: "hang x", item_id: "i1" },
-      { onConflict: "branch_id,alias_key" }
-    );
+    expect(insert).toHaveBeenCalledWith({
+      branch_id: "b1",
+      alias_key: "hang x",
+      item_id: "i1",
+    });
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("tên đã được nhớ (trùng khóa) thì đổi sang món mới, chỉ sửa cột item_id", async () => {
+    insert.mockResolvedValue({ error: { code: "23505", message: "dup" } });
+    const eq2 = vi.fn().mockResolvedValue({ error: null });
+    const eq1 = vi.fn().mockReturnValue({ eq: eq2 });
+    update.mockReturnValue({ eq: eq1 });
+    expect(await saveAlias("b1", "Hàng X", "i2")).toEqual({ error: null });
+    expect(update).toHaveBeenCalledWith({ item_id: "i2" });
+    expect(eq1).toHaveBeenCalledWith("branch_id", "b1");
+    expect(eq2).toHaveBeenCalledWith("alias_key", "hang x");
+  });
+
+  it("lỗi từ máy chủ không bị nói là lỗi mạng", async () => {
+    insert.mockResolvedValue({ error: { code: "42501", message: "denied" } });
+    const r = await saveAlias("b1", "Hàng X", "i1");
+    expect(r.error).not.toMatch(/mạng/);
+    expect(r.error).toBeTruthy();
+  });
+
+  it("mất mạng (lỗi không có mã) thì nhắc kiểm tra mạng", async () => {
+    insert.mockResolvedValue({ error: { message: "Network request failed" } });
+    expect((await saveAlias("b1", "Hàng X", "i1")).error).toMatch(/mạng/);
   });
 });

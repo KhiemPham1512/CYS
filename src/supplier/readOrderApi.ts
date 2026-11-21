@@ -32,19 +32,32 @@ export async function loadAliases(
   return Object.fromEntries((data ?? []).map((a) => [a.alias_key, a.item_id]));
 }
 
-// Nhớ tên NCC → món (hỏi một lần). Nhớ lại tên đã có thì đổi sang món mới (sửa khớp nhầm).
+// Nhớ tên NCC → món (hỏi một lần). Tên đã nhớ rồi thì đổi sang món mới (sửa khớp nhầm).
+// Không dùng upsert: nó ghi đè cả cột khóa mà bảng chỉ cho sửa item_id.
 export async function saveAlias(
   branchId: string,
   supplierName: string,
   itemId: string
 ): Promise<{ error: string | null }> {
-  const { error } = await supabase.from("supplier_aliases").upsert(
-    {
-      branch_id: branchId,
-      alias_key: nameKey(supplierName),
-      item_id: itemId,
-    },
-    { onConflict: "branch_id,alias_key" }
-  );
-  return { error: error ? "Không lưu được. Kiểm tra mạng." : null };
+  const key = nameKey(supplierName);
+  const table = supabase.from("supplier_aliases");
+  let { error } = await table.insert({
+    branch_id: branchId,
+    alias_key: key,
+    item_id: itemId,
+  });
+  if (error?.code === "23505") {
+    ({ error } = await supabase
+      .from("supplier_aliases")
+      .update({ item_id: itemId })
+      .eq("branch_id", branchId)
+      .eq("alias_key", key));
+  }
+  if (!error) return { error: null };
+  // Có mã lỗi = máy chủ từ chối (không phải mất mạng): đừng đổ cho mạng.
+  return {
+    error: error.code
+      ? "Không lưu được tên này. Thử lại hoặc báo Quản trị."
+      : "Không lưu được. Kiểm tra mạng.",
+  };
 }
