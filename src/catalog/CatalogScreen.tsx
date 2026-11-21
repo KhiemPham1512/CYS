@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { debounce } from "../lib/debounce";
 import {
   Pressable,
   ScrollView,
@@ -61,13 +62,10 @@ export function CatalogScreen({ branchId }: Props) {
     setLoading(true);
     void fetchCatalog();
     // Gộp loạt sự kiện realtime (ví dụ script nạp N món) thành một lần tải.
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const unsubscribe = subscribeCatalog(branchId, () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => void fetchCatalog(), 300);
-    });
+    const reload = debounce(() => void fetchCatalog());
+    const unsubscribe = subscribeCatalog(branchId, reload);
     return () => {
-      clearTimeout(timer);
+      reload.cancel();
       unsubscribe();
     };
   }, [branchId, fetchCatalog]);

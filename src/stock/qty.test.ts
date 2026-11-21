@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { formatQty, formatSheetQty, parseAdjust, parseQty } from "./qty";
+import {
+  formatItemQty,
+  formatQty,
+  formatSheetQty,
+  parseAdjust,
+  parseQty,
+} from "./qty";
 
 describe("parseQty", () => {
   it("đọc các ví dụ hợp lệ trong đặc tả", () => {
@@ -185,5 +191,19 @@ describe("formatSheetQty (số viết kiểu tờ giấy)", () => {
       const r = parseQty(formatSheetQty(q, box), box);
       expect(r).toEqual({ ok: true, value: q });
     }
+  });
+});
+
+describe("formatItemQty", () => {
+  it("in theo quy cách của món", () => {
+    expect(
+      formatItemQty(
+        { case_size: 12, unit: "Hộp", record_by_percent: false },
+        15
+      )
+    ).toBe("1 thùng 3 hộp");
+  });
+  it("món chưa tải thì in số trần", () => {
+    expect(formatItemQty(undefined, 3)).toBe("3 ");
   });
 });

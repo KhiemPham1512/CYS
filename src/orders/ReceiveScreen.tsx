@@ -1,4 +1,5 @@
 import { formatDayMonth, formatMfg, usesMfgDate } from "../stock/expiry";
+import { debounce } from "../lib/debounce";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { confirmAction } from "../ui/confirm";
@@ -12,7 +13,8 @@ import { compareGroups, compareItems } from "../catalog/sections";
 import type { Tables } from "../lib/database.types";
 import { useOnline } from "../lib/useOnline";
 import { formatDate, parseShortDate } from "../stock/date";
-import { formatQty, parseQty } from "../stock/qty";
+import { omitKeys } from "../lib/omitKeys";
+import { formatItemQty, parseQty } from "../stock/qty";
 import {
   loadOrders,
   subscribeOrders,
@@ -44,15 +46,6 @@ type LinePlan = Extract<
   ReturnType<typeof planGroupReceipt>,
   { ok: true }
 >["lines"][number];
-
-function omitKeys<T>(
-  record: Record<string, T>,
-  keys: string[]
-): Record<string, T> {
-  const next = { ...record };
-  for (const key of keys) delete next[key];
-  return next;
-}
 
 function sameUnitKind(items: (Tables<"items"> | undefined)[]): boolean {
   if (items.length === 0) return false;
@@ -119,15 +112,11 @@ export function ReceiveScreen({ branchId }: Props) {
   useEffect(() => {
     setLoading(true);
     void fetchData();
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const reload = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => void fetchData(), 300);
-    };
+    const reload = debounce(() => void fetchData());
     const unsubOrders = subscribeOrders(branchId, reload);
     const unsubReceiving = subscribeReceiving(branchId, reload);
     return () => {
-      clearTimeout(timer);
+      reload.cancel();
       unsubOrders();
       unsubReceiving();
     };
@@ -197,13 +186,6 @@ export function ReceiveScreen({ branchId }: Props) {
     ? itemsById.get(editingLine.item_id)
     : undefined;
 
-  const fmt = (item: Tables<"items"> | undefined, qty: number) =>
-    formatQty(qty, {
-      caseSize: item?.case_size ?? null,
-      unit: item?.unit ?? "",
-      byPercent: item?.record_by_percent ?? false,
-    });
-
   function formatEditedSummary(
     line: MergedLine,
     item: Tables<"items"> | undefined
@@ -220,16 +202,16 @@ export function ReceiveScreen({ branchId }: Props) {
 
     const shortParsed = rawShort ? parseQty(rawShort, qtyOpts) : null;
     const shortText = !rawShort
-      ? fmt(item, 0)
+      ? formatItemQty(item, 0)
       : shortParsed?.ok
-        ? fmt(item, shortParsed.value)
+        ? formatItemQty(item, shortParsed.value)
         : rawShort;
 
     const damagedParsed = rawDamaged ? parseQty(rawDamaged, qtyOpts) : null;
     const damagedText = !rawDamaged
-      ? fmt(item, 0)
+      ? formatItemQty(item, 0)
       : damagedParsed?.ok
-        ? fmt(item, damagedParsed.value)
+        ? formatItemQty(item, damagedParsed.value)
         : rawDamaged;
 
     const mfgParsed = rawMfg ? parseShortDate(rawMfg, new Date()) : null;
@@ -316,7 +298,7 @@ export function ReceiveScreen({ branchId }: Props) {
         const totalShort = planLines.reduce((s, l) => s + l.plan.short, 0);
         const totalDamaged = planLines.reduce((s, l) => s + l.plan.damaged, 0);
         setMessage(
-          `Đã nhận ${planLines.length} món: vào kho ${fmt(refItem, totalGood)} · Thiếu ${fmt(refItem, totalShort)} · Hư ${fmt(refItem, totalDamaged)}`
+          `Đã nhận ${planLines.length} món: vào kho ${formatItemQty(refItem, totalGood)} · Thiếu ${formatItemQty(refItem, totalShort)} · Hư ${formatItemQty(refItem, totalDamaged)}`
         );
       } else {
         const shortCount = planLines.filter((l) => l.plan.short > 0).length;
@@ -470,7 +452,7 @@ export function ReceiveScreen({ branchId }: Props) {
                       {item?.name_zh ? ` · ${item.name_zh}` : ""}
                     </Text>
                     <Text style={styles.metaInline}>
-                      Đã đặt: {fmt(item, line.qty)}
+                      Đã đặt: {formatItemQty(item, line.qty)}
                       {line.parts.length > 1
                         ? ` (gộp ${line.parts.length} đơn)`
                         : ""}
@@ -521,7 +503,7 @@ export function ReceiveScreen({ branchId }: Props) {
                     {editingItem?.name_zh ? ` · ${editingItem.name_zh}` : ""}
                   </Text>
                   <Text style={styles.metaInline}>
-                    Đã đặt: {fmt(editingItem, editingLine.qty)}
+                    Đã đặt: {formatItemQty(editingItem, editingLine.qty)}
                   </Text>
 
                   <Text style={styles.label}>Số hàng thiếu</Text>

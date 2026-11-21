@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { debounce } from "../lib/debounce";
 import {
   Modal,
   Pressable,
@@ -106,17 +107,13 @@ export function StockScreen({ branchId }: Props) {
   useEffect(() => {
     setLoading(true);
     void fetchData();
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const scheduleReload = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => void fetchData(), 300);
-    };
+    const scheduleReload = debounce(() => void fetchData());
     const unsubCatalog = subscribeCatalog(branchId, scheduleReload);
     const unsubMovements = subscribeMovements(branchId, scheduleReload);
     const unsubOrders = subscribeOrders(branchId, scheduleReload);
     const unsubReceiving = subscribeReceiving(branchId, scheduleReload);
     return () => {
-      clearTimeout(timer);
+      scheduleReload.cancel();
       unsubCatalog();
       unsubMovements();
       unsubOrders();

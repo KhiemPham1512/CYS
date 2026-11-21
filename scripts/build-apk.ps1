@@ -22,6 +22,7 @@ if (-not (Test-Path '.env')) { throw 'Missing .env (copy .env.example and fill E
 $env:npm_config_cache = 'D:\Cache\npm-cache'
 $env:TEMP = 'D:\Cache\tmp'
 $env:TMP = 'D:\Cache\tmp'
+$env:GRADLE_USER_HOME = 'D:\Cache\gradle' # mặc định gradle ghi ~\.gradle trên ổ C (~4,6 GB)
 $env:JAVA_HOME = $StudioJbr
 $env:ANDROID_HOME = 'D:\Android\Sdk'
 $env:Path = "$StudioJbr\bin;D:\CNPM\NodeJS;$env:Path"
