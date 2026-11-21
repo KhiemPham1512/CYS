@@ -58,16 +58,16 @@ const SIMPLE_TO_TRAD: Record<string, string> = Object.fromEntries(
     .map((p) => [...p] as [string, string])
 );
 const HAN = /[㐀-鿿]/;
-// Phần tiếng Trung của tên NCC (sau " - ", hoặc cả tên nếu chỉ có chữ Trung) → khóa so sánh: chữ Hán phồn thể (+ số kèm theo).
-function zhKeys(name: string): { withDigits: string; han: string } | null {
+// Phần tiếng Trung của tên NCC (sau " - ", hoặc cả tên nếu chỉ có chữ Trung) → khóa so sánh: chữ Hán phồn thể + số kèm theo.
+function zhKey(name: string): string | null {
   const part = name.includes(" - ")
     ? name.slice(name.indexOf(" - ") + 3)
     : name;
   const chars = [...part].map((c) => SIMPLE_TO_TRAD[c] ?? c);
-  const han = chars.filter((c) => HAN.test(c)).join("");
-  if ([...han].length < 2) return null;
-  const withDigits = chars.filter((c) => HAN.test(c) || /\d/.test(c)).join("");
-  return { withDigits, han };
+  const han = chars.filter((c) => HAN.test(c));
+  if (han.length < 2) return null;
+  // Giữ cả số kèm theo (700, 5...): "珍珠 5" khác "珍珠".
+  return chars.filter((c) => HAN.test(c) || /\d/.test(c)).join("");
 }
 
 export type NameMatch = {
@@ -82,26 +82,22 @@ export function matchSupplierName(
   aliases: Record<string, string> // khóa = nameKey, giá trị = id món
 ): NameMatch | null {
   const key = nameKey(supplierName);
-  const zh = zhKeys(supplierName);
+  const zh = zhKey(supplierName);
   if (!key && !zh) return null;
   const aliased = key ? aliases[key] : undefined;
   if (aliased && items.some((i) => i.id === aliased))
     return { itemId: aliased, via: "alias" };
   const exact = key
-    ? items.find((i) => namesOf(i).some((n) => tokens(n).join(" ") === key))
-    : undefined;
-  if (exact) return { itemId: exact.id, via: "exact" };
+    ? items.filter((i) => namesOf(i).some((n) => tokens(n).join(" ") === key))
+    : [];
+  if (exact.length === 1) return { itemId: exact[0].id, via: "exact" };
+  if (exact.length > 1) return null; // nhiều món cùng khóa tên (vd khác khối lượng): hỏi, không đoán
 
   if (zh) {
-    // Trùng tên Trung và chỉ một món như vậy thì khớp; trùng nhiều món thì không đoán.
-    for (const field of ["withDigits", "han"] as const) {
-      const same = items.filter((i) => {
-        const k = i.name_zh ? zhKeys(i.name_zh) : null;
-        return k !== null && k[field] === zh[field];
-      });
-      if (same.length === 1) return { itemId: same[0].id, via: "zh" };
-      if (same.length > 1) return null;
-    }
+    // Trùng tên Trung (kể cả số) và chỉ một món như vậy thì khớp; trùng nhiều món thì không đoán.
+    const same = items.filter((i) => i.name_zh && zhKey(i.name_zh) === zh);
+    if (same.length === 1) return { itemId: same[0].id, via: "zh" };
+    if (same.length > 1) return null;
   }
   if (!key) return null;
 

@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   incomingByItem,
   isEditable,
-  orderedByItem,
   projectedQty,
   sheetQtyByItem,
   type Order,
@@ -89,42 +88,5 @@ describe("sheetQtyByItem (bảng đơn đã đặt gộp một)", () => {
     const r = sheetQtyByItem([], lines, new Set());
     expect(r.qty.size).toBe(0);
     expect(r.placedAt).toBeNull();
-  });
-});
-
-describe("orderedByItem (đơn đã đặt của mọi Nhóm gộp một bảng)", () => {
-  const a: Order & { group_id: string } = {
-    id: "oa",
-    group_id: "gA",
-    placed_at: "2026-11-18T03:00:00Z",
-  };
-  const b: Order & { group_id: string } = {
-    id: "ob",
-    group_id: "gB",
-    placed_at: "2026-11-18T04:00:00Z",
-  };
-  const nháp: Order & { group_id: string } = {
-    id: "od",
-    group_id: "gA",
-    placed_at: null,
-  };
-  const lines: OrderLine[] = [
-    { id: "la", order_id: "oa", item_id: "x", qty: 6 },
-    { id: "lb", order_id: "ob", item_id: "y", qty: 3 },
-    { id: "ld", order_id: "od", item_id: "z", qty: 9 },
-  ];
-
-  it("gộp các Nhóm, bỏ đơn nháp", () => {
-    const m = orderedByItem([a, b, nháp], lines, new Set());
-    expect([...m]).toEqual([
-      ["x", 6],
-      ["y", 3],
-    ]);
-  });
-
-  it("Nhóm đã nhận hết vẫn hiện đơn gần nhất, Nhóm còn chờ chỉ tính phần chưa nhận", () => {
-    const m = orderedByItem([a, b], lines, new Set(["lb"]));
-    expect(m.get("x")).toBe(6);
-    expect(m.get("y")).toBe(3);
   });
 });

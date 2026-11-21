@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Modal, Pressable, StyleSheet, View } from "react-native";
 import { themedStyles } from "../theme/themedStyles";
 import type { Palette } from "../theme/themes";
@@ -9,9 +9,20 @@ import { Text } from "./Text";
 // Hộp xác nhận theo giao diện app (thay hộp trắng mặc định của hệ thống). Gắn một lần ở App.
 export function ConfirmHost() {
   const [request, setRequest] = useState<ConfirmRequest | null>(null);
-  useEffect(() => registerConfirmHost(setRequest), []);
+  const open = useRef<ConfirmRequest | null>(null); // đọc đồng bộ để một lần bấm chỉ chạy một lần
+  useEffect(
+    () =>
+      registerConfirmHost((r) => {
+        open.current = r;
+        setRequest(r);
+      }),
+    []
+  );
 
-  const close = () => setRequest(null);
+  const close = () => {
+    open.current = null;
+    setRequest(null);
+  };
   return (
     <Modal
       visible={request !== null}
@@ -39,7 +50,7 @@ export function ConfirmHost() {
                 request?.destructive ? styles.danger : styles.ok,
               ]}
               onPress={() => {
-                const run = request?.onConfirm;
+                const run = open.current?.onConfirm;
                 close();
                 run?.();
               }}

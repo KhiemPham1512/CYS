@@ -12,7 +12,7 @@ import type { Tables } from "../lib/database.types";
 import { useOnline } from "../lib/useOnline";
 import { formatItemQty } from "../stock/qty";
 import { loadOrders, type OrderLineRow, type OrderRow } from "../orders/api";
-import { orderedByItem } from "../orders/orders";
+import { incomingByItem } from "../orders/orders";
 import { loadReceivingData } from "../orders/receivingApi";
 import { sheetStrings } from "../orders/exportSheet";
 import {
@@ -57,6 +57,7 @@ export function ReadOrderScreen({ branchId }: Props) {
   const [read, setRead] = useState<RawLine[][] | null>(null);
   const [parts, setParts] = useState<(RawLine[] | null)[]>([]); // kết quả từng ảnh đã chọn
   const [reading, setReading] = useState(false);
+  const readingRef = useRef(false);
   const [message, setMessage] = useState<string | null>(null);
   const [asking, setAsking] = useState<RawLine | null>(null); // tên lạ đang chọn món
 
@@ -137,7 +138,7 @@ export function ReadOrderScreen({ branchId }: Props) {
       images: read,
       items: matchItems,
       aliases,
-      ordered: orderedByItem(placed, lines, receivedLineIds),
+      ordered: incomingByItem(placed, lines, receivedLineIds), // chỉ phần chưa nhận hàng
     });
   }, [read, orders, lines, receivedLineIds, matchItems, aliases]);
 
@@ -163,7 +164,8 @@ export function ReadOrderScreen({ branchId }: Props) {
 
   // Mỗi ảnh một lượt gọi để gộp ảnh chồng nhau ở máy (mergeRawLines); một ảnh lỗi thì báo, không so một nửa.
   async function readAll() {
-    if (!online || reading || picked.length === 0) return;
+    if (!online || readingRef.current || picked.length === 0) return;
+    readingRef.current = true; // chống bấm đôi trước khi state kịp cập nhật
     setReading(true);
     setMessage(null);
     // Ảnh đã đọc xong giữ lại; bấm lại chỉ đọc các ảnh còn lỗi (không tốn thêm lượt).
@@ -171,6 +173,7 @@ export function ReadOrderScreen({ branchId }: Props) {
     const results = await Promise.all(
       todo.map((i) => readOrderImages(branchId, [picked[i]]))
     );
+    readingRef.current = false;
     setReading(false);
     const next = [...parts];
     todo.forEach((i, k) => {

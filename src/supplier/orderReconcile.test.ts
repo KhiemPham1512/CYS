@@ -271,3 +271,32 @@ describe("suggestItems (gợi ý món gần nhất cho tên lạ)", () => {
     expect(suggestItems("Trà", many)).toHaveLength(3);
   });
 });
+
+describe("không đoán khi mơ hồ (review)", () => {
+  it("hai món cùng khóa tên (chỉ khác khối lượng) thì không chọn món đầu tiên", () => {
+    const a: MatchItem = {
+      id: "a",
+      name: "Bột A 1kg",
+      unit: "Bao",
+      case_size: null,
+    };
+    const b: MatchItem = {
+      id: "b",
+      name: "Bột A 500g",
+      unit: "Bao",
+      case_size: null,
+    };
+    expect(matchSupplierName("Bột A", [a, b], {})).toBeNull();
+  });
+
+  it("tên Trung có số/quy cách mà món không có thì không khớp bừa", () => {
+    const pearl: MatchItem = {
+      id: "p",
+      name: "Hạt mẫu",
+      unit: "Bao",
+      case_size: null,
+      name_zh: "珍珠",
+    };
+    expect(matchSupplierName("Gì đó - 珍珠 5kg", [pearl], {})).toBeNull();
+  });
+});

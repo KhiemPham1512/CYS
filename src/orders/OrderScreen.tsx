@@ -47,9 +47,12 @@ export function OrderScreen({ branchId }: Props) {
   const [saving, setSaving] = useState(false);
   const busy = useRef(false); // chống bấm đôi trước khi state kịp cập nhật
   const [message, setMessage] = useState<string | null>(null);
-  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">(
-    "idle"
-  );
+  const [saveState, setSaveState] = useState<
+    "idle" | "saving" | "saved" | "error"
+  >("idle");
+  const failedInputs = useRef<Record<string, string> | null>(null); // số đã lưu lỗi: không tự thử lại cho tới khi người dùng gõ thêm
+  const inputsRef = useRef(inputs);
+  inputsRef.current = inputs;
   const dirty = useRef(false); // có số chưa lưu (chỉ đặt khi người dùng gõ)
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -193,14 +196,18 @@ export function OrderScreen({ branchId }: Props) {
     }
   }
 
-  // Tự lưu nháp: không nút, không thông báo; lỗi mạng thì giữ dấu "chưa lưu" để thử lại.
+  // Tự lưu nháp: không nút, không thông báo khi thành công; lỗi thì dừng, chờ người dùng gõ tiếp.
   async function autosave() {
     if (!groupId || !online || busy.current) return;
+    const cur = latest.current;
+    if (!cur.draft && cur.wanted.size === 0) {
+      dirty.current = false; // chưa có nháp mà cũng chẳng có số nào: không tạo nháp rỗng
+      return;
+    }
     busy.current = true;
     dirty.current = false;
     setSaveState("saving");
     try {
-      const cur = latest.current;
       const { error: err } = await saveDraft(
         branchId,
         groupId,
@@ -214,8 +221,10 @@ export function OrderScreen({ branchId }: Props) {
       setSaveState("saved");
     } catch {
       dirty.current = true;
-      setSaveState("idle");
-      setMessage("Chưa lưu được nháp. Kiểm tra mạng.");
+      failedInputs.current = inputsRef.current;
+      setSaveState("error");
+      setMessage("Chưa lưu được nháp. Kiểm tra mạng rồi gõ lại để lưu.");
+      await fetchData(); // có thể máy khác đã tạo nháp Nhóm này: nạp lại để lần sau ghi đúng
     } finally {
       busy.current = false;
     }
@@ -225,6 +234,7 @@ export function OrderScreen({ branchId }: Props) {
   useEffect(() => {
     if (!dirty.current || hasErrors || !online || saveState === "saving")
       return;
+    if (saveState === "error" && failedInputs.current === inputs) return;
     const timer = setTimeout(() => void autosave(), 800);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -341,7 +351,14 @@ export function OrderScreen({ branchId }: Props) {
             key={g.id}
             style={[styles.chip, g.id === groupId && styles.chipSelected]}
             onPress={() => {
-              if (g.id !== groupId) flush();
+              if (g.id !== groupId) {
+                if (busy.current || saveState === "saving") return; // đang lưu: đợi xong rồi đổi
+                if (hasErrors) {
+                  setMessage("Sửa ô nhập sai trước khi đổi Nhóm");
+                  return;
+                }
+                flush();
+              }
               setGroupId(g.id);
               setEditingItemId(null);
               setMessage(null);
@@ -366,7 +383,9 @@ export function OrderScreen({ branchId }: Props) {
             ? "Đang lưu…"
             : saveState === "saved"
               ? "Đã tự lưu"
-              : "Số bạn nhập tự động được lưu"}
+              : saveState === "error"
+                ? "Chưa lưu được"
+                : "Số bạn nhập tự động được lưu"}
         </Text>
         <Pressable
           style={styles.viewBtn}
