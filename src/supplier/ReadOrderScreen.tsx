@@ -14,7 +14,13 @@ import { formatItemQty } from "../stock/qty";
 import { loadOrders, type OrderLineRow, type OrderRow } from "../orders/api";
 import { orderedByItem } from "../orders/orders";
 import { loadReceivingData } from "../orders/receivingApi";
-import { nameKey, type CompareStatus, type RawLine } from "./orderReconcile";
+import { sheetStrings } from "../orders/exportSheet";
+import {
+  nameKey,
+  suggestItems,
+  type CompareStatus,
+  type RawLine,
+} from "./orderReconcile";
 import { reviewSupplierOrder } from "./orderReview";
 import {
   loadAliases,
@@ -107,16 +113,33 @@ export function ReadOrderScreen({ branchId }: Props) {
     [groups, items]
   );
 
+  // Món để khớp: thêm tên in và chữ Trung trên tờ đặt hàng (cột items.sheet), gần tên nhà cung cấp hơn tên trong app.
+  const matchItems = useMemo(
+    () =>
+      items.map((i) => {
+        const printed = sheetStrings(i.sheet, ["name", "zh"] as const);
+        return {
+          id: i.id,
+          name: i.name,
+          unit: i.unit,
+          case_size: i.case_size,
+          alt_name: printed.name ?? null,
+          name_zh: printed.zh ?? i.name_zh,
+        };
+      }),
+    [items]
+  );
+
   const review = useMemo(() => {
     if (!read) return null;
     const placed = orders.filter((o) => o.placed_at !== null);
     return reviewSupplierOrder({
       images: read,
-      items,
+      items: matchItems,
       aliases,
       ordered: orderedByItem(placed, lines, receivedLineIds),
     });
-  }, [read, orders, lines, receivedLineIds, items, aliases]);
+  }, [read, orders, lines, receivedLineIds, matchItems, aliases]);
 
   async function pickImages() {
     const res = await ImagePicker.launchImageLibraryAsync({
@@ -274,6 +297,17 @@ export function ReadOrderScreen({ branchId }: Props) {
                 <Text style={styles.meta}>
                   {line.qty} {line.unit} · tên này chưa biết là món nào
                 </Text>
+                {suggestItems(line.name, matchItems).map((it) => (
+                  <Pressable
+                    key={it.id}
+                    style={[styles.suggest, !online && styles.disabled]}
+                    disabled={!online}
+                    onPress={() => void remember(line, it.id)}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.suggestText}>→ {it.name}</Text>
+                  </Pressable>
+                ))}
                 <Pressable
                   style={[styles.secondary, !online && styles.disabled]}
                   disabled={!online}
@@ -281,7 +315,7 @@ export function ReadOrderScreen({ branchId }: Props) {
                   accessibilityRole="button"
                 >
                   <Text style={styles.secondaryText}>
-                    Chọn món (nhớ cho lần sau)
+                    Món khác… (nhớ cho lần sau)
                   </Text>
                 </Pressable>
               </View>
@@ -452,6 +486,14 @@ const styles = themedStyles((c: Palette) => ({
     gap: 8,
   },
   modalTitle: { fontSize: 18, fontWeight: "700", color: c.ink },
+  suggest: {
+    minHeight: 44,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    justifyContent: "center",
+    backgroundColor: c.accentSoft,
+  },
+  suggestText: { fontSize: 15, fontWeight: "600", color: c.accentDeep },
   pickGroup: {
     fontSize: 13,
     fontWeight: "700",
