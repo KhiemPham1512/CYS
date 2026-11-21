@@ -1,3 +1,4 @@
+import { subscribeTables } from "../lib/subscribeTables";
 import { supabase } from "../lib/supabase";
 import type { Tables } from "../lib/database.types";
 
@@ -39,21 +40,5 @@ export function subscribeInUse(
   branchId: string,
   onChange: () => void
 ): () => void {
-  const channel = supabase.channel(
-    `in-use-${branchId}-${Math.random().toString(36).slice(2)}`
-  );
-  channel.on(
-    "postgres_changes",
-    {
-      event: "*",
-      schema: "public",
-      table: "in_use",
-      filter: `branch_id=eq.${branchId}`,
-    },
-    onChange
-  );
-  channel.subscribe();
-  return () => {
-    void supabase.removeChannel(channel);
-  };
+  return subscribeTables("in-use", branchId, ["in_use"], onChange);
 }

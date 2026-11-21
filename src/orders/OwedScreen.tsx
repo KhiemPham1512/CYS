@@ -1,3 +1,4 @@
+import { SCRIM } from "../ui/overlay";
 import { formatMfg, usesMfgDate } from "../stock/expiry";
 import { debounce } from "../lib/debounce";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -12,6 +13,7 @@ import { compareGroups, compareItems } from "../catalog/sections";
 import type { Tables } from "../lib/database.types";
 import { useOnline } from "../lib/useOnline";
 import { formatDate, parseShortDate } from "../stock/date";
+import { useSaveGuard } from "../lib/useSaveGuard";
 import { omitKeys } from "../lib/omitKeys";
 import { formatItemQty, parseQty } from "../stock/qty";
 import {
@@ -36,8 +38,7 @@ export function OwedScreen({ branchId }: Props) {
   const [owed, setOwed] = useState<OwedRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const busy = useRef(false); // chống bấm đôi trước khi state kịp cập nhật
+  const { saving, busy, runSave } = useSaveGuard(online);
   const [message, setMessage] = useState<string | null>(null);
 
   const [stillMissingInputs, setStillMissingInputs] = useState<
@@ -145,18 +146,6 @@ export function OwedScreen({ branchId }: Props) {
     const parts = [`Còn thiếu: ${stillText}`];
     if (mfgText) parts.push(`NSX ${mfgText}`);
     return parts.join(" · ");
-  }
-
-  async function runSave(action: () => Promise<void>) {
-    if (!online || busy.current) return;
-    busy.current = true;
-    setSaving(true);
-    try {
-      await action();
-    } finally {
-      busy.current = false;
-      setSaving(false);
-    }
   }
 
   async function handleGroupSettle(
@@ -532,7 +521,7 @@ const styles = themedStyles((c: Palette) => ({
   secondaryText: { color: c.ink, fontSize: 16, fontWeight: "600" },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    backgroundColor: SCRIM,
     justifyContent: "center",
     padding: 16,
   },

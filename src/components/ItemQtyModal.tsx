@@ -1,3 +1,4 @@
+import { SCRIM } from "../ui/overlay";
 import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { TextInput } from "../ui/TextInput";
 import { themedStyles } from "../theme/themedStyles";
@@ -90,7 +91,7 @@ export function ItemQtyModal({
 const styles = themedStyles((c: Palette) => ({
   modalBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    backgroundColor: SCRIM,
     justifyContent: "center",
     padding: 16,
   },

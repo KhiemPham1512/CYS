@@ -1,3 +1,4 @@
+import { SCRIM } from "../ui/overlay";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { debounce } from "../lib/debounce";
 import {
@@ -882,7 +883,7 @@ const styles = themedStyles((c: Palette) => ({
   emptyText: { color: c.muted, textAlign: "center", fontSize: 15 },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: SCRIM,
     justifyContent: "center",
     padding: 16,
   },
