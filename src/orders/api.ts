@@ -117,6 +117,5 @@ export async function loadBranchSheet(branchId: string): Promise<unknown> {
     .select("sheet")
     .eq("branch_id", branchId)
     .maybeSingle();
-  if (error) throw error;
-  return data?.sheet ?? null;
+  return error ? null : (data?.sheet ?? null); // lỗi thì dùng tên/đơn vị trong app, không làm hỏng màn Đặt hàng
 }
