@@ -334,7 +334,7 @@ function ResetPasswordForm({
     setPassword("");
     setMessage({
       ok: true,
-      text: "Đã đặt lại. Gửi mật khẩu mới cho người đó; họ đăng nhập lại bằng mật khẩu mới.",
+      text: "Đã đặt lại. Gửi mật khẩu mới cho người đó.",
     });
   }
 

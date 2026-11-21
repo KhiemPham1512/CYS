@@ -141,8 +141,8 @@ Deno.serve(async (req) => {
   }
 
   if (request.action === "set_password") {
-    // Đặt lại cho cả người đang bị khóa (mở khóa xong dùng luôn). Phiên cũ do Supabase Auth thu hồi khi đổi mật khẩu;
-    // access token còn sống tới khi hết hạn (tối đa ~1 giờ).
+    // Đặt lại cho cả người đang bị khóa (mở khóa xong dùng luôn).
+    // shortcut: chưa thu hồi phiên đang mở (admin.updateUserById không đảm bảo); máy đang đăng nhập dùng tiếp được tới khi token hết hạn, nghi lộ thì Khóa người đó.
     const { error } = await admin.auth.admin.updateUserById(request.user_id, {
       password: request.password,
     });
