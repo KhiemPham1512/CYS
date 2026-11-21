@@ -108,7 +108,6 @@ export function formatQty(qty: number, opts: FormatQtyOptions): string {
   return formatRest(q, unitLower, opts.byPercent);
 }
 
-// Ô Điều chỉnh tồn kho: số không dấu = số mới; "+x" / "-x" = cộng/trừ vào số đang có.
 // Định dạng số lượng theo quy cách của món; món chưa tải (undefined) thì in số trần.
 export function formatItemQty(
   item:
@@ -123,6 +122,7 @@ export function formatItemQty(
   });
 }
 
+// Ô Điều chỉnh tồn kho: số không dấu = số mới; "+x" / "-x" = cộng/trừ vào số đang có.
 export function parseAdjust(
   input: string,
   current: number,
