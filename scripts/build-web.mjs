@@ -41,7 +41,7 @@ const walk = (dir) => {
 };
 walk(DIST);
 
-// Không được còn thư mục node_modules nào trong dist (Pages sẽ bỏ qua).
+// Không được còn thư mục node_modules nào trong dist (Cloudflare sẽ bỏ qua).
 const leftover = [];
 const find = (dir) => {
   for (const name of readdirSync(dir)) {
@@ -57,5 +57,5 @@ if (leftover.length) {
   process.exit(1);
 }
 console.log(
-  `Xong: đã sửa đường dẫn phông ở ${changed} file. Deploy: npx wrangler pages deploy ${DIST} --project-name cys --branch main`
+  `Xong: đã sửa đường dẫn phông ở ${changed} file. Cloudflare tự đưa lên mạng khi main đổi (xem docs/cai-dat.md).`
 );

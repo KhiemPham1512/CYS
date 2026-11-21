@@ -1,3 +1,4 @@
+import { subscribeTables } from "../lib/subscribeTables";
 import type { Tables, TablesInsert } from "../lib/database.types";
 import { supabase } from "../lib/supabase";
 
@@ -54,31 +55,10 @@ export function subscribeCatalog(
   branchId: string,
   onChange: () => void
 ): () => void {
-  const channel = supabase
-    .channel(`catalog-${branchId}-${Math.random().toString(36).slice(2)}`) // tên riêng mỗi lần: supabase-js trả lại kênh cũ nếu trùng tên
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "items",
-        filter: `branch_id=eq.${branchId}`,
-      },
-      onChange
-    )
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "item_groups",
-        filter: `branch_id=eq.${branchId}`,
-      },
-      onChange
-    )
-    .subscribe();
-
-  return () => {
-    void supabase.removeChannel(channel);
-  };
+  return subscribeTables(
+    "catalog",
+    branchId,
+    ["items", "item_groups"],
+    onChange
+  );
 }

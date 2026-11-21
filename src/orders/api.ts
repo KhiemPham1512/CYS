@@ -1,3 +1,4 @@
+import { subscribeTables } from "../lib/subscribeTables";
 import type { Tables } from "../lib/database.types";
 import { supabase } from "../lib/supabase";
 
@@ -101,23 +102,10 @@ export function subscribeOrders(
   branchId: string,
   onChange: () => void
 ): () => void {
-  const channel = supabase.channel(
-    `orders-${branchId}-${Math.random().toString(36).slice(2)}`
+  return subscribeTables(
+    "orders",
+    branchId,
+    ["purchase_orders", "purchase_order_lines"],
+    onChange
   );
-  for (const table of ["purchase_orders", "purchase_order_lines"]) {
-    channel.on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table,
-        filter: `branch_id=eq.${branchId}`,
-      },
-      onChange
-    );
-  }
-  channel.subscribe();
-  return () => {
-    void supabase.removeChannel(channel);
-  };
 }

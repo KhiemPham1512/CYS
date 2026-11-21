@@ -65,4 +65,28 @@ do $$ begin
   end;
 end $$;
 
+-- Thành viên bị khóa (cùng Chi nhánh A) không thấy, không thêm, không sửa.
+reset role;
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000f', 'f@example.test');
+insert into public.members (branch_id, user_id, is_locked)
+  values ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-00000000000f', true);
+insert into public.supplier_aliases (branch_id, alias_key, item_id)
+  values ('00000000-0000-0000-0000-0000000000a1', 'co san', '00000000-0000-0000-0000-0000000000a3');
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000f"}', true);
+do $$
+declare n int;
+begin
+  assert (select count(*) from public.supplier_aliases) = 0, 'thành viên bị khóa không thấy';
+  begin
+    insert into public.supplier_aliases (branch_id, alias_key, item_id)
+      values ('00000000-0000-0000-0000-0000000000a1', 'moi', '00000000-0000-0000-0000-0000000000a3');
+    assert false, 'thành viên bị khóa không thêm';
+  exception when insufficient_privilege then null;
+  end;
+  update public.supplier_aliases set item_id = '00000000-0000-0000-0000-0000000000a4' where alias_key = 'co san';
+  get diagnostics n = row_count;
+  assert n = 0, 'thành viên bị khóa không sửa';
+end $$;
+
 rollback;
