@@ -43,29 +43,42 @@ export function orderSheetRows(
   });
 }
 
-// Ô ảnh Tồn kho dự tính: "<Hàng đang về> <Tồn thực tế>(<ngày trong tháng của Ngày sản xuất gần nhất>)", cách bằng dấu cách.
-// Món theo dõi Ngày sản xuất: hàng đang về chưa có ngày thì ghi "()" (vd "6() 3(15)"); món không theo dõi thì không có ngoặc.
-// Tồn thực tế bằng 0 thì không ghi; cả ô bằng 0 thì ghi "0", trừ món/Nhóm có cờ blank_zero trong dữ liệu in thì để trống.
+// Ô ảnh Tồn kho dự tính, viết như tờ giấy:
+// - món không theo dõi Ngày sản xuất: "<Hàng đang về>+<Tồn thực tế>" (12+2);
+// - món theo dõi Ngày sản xuất: mỗi cụm "số(ngày trong tháng)" cách bằng dấu cách, hàng đang về chưa có ngày ghi "()",
+//   các lô tồn theo Ngày sản xuất cũ trước (6() 4(21), 3(2) 3(3)); tồn chưa có ngày cũng ghi "()".
+// Hết sạch thì "0", trừ món/Nhóm có cờ blank_zero trong dữ liệu in thì để trống.
 export function stockSheetCell(p: {
   incoming: number;
-  actual: number;
-  lastMfg: string | null; // yyyy-mm-dd
+  lots: { qty: number; mfgDate: string | null }[]; // lô tồn thực tế (stockByItem)
   trackMfg: boolean;
   caseSize: number | null;
   byPercent: boolean;
   blankZero?: boolean;
 }): string {
   const opts = { caseSize: p.caseSize, byPercent: p.byPercent };
-  const parts: string[] = [];
-  if (p.incoming > 0)
-    parts.push(`${formatSheetQty(p.incoming, opts)}${p.trackMfg ? "()" : ""}`);
-  if (p.actual > 0) {
-    const day =
-      p.trackMfg && p.lastMfg ? `(${Number(p.lastMfg.slice(8, 10))})` : ""; // tờ giấy chỉ ghi ngày trong tháng
-    parts.push(`${formatSheetQty(p.actual, opts)}${day}`);
+  const fmt = (qty: number) => formatSheetQty(qty, opts);
+  const stock = p.lots.filter((l) => l.qty > 0);
+  let out: string;
+  if (p.trackMfg) {
+    const undated = stock.reduce((n, l) => (l.mfgDate ? n : n + l.qty), 0);
+    const dated = stock
+      .filter((l) => l.mfgDate)
+      .sort((a, b) => (a.mfgDate ?? "").localeCompare(b.mfgDate ?? ""));
+    out = [
+      p.incoming > 0 ? `${fmt(p.incoming)}()` : "",
+      undated > 0 ? `${fmt(undated)}()` : "",
+      ...dated.map((l) => `${fmt(l.qty)}(${Number(l.mfgDate?.slice(8, 10))})`), // tờ giấy chỉ ghi ngày trong tháng
+    ]
+      .filter(Boolean)
+      .join(" ");
+  } else {
+    const actual = stock.reduce((n, l) => n + l.qty, 0);
+    out = [p.incoming > 0 ? fmt(p.incoming) : "", actual > 0 ? fmt(actual) : ""]
+      .filter(Boolean)
+      .join("+");
   }
-  if (parts.length === 0 && !p.blankZero) parts.push("0");
-  return parts.join(" ");
+  return out || (p.blankZero ? "" : "0");
 }
 
 const MAX_NAMES = 8;

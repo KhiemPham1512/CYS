@@ -26,7 +26,7 @@ import { compareGroups, compareItems } from "../catalog/sections";
 import type { Tables } from "../lib/database.types";
 import { loadMovements } from "../stock/api";
 import { formatDate } from "../stock/date";
-import { stockByItem, totalQty } from "../stock/ledger";
+import { stockByItem } from "../stock/ledger";
 import {
   loadBranchSheet,
   loadOrders,
@@ -152,13 +152,11 @@ export function ExportScreen({ branchId, branchName }: Props) {
     return new Map(
       groupItems.map((item) => {
         const lots = lotsByItem.get(item.id) ?? [];
-        const dated = lots.flatMap((l) => (l.mfgDate ? [l.mfgDate] : []));
         return [
           item.id,
           stockSheetCell({
             incoming: incoming.get(item.id) ?? 0,
-            actual: totalQty(lots),
-            lastMfg: dated.sort().at(-1) ?? null,
+            lots,
             trackMfg: item.track_mfg_date,
             caseSize: item.case_size,
             byPercent: item.record_by_percent,
