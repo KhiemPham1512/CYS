@@ -41,9 +41,15 @@ end $$;
 
 -- Người dùng B cùng Chi nhánh có bộ đếm riêng.
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000b"}', true);
-do $$ begin
+do $$
+declare i int;
+begin
   assert public.take_read_quota('00000000-0000-0000-0000-0000000000a1', 6), 'B có bộ đếm riêng, lấy 6 lượt một lần';
-  assert (select n from public.read_usage where user_id = '00000000-0000-0000-0000-00000000000b') = 6, 'B bị trừ 6';
+  -- Đã trừ đúng 6: còn đủ 9 lần nữa 6 ảnh (tổng 60), lần kế bị từ chối.
+  for i in 1..9 loop
+    assert public.take_read_quota('00000000-0000-0000-0000-0000000000a1', 6), 'B còn lượt ' || i;
+  end loop;
+  assert not public.take_read_quota('00000000-0000-0000-0000-0000000000a1', 1), 'B hết đúng 60 lượt';
 end $$;
 
 -- Thành viên bị khóa và người ngoài Chi nhánh không dùng được (và không tạo dòng đếm).
