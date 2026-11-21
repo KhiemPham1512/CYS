@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { debounce } from "../lib/debounce";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { confirmAction } from "../ui/confirm";
 import { themedStyles } from "../theme/themedStyles";
@@ -12,7 +13,7 @@ import type { Tables } from "../lib/database.types";
 import { useOnline } from "../lib/useOnline";
 import { loadMovements, subscribeMovements } from "../stock/api";
 import { stockByItem, totalQty } from "../stock/ledger";
-import { formatQty, parseQty } from "../stock/qty";
+import { formatItemQty, parseQty } from "../stock/qty";
 import {
   deleteDraft,
   loadOrders,
@@ -79,16 +80,12 @@ export function OrderScreen({ branchId }: Props) {
   useEffect(() => {
     setLoading(true);
     void fetchData();
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const reload = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => void fetchData(), 300);
-    };
+    const reload = debounce(() => void fetchData());
     const unsubOrders = subscribeOrders(branchId, reload);
     const unsubMovements = subscribeMovements(branchId, reload);
     const unsubReceiving = subscribeReceiving(branchId, reload);
     return () => {
-      clearTimeout(timer);
+      reload.cancel();
       unsubOrders();
       unsubMovements();
       unsubReceiving();
@@ -158,13 +155,6 @@ export function OrderScreen({ branchId }: Props) {
     }
     return { errors, values, wanted };
   }, [inputs, groupItems]);
-
-  const fmt = (item: Tables<"items"> | undefined, qty: number) =>
-    formatQty(qty, {
-      caseSize: item?.case_size ?? null,
-      unit: item?.unit ?? "",
-      byPercent: item?.record_by_percent ?? false,
-    });
 
   // Alert xác nhận giữ closure cũ; đọc dữ liệu mới nhất từ ref khi thực sự lưu/đặt.
   const latest = useRef({
@@ -285,9 +275,9 @@ export function OrderScreen({ branchId }: Props) {
         const stock = totalQty(lotsByItem.get(editingItem.id) ?? []);
         const coming = incoming.get(editingItem.id) ?? 0;
         return [
-          `Tồn kho thực tế: ${fmt(editingItem, stock)}`,
-          `Hàng đang về: ${fmt(editingItem, coming)}`,
-          `Tồn kho dự tính: ${fmt(editingItem, projectedQty(stock, coming))}`,
+          `Tồn kho thực tế: ${formatItemQty(editingItem, stock)}`,
+          `Hàng đang về: ${formatItemQty(editingItem, coming)}`,
+          `Tồn kho dự tính: ${formatItemQty(editingItem, projectedQty(stock, coming))}`,
         ];
       })()
     : [];
@@ -297,7 +287,7 @@ export function OrderScreen({ branchId }: Props) {
     : null;
   const editingPreview =
     editingItem && editingQty !== undefined && !editingError
-      ? `= ${fmt(editingItem, editingQty)}`
+      ? `= ${formatItemQty(editingItem, editingQty)}`
       : null;
 
   return (
@@ -362,13 +352,13 @@ export function OrderScreen({ branchId }: Props) {
                 {item.name_zh ? ` · ${item.name_zh}` : ""}
               </Text>
               <Text style={styles.meta}>
-                Tồn kho thực tế: {fmt(item, stock)} · Hàng đang về:{" "}
-                {fmt(item, coming)} · Tồn kho dự tính:{" "}
-                {fmt(item, projectedQty(stock, coming))}
+                Tồn kho thực tế: {formatItemQty(item, stock)} · Hàng đang về:{" "}
+                {formatItemQty(item, coming)} · Tồn kho dự tính:{" "}
+                {formatItemQty(item, projectedQty(stock, coming))}
               </Text>
               {validQty !== undefined && (
                 <Text style={styles.summaryText}>
-                  Đặt: {fmt(item, validQty)}
+                  Đặt: {formatItemQty(item, validQty)}
                 </Text>
               )}
               {fieldError && (

@@ -1,4 +1,5 @@
 import { formatMfg, usesMfgDate } from "../stock/expiry";
+import { debounce } from "../lib/debounce";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { TextInput } from "../ui/TextInput";
@@ -11,7 +12,8 @@ import { compareGroups, compareItems } from "../catalog/sections";
 import type { Tables } from "../lib/database.types";
 import { useOnline } from "../lib/useOnline";
 import { formatDate, parseShortDate } from "../stock/date";
-import { formatQty, parseQty } from "../stock/qty";
+import { omitKeys } from "../lib/omitKeys";
+import { formatItemQty, parseQty } from "../stock/qty";
 import {
   planGroupSettle,
   owedBreakdown,
@@ -26,15 +28,6 @@ import {
 } from "./receivingApi";
 
 type Props = { branchId: string };
-
-function omitKeys<T>(
-  record: Record<string, T>,
-  keys: string[]
-): Record<string, T> {
-  const next = { ...record };
-  for (const key of keys) delete next[key];
-  return next;
-}
 
 export function OwedScreen({ branchId }: Props) {
   const online = useOnline();
@@ -78,14 +71,10 @@ export function OwedScreen({ branchId }: Props) {
   useEffect(() => {
     setLoading(true);
     void fetchData();
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const reload = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => void fetchData(), 300);
-    };
+    const reload = debounce(() => void fetchData());
     const unsubReceiving = subscribeReceiving(branchId, reload);
     return () => {
-      clearTimeout(timer);
+      reload.cancel();
       unsubReceiving();
     };
   }, [branchId, fetchData]);
@@ -127,13 +116,6 @@ export function OwedScreen({ branchId }: Props) {
     ? (waitingMap.get(editingItemId) ?? 0)
     : 0;
 
-  const fmt = (item: Tables<"items"> | undefined, qty: number) =>
-    formatQty(qty, {
-      caseSize: item?.case_size ?? null,
-      unit: item?.unit ?? "",
-      byPercent: item?.record_by_percent ?? false,
-    });
-
   function formatEditedSummary(
     item: Tables<"items">,
     waiting: number
@@ -148,9 +130,9 @@ export function OwedScreen({ branchId }: Props) {
     };
     const stillParsed = rawStill ? parseQty(rawStill, qtyOpts) : null;
     const stillText = !rawStill
-      ? fmt(item, waiting)
+      ? formatItemQty(item, waiting)
       : stillParsed?.ok
-        ? fmt(item, stillParsed.value)
+        ? formatItemQty(item, stillParsed.value)
         : rawStill;
 
     const mfgParsed = rawMfg ? parseShortDate(rawMfg, new Date()) : null;
@@ -333,7 +315,7 @@ export function OwedScreen({ branchId }: Props) {
                       {item.name_zh ? ` · ${item.name_zh}` : ""}
                     </Text>
                     <Text style={styles.metaInline}>
-                      Đang chờ: {fmt(item, waiting)}
+                      Đang chờ: {formatItemQty(item, waiting)}
                     </Text>
                     <Text style={styles.metaInline}>
                       {[
@@ -343,7 +325,8 @@ export function OwedScreen({ branchId }: Props) {
                       ]
                         .filter(([, q]) => (q as number) > 0)
                         .map(
-                          ([label, q]) => `${label}: ${fmt(item, q as number)}`
+                          ([label, q]) =>
+                            `${label}: ${formatItemQty(item, q as number)}`
                         )
                         .join(" · ")}
                     </Text>
@@ -393,13 +376,13 @@ export function OwedScreen({ branchId }: Props) {
                     {editingItem.name_zh ? ` · ${editingItem.name_zh}` : ""}
                   </Text>
                   <Text style={styles.metaInline}>
-                    Đang chờ: {fmt(editingItem, editingWaiting)}
+                    Đang chờ: {formatItemQty(editingItem, editingWaiting)}
                   </Text>
 
                   <Text style={styles.label}>Số vẫn còn thiếu</Text>
                   <TextInput
                     style={styles.input}
-                    placeholder={fmt(editingItem, editingWaiting)}
+                    placeholder={formatItemQty(editingItem, editingWaiting)}
                     value={stillMissingInputs[editingItem.id] ?? ""}
                     onChangeText={(t) =>
                       setStillMissingInputs((p) => ({

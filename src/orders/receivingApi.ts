@@ -34,7 +34,7 @@ export async function loadReceivingData(branchId: string): Promise<{
   };
 }
 
-export async function receiveLine(
+async function receiveLine(
   lineId: string,
   received: number,
   damaged: number,
@@ -65,7 +65,7 @@ export async function returnDamaged(
   return { error: mapRpcError(error) };
 }
 
-export async function settleOwed(
+async function settleOwed(
   itemId: string,
   qty: number,
   mfgDate: string | null

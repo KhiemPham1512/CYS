@@ -109,6 +109,20 @@ export function formatQty(qty: number, opts: FormatQtyOptions): string {
 }
 
 // Ô Điều chỉnh tồn kho: số không dấu = số mới; "+x" / "-x" = cộng/trừ vào số đang có.
+// Định dạng số lượng theo quy cách của món; món chưa tải (undefined) thì in số trần.
+export function formatItemQty(
+  item:
+    | { case_size: number | null; unit: string; record_by_percent: boolean }
+    | undefined,
+  qty: number
+): string {
+  return formatQty(qty, {
+    caseSize: item?.case_size ?? null,
+    unit: item?.unit ?? "",
+    byPercent: item?.record_by_percent ?? false,
+  });
+}
+
 export function parseAdjust(
   input: string,
   current: number,

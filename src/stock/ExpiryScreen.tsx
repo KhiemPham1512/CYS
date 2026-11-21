@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { debounce } from "../lib/debounce";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { TextInput } from "../ui/TextInput";
@@ -13,7 +14,7 @@ import { formatDate } from "./date";
 import { expiryAlerts, inUseExpiry, lotExpiry } from "./expiry";
 import { endInUse, loadInUse, subscribeInUse, type InUseRow } from "./inUseApi";
 import { localDate, stockByItem, totalQty } from "./ledger";
-import { formatQty, round4 } from "./qty";
+import { formatItemQty, round4 } from "./qty";
 
 type Props = { branchId: string };
 
@@ -67,15 +68,11 @@ export function ExpiryScreen({ branchId }: Props) {
         if (raw && /^\d+$/.test(raw)) setThresholdText(raw);
       })
       .catch(() => undefined);
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const reload = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => void fetchData(), 300);
-    };
+    const reload = debounce(() => void fetchData());
     const unsubMov = subscribeMovements(branchId, reload);
     const unsubUse = subscribeInUse(branchId, reload);
     return () => {
-      clearTimeout(timer);
+      reload.cancel();
       unsubMov();
       unsubUse();
     };
@@ -124,13 +121,6 @@ export function ExpiryScreen({ branchId }: Props) {
     return expiryAlerts(rows, today, threshold);
   }, [items, lotsByItem, today, threshold]);
 
-  const fmt = (item: Tables<"items">, qty: number) =>
-    formatQty(qty, {
-      caseSize: item.case_size,
-      unit: item.unit,
-      byPercent: item.record_by_percent,
-    });
-
   const changeThreshold = (text: string) => {
     setThresholdText(text);
     if (/^\d+$/.test(text))
@@ -155,7 +145,7 @@ export function ExpiryScreen({ branchId }: Props) {
     );
 
   const lotLine = (r: LotRow) =>
-    `${r.item.name} — ${fmt(r.item, r.qty)} — hạn ${formatDate(r.expiry)}`;
+    `${r.item.name} — ${formatItemQty(r.item, r.qty)} — hạn ${formatDate(r.expiry)}`;
 
   return (
     <ScrollView contentContainerStyle={styles.pad}>

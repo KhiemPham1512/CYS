@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { debounce } from "../lib/debounce";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { TextInput } from "../ui/TextInput";
 import { themedStyles } from "../theme/themedStyles";
@@ -29,7 +30,7 @@ import {
   usageCounts,
   type Movement,
 } from "./ledger";
-import { formatQty, parseQty, round4 } from "./qty";
+import { formatItemQty, parseQty, round4 } from "./qty";
 
 type Props = { branchId: string; userId: string };
 
@@ -99,13 +100,10 @@ export function UseScreen({ branchId, userId }: Props) {
     setLoading(true);
     setOrder(null); // đổi Chi nhánh/người dùng thì chốt lại thứ tự
     void fetchData();
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const unsub = subscribeMovements(branchId, () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => void fetchMovements(), 300);
-    });
+    const reload = debounce(() => void fetchMovements());
+    const unsub = subscribeMovements(branchId, reload);
     return () => {
-      clearTimeout(timer);
+      reload.cancel();
       unsub();
     };
   }, [branchId, fetchData, fetchMovements]);
@@ -157,13 +155,6 @@ export function UseScreen({ branchId, userId }: Props) {
     }
     return { errors, rows };
   }, [inputs, items]);
-
-  const fmt = (item: Tables<"items"> | undefined, qty: number) =>
-    formatQty(qty, {
-      caseSize: item?.case_size ?? null,
-      unit: item?.unit ?? "",
-      byPercent: item?.record_by_percent ?? false,
-    });
 
   // Nút −: trừ 1 và lưu ngay. Nút +: trả lại 1 từ lần trừ gần nhất của chính mình hôm nay
   // (qty > 1 thì sửa còn qty − 1, qty = 1 thì hủy). shortcut: bước cố định 1 đơn vị, số lớn gõ ở ô bên dưới.
@@ -318,7 +309,7 @@ export function UseScreen({ branchId, userId }: Props) {
                   <Text style={styles.stepText}>−</Text>
                 </Pressable>
                 <Text style={styles.stockText}>
-                  Tồn kho: {fmt(item, stock)}
+                  Tồn kho: {formatItemQty(item, stock)}
                 </Text>
                 <Pressable
                   style={[
@@ -348,7 +339,8 @@ export function UseScreen({ branchId, userId }: Props) {
               )}
               {qty > stock && (
                 <Text style={styles.warn}>
-                  Vượt Tồn kho thực tế ({fmt(item, stock)}) — vẫn lưu được
+                  Vượt Tồn kho thực tế ({formatItemQty(item, stock)}) — vẫn lưu
+                  được
                 </Text>
               )}
             </View>
@@ -361,7 +353,7 @@ export function UseScreen({ branchId, userId }: Props) {
           <View key={m.id} style={styles.useRow}>
             <Text style={styles.useText}>
               {itemsById.get(m.item_id)?.name ?? "?"}:{" "}
-              {fmt(itemsById.get(m.item_id), m.qty)} ·{" "}
+              {formatItemQty(itemsById.get(m.item_id), m.qty)} ·{" "}
               {emails.get(m.created_by) ?? "—"} · {localTime(m.created_at)}
             </Text>
             {editing?.id === m.id ? (
