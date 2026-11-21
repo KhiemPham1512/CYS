@@ -121,7 +121,7 @@ Deno.serve(async (req) => {
     return json(200, { data: { user_id: created.user.id } });
   }
 
-  // set_locked / set_admin: người đích phải thuộc Chi nhánh của Quản trị.
+  // set_locked / set_admin / set_password: người đích phải thuộc Chi nhánh của Quản trị.
   const { data: target } = await admin
     .from("members")
     .select("is_locked")
@@ -137,6 +137,19 @@ Deno.serve(async (req) => {
       .eq("branch_id", branchId)
       .eq("user_id", request.user_id);
     if (error) return fail(409, messageForDbError(error));
+    return json(200, { data: null });
+  }
+
+  if (request.action === "set_password") {
+    // Đặt lại cho cả người đang bị khóa (mở khóa xong dùng luôn). Phiên cũ do Supabase Auth thu hồi khi đổi mật khẩu;
+    // access token còn sống tới khi hết hạn (tối đa ~1 giờ).
+    const { error } = await admin.auth.admin.updateUserById(request.user_id, {
+      password: request.password,
+    });
+    if (error) {
+      console.error("set_password", request.user_id, error.message);
+      return fail(500, "Không đặt lại được mật khẩu. Thử lại sau.");
+    }
     return json(200, { data: null });
   }
 

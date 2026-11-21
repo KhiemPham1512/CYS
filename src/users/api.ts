@@ -41,3 +41,6 @@ export const setLocked = (userId: string, locked: boolean) =>
 
 export const setAdmin = (userId: string, isAdmin: boolean) =>
   call<null>({ action: "set_admin", user_id: userId, is_admin: isAdmin });
+
+export const resetPassword = (userId: string, password: string) =>
+  call<null>({ action: "set_password", user_id: userId, password });

@@ -13,11 +13,15 @@ import { PageHeader } from "../ui/PageHeader";
 import { Text } from "../ui/Text";
 import { WIDE_LAYOUT } from "../navigation/adminWeb";
 import { Loading } from "../ui/Loading";
-import { validateNewUser } from "../../supabase/functions/admin-users/logic.ts";
+import {
+  validateNewUser,
+  validatePassword,
+} from "../../supabase/functions/admin-users/logic.ts";
 import { useOnline } from "../lib/useOnline";
 import {
   createUser,
   listUsers,
+  resetPassword,
   setAdmin,
   setLocked,
   type ManagedUser,
@@ -32,6 +36,7 @@ export function UsersScreen({ currentUserId }: { currentUserId: string }) {
   const [rowError, setRowError] = useState<{ id: string; msg: string } | null>(
     null
   );
+  const [resetFor, setResetFor] = useState<string | null>(null); // người đang mở ô đặt lại mật khẩu
 
   const reload = useCallback(async () => {
     setLoadError(null);
@@ -81,33 +86,49 @@ export function UsersScreen({ currentUserId }: { currentUserId: string }) {
   const disabled = !online || busyId !== null;
   const rows = users.map((u) => {
     const self = u.user_id === currentUserId;
-    const actions = !self && (
+    const actions = (
       <View style={styles.actions}>
+        {!self && (
+          <>
+            <Pressable
+              style={[styles.smallButton, disabled && styles.disabled]}
+              disabled={disabled}
+              onPress={() =>
+                act(u.user_id, () => setLocked(u.user_id, !u.is_locked))
+              }
+              accessibilityRole="button"
+              accessibilityLabel={`${u.is_locked ? "Mở khóa" : "Khóa"} ${u.email}`}
+              accessibilityState={{ disabled }}
+            >
+              <Text style={styles.smallButtonText}>
+                {u.is_locked ? "Mở khóa" : "Khóa"}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.smallButton, disabled && styles.disabled]}
+              disabled={disabled}
+              onPress={() =>
+                act(u.user_id, () => setAdmin(u.user_id, !u.is_admin))
+              }
+              accessibilityRole="button"
+              accessibilityLabel={`${u.is_admin ? "Bỏ Quản trị" : "Cấp Quản trị"} ${u.email}`}
+              accessibilityState={{ disabled }}
+            >
+              <Text style={styles.smallButtonText}>
+                {u.is_admin ? "Bỏ Quản trị" : "Cấp Quản trị"}
+              </Text>
+            </Pressable>
+          </>
+        )}
         <Pressable
           style={[styles.smallButton, disabled && styles.disabled]}
           disabled={disabled}
-          onPress={() =>
-            act(u.user_id, () => setLocked(u.user_id, !u.is_locked))
-          }
+          onPress={() => setResetFor(resetFor === u.user_id ? null : u.user_id)}
           accessibilityRole="button"
-          accessibilityLabel={`${u.is_locked ? "Mở khóa" : "Khóa"} ${u.email}`}
+          accessibilityLabel={`Đặt lại mật khẩu ${u.email}`}
           accessibilityState={{ disabled }}
         >
-          <Text style={styles.smallButtonText}>
-            {u.is_locked ? "Mở khóa" : "Khóa"}
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[styles.smallButton, disabled && styles.disabled]}
-          disabled={disabled}
-          onPress={() => act(u.user_id, () => setAdmin(u.user_id, !u.is_admin))}
-          accessibilityRole="button"
-          accessibilityLabel={`${u.is_admin ? "Bỏ Quản trị" : "Cấp Quản trị"} ${u.email}`}
-          accessibilityState={{ disabled }}
-        >
-          <Text style={styles.smallButtonText}>
-            {u.is_admin ? "Bỏ Quản trị" : "Cấp Quản trị"}
-          </Text>
+          <Text style={styles.smallButtonText}>Đặt lại mật khẩu</Text>
         </Pressable>
       </View>
     );
@@ -122,6 +143,14 @@ export function UsersScreen({ currentUserId }: { currentUserId: string }) {
     const err = rowError?.id === u.user_id && (
       <Text style={styles.error}>{rowError.msg}</Text>
     );
+    const resetForm = resetFor === u.user_id && (
+      <ResetPasswordForm
+        userId={u.user_id}
+        email={u.email}
+        disabled={!online}
+        onClose={() => setResetFor(null)}
+      />
+    );
     return wide ? (
       <View key={u.user_id} style={styles.trWide}>
         <View style={styles.colEmail}>
@@ -130,6 +159,7 @@ export function UsersScreen({ currentUserId }: { currentUserId: string }) {
             {self ? " (bạn)" : ""}
           </Text>
           {err}
+          {resetForm}
         </View>
         <View style={styles.colState}>{badges}</View>
         <View style={styles.colActions}>{actions}</View>
@@ -143,6 +173,7 @@ export function UsersScreen({ currentUserId }: { currentUserId: string }) {
         {badges}
         {actions}
         {err}
+        {resetForm}
       </View>
     );
   });
@@ -275,6 +306,76 @@ function NewUserForm({
   );
 }
 
+function ResetPasswordForm({
+  userId,
+  email,
+  disabled,
+  onClose,
+}: {
+  userId: string;
+  email: string;
+  disabled: boolean;
+  onClose: () => void;
+}) {
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
+    null
+  );
+  const [busy, setBusy] = useState(false);
+
+  async function submit() {
+    const invalid = validatePassword(password);
+    if (invalid) return setMessage({ ok: false, text: invalid });
+    setBusy(true);
+    setMessage(null);
+    const { error } = await resetPassword(userId, password);
+    setBusy(false);
+    if (error) return setMessage({ ok: false, text: error });
+    setPassword("");
+    setMessage({
+      ok: true,
+      text: "Đã đặt lại. Gửi mật khẩu mới cho người đó; họ đăng nhập lại bằng mật khẩu mới.",
+    });
+  }
+
+  const off = disabled || busy;
+  return (
+    <View style={styles.resetBox}>
+      <TextInput
+        style={styles.input}
+        placeholder={`Mật khẩu mới cho ${email}`}
+        secureTextEntry
+        autoCapitalize="none"
+        value={password}
+        onChangeText={setPassword}
+        accessibilityLabel={`Mật khẩu mới cho ${email}`}
+      />
+      {message && (
+        <Text style={message.ok ? styles.ok : styles.error}>
+          {message.text}
+        </Text>
+      )}
+      <View style={styles.actions}>
+        <Pressable
+          style={[styles.button, styles.resetSave, off && styles.disabled]}
+          disabled={off}
+          onPress={submit}
+          accessibilityRole="button"
+        >
+          <Text style={styles.buttonText}>{busy ? "Đang lưu…" : "Lưu"}</Text>
+        </Pressable>
+        <Pressable
+          style={styles.smallButton}
+          onPress={onClose}
+          accessibilityRole="button"
+        >
+          <Text style={styles.smallButtonText}>Đóng</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 const styles = themedStyles((c: Palette) => ({
   container: { padding: 16, gap: 12 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
@@ -306,6 +407,8 @@ const styles = themedStyles((c: Palette) => ({
   },
   smallButtonText: { color: c.accentDeep, fontWeight: "600" },
   form: { gap: 10, marginTop: 16 },
+  resetBox: { gap: 8, marginTop: 8 },
+  resetSave: { paddingHorizontal: 20, minHeight: 44 },
   pageWide: { padding: 24 },
   innerWide: { width: "100%", maxWidth: 1200, alignSelf: "center", gap: 16 },
   split: { flexDirection: "row", gap: 20, alignItems: "flex-start" },

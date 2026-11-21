@@ -5,7 +5,8 @@ export type AdminRequest =
   | { action: "list" }
   | { action: "create"; email: string; password: string; is_admin: boolean }
   | { action: "set_locked"; user_id: string; locked: boolean }
-  | { action: "set_admin"; user_id: string; is_admin: boolean };
+  | { action: "set_admin"; user_id: string; is_admin: boolean }
+  | { action: "set_password"; user_id: string; password: string };
 
 export const BAN_FOREVER = "876000h";
 export const UNBAN = "none";
@@ -15,13 +16,17 @@ const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+export const validatePassword = (password: string): string | null =>
+  password.length < 8 ? "Mật khẩu ít nhất 8 ký tự" : null;
+
 export function validateNewUser(
   email: string,
   password: string
 ): { email?: string; password?: string } {
   const errors: { email?: string; password?: string } = {};
   if (!EMAIL_RE.test(email.trim())) errors.email = "Email không hợp lệ";
-  if (password.length < 8) errors.password = "Mật khẩu ít nhất 8 ký tự";
+  const passwordError = validatePassword(password);
+  if (passwordError) errors.password = passwordError;
   return errors;
 }
 
@@ -83,6 +88,25 @@ export function parseAdminRequest(
           is_admin: b.is_admin,
         },
       };
+    case "set_password": {
+      if (
+        typeof b.user_id !== "string" ||
+        !UUID_RE.test(b.user_id) ||
+        typeof b.password !== "string"
+      ) {
+        return INVALID;
+      }
+      const passwordError = validatePassword(b.password);
+      if (passwordError) return { ok: false, error: passwordError };
+      return {
+        ok: true,
+        value: {
+          action: "set_password",
+          user_id: b.user_id,
+          password: b.password,
+        },
+      };
+    }
     default:
       return INVALID;
   }
