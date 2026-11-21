@@ -23,23 +23,34 @@ do $$
 declare i int;
 begin
   for i in 1..60 loop
-    assert public.take_read_quota('00000000-0000-0000-0000-0000000000a1'), 'lượt ' || i || ' phải được';
+    assert public.take_read_quota('00000000-0000-0000-0000-0000000000a1', 1), 'lượt ' || i || ' phải được';
   end loop;
-  assert not public.take_read_quota('00000000-0000-0000-0000-0000000000a1'), 'lượt 61 phải bị từ chối';
-  assert not public.take_read_quota('00000000-0000-0000-0000-0000000000a1'), 'vẫn từ chối sau đó';
+  assert not public.take_read_quota('00000000-0000-0000-0000-0000000000a1', 1), 'lượt 61 phải bị từ chối';
+  assert not public.take_read_quota('00000000-0000-0000-0000-0000000000a1', 1), 'vẫn từ chối sau đó';
+end $$;
+
+-- Trừ theo số ảnh: A đã hết lượt nên 6 ảnh cũng bị từ chối; số ảnh sai bị chặn.
+do $$ begin
+  assert not public.take_read_quota('00000000-0000-0000-0000-0000000000a1', 6), '6 ảnh khi đã hết lượt bị từ chối';
+  begin
+    perform public.take_read_quota('00000000-0000-0000-0000-0000000000a1', 7);
+    assert false, '7 ảnh phải bị chặn';
+  exception when invalid_parameter_value then null;
+  end;
 end $$;
 
 -- Người dùng B cùng Chi nhánh có bộ đếm riêng.
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000b"}', true);
 do $$ begin
-  assert public.take_read_quota('00000000-0000-0000-0000-0000000000a1'), 'B có bộ đếm riêng';
+  assert public.take_read_quota('00000000-0000-0000-0000-0000000000a1', 6), 'B có bộ đếm riêng, lấy 6 lượt một lần';
+  assert (select n from public.read_usage where user_id = '00000000-0000-0000-0000-00000000000b') = 6, 'B bị trừ 6';
 end $$;
 
 -- Thành viên bị khóa và người ngoài Chi nhánh không dùng được (và không tạo dòng đếm).
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000c"}', true);
 do $$ begin
   begin
-    perform public.take_read_quota('00000000-0000-0000-0000-0000000000a1');
+    perform public.take_read_quota('00000000-0000-0000-0000-0000000000a1', 1);
     assert false, 'thành viên bị khóa phải bị chặn';
   exception when insufficient_privilege then null;
   end;
@@ -47,7 +58,7 @@ end $$;
 select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-00000000000e"}', true);
 do $$ begin
   begin
-    perform public.take_read_quota('00000000-0000-0000-0000-0000000000a1');
+    perform public.take_read_quota('00000000-0000-0000-0000-0000000000a1', 1);
     assert false, 'người ngoài Chi nhánh phải bị chặn';
   exception when insufficient_privilege then null;
   end;

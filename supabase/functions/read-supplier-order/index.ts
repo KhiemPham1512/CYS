@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
   // Giới hạn lượt mỗi Người dùng mỗi ngày (hàm SQL take_read_quota); kiểm sau khi ảnh hợp lệ để yêu cầu hỏng không mất lượt.
   const { data: allowed, error: quotaError } = await userClient.rpc(
     "take_read_quota",
-    { p_branch_id: body.branch_id }
+    { p_branch_id: body.branch_id, p_count: body.images.length }
   );
   if (quotaError) {
     console.error("take_read_quota", quotaError.message);

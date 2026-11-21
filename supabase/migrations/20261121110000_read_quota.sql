@@ -11,21 +11,24 @@ create table public.read_usage (
 alter table public.read_usage enable row level security;
 revoke all on public.read_usage from anon, authenticated; -- client không đọc/ghi trực tiếp
 
-create function public.take_read_quota(p_branch_id uuid)
+create function public.take_read_quota(p_branch_id uuid, p_count int)
 returns boolean
 language plpgsql security definer set search_path = '' as $$
 declare
   v_n int;
 begin
+  if p_count < 1 or p_count > 6 then
+    raise exception 'Số ảnh không hợp lệ' using errcode = '22023';
+  end if;
   if not private.is_active_member(p_branch_id) then
     raise exception 'Không có quyền' using errcode = '42501';
   end if;
   insert into public.read_usage as u (branch_id, user_id, day, n)
-  values (p_branch_id, auth.uid(), (now() at time zone 'Asia/Ho_Chi_Minh')::date, 1)
-  on conflict (branch_id, user_id, day) do update set n = u.n + 1 where u.n < 60
+  values (p_branch_id, auth.uid(), (now() at time zone 'Asia/Ho_Chi_Minh')::date, p_count)
+  on conflict (branch_id, user_id, day) do update set n = u.n + p_count where u.n + p_count <= 60
   returning n into v_n;
-  return v_n is not null; -- null: đã đủ 60 lượt hôm nay
+  return v_n is not null; -- null: không đủ lượt hôm nay (lượt lần đầu trong ngày luôn được vì p_count <= 6)
 end $$;
 
-revoke execute on function public.take_read_quota(uuid) from public, anon;
-grant execute on function public.take_read_quota(uuid) to authenticated;
+revoke execute on function public.take_read_quota(uuid, int) from public, anon;
+grant execute on function public.take_read_quota(uuid, int) to authenticated;

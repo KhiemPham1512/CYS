@@ -143,7 +143,9 @@ export function ReadOrderScreen({ branchId }: Props) {
     setReading(false);
     const failed = results.find((r) => r.error);
     if (failed) {
-      setMessage(failed.error);
+      setMessage(
+        `${failed.error} Hoặc chọn “Đã đặt đúng như đơn” ở mục Đặt hàng.`
+      );
       return;
     }
     setRead(results.map((r) => r.lines ?? []));
@@ -203,6 +205,7 @@ export function ReadOrderScreen({ branchId }: Props) {
               <Pressable
                 key={g.id}
                 style={[styles.chip, g.id === groupId && styles.chipOn]}
+                disabled={reading}
                 onPress={() => {
                   setGroupId(g.id);
                   setRead(null);
@@ -234,7 +237,8 @@ export function ReadOrderScreen({ branchId }: Props) {
                 chỉ, giá. Hãy cắt bớt phần đó nếu thấy cần.
               </Text>
               <Pressable
-                style={styles.secondary}
+                style={[styles.secondary, reading && styles.disabled]}
+                disabled={reading}
                 onPress={() => void pickImages()}
                 accessibilityRole="button"
               >
