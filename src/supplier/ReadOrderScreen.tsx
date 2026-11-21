@@ -196,7 +196,7 @@ export function ReadOrderScreen({ branchId }: Props) {
       <ScrollView keyboardShouldPersistTaps="handled">
         <Text style={styles.section}>1. Chọn đơn của Nhà cung cấp</Text>
         {groupsWithOrder.length === 0 ? (
-          <Text style={styles.meta}>
+          <Text style={styles.note}>
             Chưa có đơn nào đã đặt để đối chiếu. Đặt hàng trước ở mục Đặt hàng.
           </Text>
         ) : (
@@ -408,6 +408,7 @@ const styles = themedStyles((c: Palette) => ({
   rowBad: { backgroundColor: c.amberSoft },
   name: { fontSize: 16, fontWeight: "600", color: c.ink },
   meta: { fontSize: 13, color: c.muted },
+  note: { fontSize: 14, color: c.muted, padding: 16 },
   okText: { fontSize: 14, fontWeight: "600", color: c.green },
   warnText: { fontSize: 14, fontWeight: "600", color: c.amber },
   okBanner: {
