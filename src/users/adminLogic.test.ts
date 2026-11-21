@@ -71,6 +71,64 @@ describe("parseAdminRequest", () => {
   });
 });
 
+describe("set_password", () => {
+  it("nhận user_id hợp lệ và mật khẩu từ 8 ký tự (không cắt khoảng trắng)", () => {
+    expect(
+      parseAdminRequest({
+        action: "set_password",
+        user_id: UID,
+        password: " 12345678 ",
+      })
+    ).toEqual({
+      ok: true,
+      value: { action: "set_password", user_id: UID, password: " 12345678 " },
+    });
+  });
+
+  it("từ chối mật khẩu ngắn và dữ liệu sai", () => {
+    expect(
+      parseAdminRequest({
+        action: "set_password",
+        user_id: UID,
+        password: "short",
+      })
+    ).toEqual({ ok: false, error: "Mật khẩu ít nhất 8 ký tự" });
+    const bad = { ok: false, error: "Yêu cầu không hợp lệ" };
+    expect(
+      parseAdminRequest({
+        action: "set_password",
+        user_id: "x",
+        password: "12345678",
+      })
+    ).toEqual(bad);
+    expect(
+      parseAdminRequest({
+        action: "set_password",
+        user_id: UID,
+        password: 12345678,
+      })
+    ).toEqual(bad);
+  });
+
+  it("cho phép đặt lại cho chính mình và cho người khác", () => {
+    const other = "22222222-2222-4222-8222-222222222222";
+    expect(
+      canActOn(UID, {
+        action: "set_password",
+        user_id: UID,
+        password: "12345678",
+      })
+    ).toBeNull();
+    expect(
+      canActOn(UID, {
+        action: "set_password",
+        user_id: other,
+        password: "12345678",
+      })
+    ).toBeNull();
+  });
+});
+
 describe("validateNewUser", () => {
   it("báo lỗi email và mật khẩu", () => {
     expect(validateNewUser("abc", "short")).toEqual({
