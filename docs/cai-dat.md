@@ -42,18 +42,18 @@ Kết quả: `.local-artifacts\release\cys-<phiên bản>.apk` (ký bằng khóa
 
 ### Web: Cloudflare tự dựng và đưa lên mạng
 
-Web chạy trên Cloudflare (Workers & Pages), nối với kho GitHub này. **Mỗi lần nhánh `main` thay đổi, Cloudflare tự dựng lại và cập nhật web**, không cần chạy lệnh tay. Mỗi nhánh/PR khác còn có một địa chỉ xem thử riêng (nếu bật Preview builds).
+Web chạy trên Cloudflare (Workers & Pages), nối với kho GitHub này. **Mỗi lần nhánh `main` thay đổi, Cloudflare tự dựng lại và cập nhật web**, không cần chạy lệnh tay. Bản xem thử cho từng nhánh/PR đang **tắt** (xem mục "Điều cần biết").
 
 Địa chỉ web dạng `https://<tên dự án>.<tên tài khoản>.workers.dev`. Địa chỉ thật do Quản trị giữ và gửi cho nhân viên, **không ghi vào repo** (repo công khai).
 
 #### Cấu hình ở Cloudflare (làm một lần)
 
-Workers & Pages → Create → Connect to Git → chọn đúng repo này, rồi điền:
+Workers & Pages → Create → Connect to Git → chọn đúng repo này. Ở Settings → Build có hai tab; điền tab **Production**:
 
 - **Production branch:** `main`
 - **Build command:** `npm run build:web`
 - **Deploy command:** `npx wrangler deploy --assets=./dist --name <tên dự án> --compatibility-date=2025-11-01` (tên trong lệnh phải khớp tên dự án).
-- **Non-production branch deploy command** (bản xem thử): `npx wrangler versions upload --assets=./dist --name <tên dự án> --compatibility-date=2025-11-01`
+- Tab **Previews Base**: tắt công tắc **Builds for Preview branches**. Bản xem thử mặc định dùng lệnh `npx wrangler preview`, lệnh này đòi file cấu hình mà dự án không có nên mỗi PR sẽ hiện check đỏ.
 - **Variables** (xem file `.env` trên máy): `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `NODE_VERSION` = `22`, `HUSKY` = `0`.
 - Tắt **Protect with Cloudflare Access**, nếu không nhân viên không vào được web.
 
@@ -62,6 +62,7 @@ Bản web chỉ chứa khóa công khai của Supabase (dữ liệu được RLS
 #### Điều cần biết
 
 - Dùng `npm run build:web`, không chạy thẳng `expo export`: Cloudflare bỏ qua thư mục `node_modules`, nên script đổi chỗ phông chữ để không bị mất.
+- Muốn có link xem thử riêng cho từng PR: bật lại **Builds for Preview branches** và **Enable Preview URLs** ở tab Previews Base, rồi đổi Preview command thành `npx wrangler versions upload --assets=./dist --name <tên dự án> --compatibility-date=2025-11-01`. Giữ lệnh mặc định `wrangler preview` thì build báo lỗi "missing a `previews` block".
 - Chỉ cần chờ vài phút sau khi merge vào `main`; xem tiến trình ở dự án → tab **Deployments**.
 - Dựng lỗi: mở bản dựng ở tab **Deployments** và xem dòng lỗi đỏ trong nhật ký.
 - Đổi phần tên tài khoản trong địa chỉ: Workers & Pages → trang danh sách → Account details → Subdomain (đổi xong địa chỉ cũ ngừng dùng được).
