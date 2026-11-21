@@ -226,6 +226,18 @@ export type Database = {
         Update: never;
         Relationships: [];
       };
+      supplier_aliases: {
+        Row: {
+          alias_key: string;
+          branch_id: string;
+          created_at: string;
+          created_by: string;
+          item_id: string;
+        };
+        Insert: { alias_key: string; branch_id: string; item_id: string };
+        Update: { item_id?: string };
+        Relationships: [];
+      };
       stock_movements: {
         Row: {
           batch_id: string | null;

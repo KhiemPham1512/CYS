@@ -34,6 +34,7 @@ import { ThemeProvider, useTheme } from "./src/theme/ThemeContext";
 import type { Palette } from "./src/theme/themes";
 import { Bow, Glyph, Logo } from "./src/ui/icons";
 import { HubSheet } from "./src/ui/HubSheet";
+import { ConfirmHost } from "./src/ui/ConfirmHost";
 import { MenuScreen } from "./src/ui/MenuScreen";
 import { fontFamily, useReduceMotion } from "./src/ui/motion";
 import { Splash } from "./src/ui/Splash";
@@ -49,6 +50,7 @@ import { OrderScreen } from "./src/orders/OrderScreen";
 import { OwedScreen } from "./src/orders/OwedScreen";
 import { ReceiveScreen } from "./src/orders/ReceiveScreen";
 import { UseScreen } from "./src/stock/UseScreen";
+import { ReadOrderScreen } from "./src/supplier/ReadOrderScreen";
 
 const LOCKED_MESSAGE = "Người dùng này đã bị khóa. Liên hệ Quản trị.";
 // RLS không phân biệt bị khóa với bị gỡ khỏi Chi nhánh.
@@ -115,6 +117,7 @@ function Root() {
           <LoginScreen online={online} notice={notice} />
         )}
       </View>
+      <ConfirmHost />
       {!splashDone && <Splash onDone={finishSplash} />}
       <StatusBar style="dark" />
     </View>
@@ -464,7 +467,8 @@ function HomeScreen({
             onSignOut={() => supabase.auth.signOut()}
           />
         );
-      case "readOrder": // chưa có màn (sắp có), không mở được từ Hub
+      case "readOrder":
+        return <ReadOrderScreen branchId={id} />;
       case "catalog":
         return <CatalogScreen branchId={id} />;
     }

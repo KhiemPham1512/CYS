@@ -36,7 +36,7 @@ export const HUB_SECTIONS: {
       { key: "order", label: "Đặt hàng" },
       { key: "receive", label: "Nhận hàng" },
       { key: "owed", label: "Hàng thiếu" },
-      { key: "readOrder", label: "Đọc ảnh đơn", soon: true }, // màn hình làm ở #11 PR2
+      { key: "readOrder", label: "Đọc ảnh đơn" },
     ],
   },
   {

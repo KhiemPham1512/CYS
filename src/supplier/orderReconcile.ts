@@ -14,6 +14,8 @@ export type MatchItem = {
   name: string;
   unit: string;
   case_size: number | null;
+  alt_name?: string | null; // tên in trên tờ đặt hàng (items.sheet.name), thường gần tên NCC hơn tên trong app
+  name_zh?: string | null; // tên tiếng Trung của món (nếu đã nhập), dùng để khớp với tên Trung trên đơn NCC
 };
 
 const vietnamesePart = (name: string) => name.split(" - ")[0];
@@ -24,7 +26,9 @@ function tokens(name: string): string[] {
     .split(/[\s,./-]+/)
     .filter((t) => t && !/^\d+(\.\d+)?(kg|g|l|ml|cc)$/.test(t));
 }
-const nameKey = (name: string) => tokens(vietnamesePart(name)).join(" ");
+const namesOf = (i: MatchItem): string[] =>
+  i.alt_name && i.alt_name !== i.name ? [i.name, i.alt_name] : [i.name];
+export const nameKey = (name: string) => tokens(vietnamesePart(name)).join(" ");
 
 // Ảnh chụp màn hình dài thường chồng nhau: dòng đã có ở ảnh trước thì bỏ, không cộng đôi.
 // Cùng món khác số lượng giữ cả hai (không đoán). Khác mã đơn là hai dòng khác nhau.
@@ -47,7 +51,29 @@ export function mergeRawLines(images: RawLine[][]): RawLine[] {
   return out;
 }
 
-export type NameMatch = { itemId: string; via: "alias" | "exact" | "fuzzy" };
+// shortcut: bảng đổi giản thể → phồn thể chỉ gồm các chữ hay gặp trên đơn đồ uống; chữ ngoài bảng thì khác nhau coi là khác, khi đó hỏi tay.
+const SIMPLE_TO_TRAD: Record<string, string> = Object.fromEntries(
+  "无無 马馬 圆圓 红紅 绿綠 鲜鮮 乌烏 龙龍 柠檸 乐樂 爱愛 冻凍 汤湯 饮飲 湾灣 浆漿 种種 双雙 气氣 麦麥 谷穀 绵綿 莲蓮 药藥 开開 对對 顶頂 级級 线線 纸紙 机機 号號"
+    .split(" ")
+    .map((p) => [...p] as [string, string])
+);
+const HAN = /[㐀-鿿]/;
+// Phần tiếng Trung của tên NCC (sau " - ", hoặc cả tên nếu chỉ có chữ Trung) → khóa so sánh: chữ Hán phồn thể + số kèm theo.
+function zhKey(name: string): string | null {
+  const part = name.includes(" - ")
+    ? name.slice(name.indexOf(" - ") + 3)
+    : name;
+  const chars = [...part].map((c) => SIMPLE_TO_TRAD[c] ?? c);
+  const han = chars.filter((c) => HAN.test(c));
+  if (han.length < 2) return null;
+  // Giữ cả số kèm theo (700, 5...): "珍珠 5" khác "珍珠".
+  return chars.filter((c) => HAN.test(c) || /\d/.test(c)).join("");
+}
+
+export type NameMatch = {
+  itemId: string;
+  via: "alias" | "exact" | "zh" | "fuzzy";
+};
 
 // Khớp tên NCC với món: alias đã nhớ > trùng tên > gần đúng (một món rõ nhất). Không khớp thì null để hỏi.
 export function matchSupplierName(
@@ -56,20 +82,37 @@ export function matchSupplierName(
   aliases: Record<string, string> // khóa = nameKey, giá trị = id món
 ): NameMatch | null {
   const key = nameKey(supplierName);
-  if (!key) return null;
-  const aliased = aliases[key];
+  const zh = zhKey(supplierName);
+  if (!key && !zh) return null;
+  const aliased = key ? aliases[key] : undefined;
   if (aliased && items.some((i) => i.id === aliased))
     return { itemId: aliased, via: "alias" };
-  const exact = items.find((i) => tokens(i.name).join(" ") === key);
-  if (exact) return { itemId: exact.id, via: "exact" };
+  const exact = key
+    ? items.filter((i) => namesOf(i).some((n) => tokens(n).join(" ") === key))
+    : [];
+  if (exact.length === 1) return { itemId: exact[0].id, via: "exact" };
+  if (exact.length > 1) return null; // nhiều món cùng khóa tên (vd khác khối lượng): hỏi, không đoán
+
+  if (zh) {
+    // Trùng tên Trung (kể cả số) và chỉ một món như vậy thì khớp; trùng nhiều món thì không đoán.
+    const same = items.filter((i) => i.name_zh && zhKey(i.name_zh) === zh);
+    if (same.length === 1) return { itemId: same[0].id, via: "zh" };
+    if (same.length > 1) return null;
+  }
+  if (!key) return null;
 
   const mine = new Set(key.split(" "));
   const scored = items
     .map((i) => {
-      const theirs = new Set(tokens(i.name));
-      const inter = [...mine].filter((t) => theirs.has(t)).length;
-      const union = new Set([...mine, ...theirs]).size;
-      return { id: i.id, score: union === 0 ? 0 : inter / union };
+      const score = Math.max(
+        ...namesOf(i).map((n) => {
+          const theirs = new Set(tokens(n));
+          const inter = [...mine].filter((t) => theirs.has(t)).length;
+          const union = new Set([...mine, ...theirs]).size;
+          return union === 0 ? 0 : inter / union;
+        })
+      );
+      return { id: i.id, score };
     })
     .sort((a, b) => b.score - a.score);
   const [best, second] = scored;
@@ -134,4 +177,24 @@ export function compareOrders(
     rows.push({ itemId, ordered: o, supplied: s, status });
   }
   return { rows, allOk: rows.every((r) => r.status === "ok") };
+}
+
+// Tối đa 3 món gần nhất với tên lạ (theo từ chung) để người dùng chạm một lần thay vì lục cả danh sách.
+export function suggestItems(
+  supplierName: string,
+  items: MatchItem[],
+  limit = 3
+): MatchItem[] {
+  const mine = new Set(tokens(vietnamesePart(supplierName)));
+  return items
+    .map((item) => {
+      const inter = Math.max(
+        ...namesOf(item).map((n) => tokens(n).filter((t) => mine.has(t)).length)
+      );
+      return { item, inter };
+    })
+    .filter((x) => x.inter > 0)
+    .sort((a, b) => b.inter - a.inter)
+    .slice(0, limit)
+    .map((x) => x.item);
 }

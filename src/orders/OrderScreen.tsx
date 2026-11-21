@@ -47,6 +47,13 @@ export function OrderScreen({ branchId }: Props) {
   const [saving, setSaving] = useState(false);
   const busy = useRef(false); // chống bấm đôi trước khi state kịp cập nhật
   const [message, setMessage] = useState<string | null>(null);
+  const [saveState, setSaveState] = useState<
+    "idle" | "saving" | "saved" | "error"
+  >("idle");
+  const failedInputs = useRef<Record<string, string> | null>(null); // số đã lưu lỗi: không tự thử lại cho tới khi người dùng gõ thêm
+  const inputsRef = useRef(inputs);
+  inputsRef.current = inputs;
+  const dirty = useRef(false); // có số chưa lưu (chỉ đặt khi người dùng gõ)
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -189,10 +196,18 @@ export function OrderScreen({ branchId }: Props) {
     }
   }
 
-  const handleSave = () =>
-    run(async () => {
-      if (!groupId) return null;
-      const cur = latest.current;
+  // Tự lưu nháp: không nút, không thông báo khi thành công; lỗi thì dừng, chờ người dùng gõ tiếp.
+  async function autosave() {
+    if (!groupId || !online || busy.current) return;
+    const cur = latest.current;
+    if (!cur.draft && cur.wanted.size === 0) {
+      dirty.current = false; // chưa có nháp mà cũng chẳng có số nào: không tạo nháp rỗng
+      return;
+    }
+    busy.current = true;
+    dirty.current = false;
+    setSaveState("saving");
+    try {
       const { error: err } = await saveDraft(
         branchId,
         groupId,
@@ -200,8 +215,38 @@ export function OrderScreen({ branchId }: Props) {
         cur.wanted,
         cur.scope
       );
-      return err ?? "Đã lưu nháp";
-    });
+      if (err) throw new Error(err);
+      await fetchData();
+      setMessage(null);
+      setSaveState("saved");
+    } catch {
+      dirty.current = true;
+      failedInputs.current = inputsRef.current;
+      setSaveState("error");
+      setMessage("Chưa lưu được nháp. Kiểm tra mạng rồi gõ lại để lưu.");
+      await fetchData(); // có thể máy khác đã tạo nháp Nhóm này: nạp lại để lần sau ghi đúng
+    } finally {
+      busy.current = false;
+    }
+  }
+
+  // Gõ xong khoảng 0,8 giây thì lưu; đang lưu dở thì lưu tiếp phần mới ngay khi xong.
+  useEffect(() => {
+    if (!dirty.current || hasErrors || !online || saveState === "saving")
+      return;
+    if (saveState === "error" && failedInputs.current === inputs) return;
+    const timer = setTimeout(() => void autosave(), 800);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inputs, hasErrors, online, saveState]);
+
+  // Đổi Nhóm hay rời màn: lưu ngay phần chưa lưu, không mất số vừa gõ.
+  const flush = () => {
+    if (dirty.current && !hasErrors) void autosave();
+  };
+  const flushRef = useRef(flush);
+  flushRef.current = flush;
+  useEffect(() => () => flushRef.current(), []);
 
   const handlePlace = () => {
     if (!groupId || parsed.wanted.size === 0) {
@@ -214,6 +259,7 @@ export function OrderScreen({ branchId }: Props) {
       confirmText: "Đã đặt",
       onConfirm: () =>
         void run(async () => {
+          dirty.current = false;
           const cur = latest.current;
           const saved = await saveDraft(
             branchId,
@@ -241,6 +287,7 @@ export function OrderScreen({ branchId }: Props) {
         void run(async () => {
           const { error: err } = await deleteDraft(draft.id);
           if (!err) {
+            dirty.current = false;
             setInputs({});
             setInitFor(groupId);
           }
@@ -265,7 +312,8 @@ export function OrderScreen({ branchId }: Props) {
       </View>
     );
 
-  const saveDisabled = !online || saving || hasErrors;
+  const placeDisabled =
+    !online || saving || saveState === "saving" || hasErrors;
 
   const editingItem = editingItemId
     ? (itemsById.get(editingItemId) ?? null)
@@ -303,6 +351,14 @@ export function OrderScreen({ branchId }: Props) {
             key={g.id}
             style={[styles.chip, g.id === groupId && styles.chipSelected]}
             onPress={() => {
+              if (g.id !== groupId) {
+                if (busy.current || saveState === "saving") return; // đang lưu: đợi xong rồi đổi
+                if (hasErrors) {
+                  setMessage("Sửa ô nhập sai trước khi đổi Nhóm");
+                  return;
+                }
+                flush();
+              }
               setGroupId(g.id);
               setEditingItemId(null);
               setMessage(null);
@@ -321,19 +377,30 @@ export function OrderScreen({ branchId }: Props) {
           </Pressable>
         ))}
       </ScrollView>
-      <Pressable
-        style={styles.viewBtn}
-        onPress={() => setSheetOpen(true)}
-        accessibilityRole="button"
-      >
-        <Text style={styles.viewBtnText}>Xem đơn đã đặt</Text>
-      </Pressable>
+      <View style={styles.statusRow}>
+        <Text style={styles.saveStatus}>
+          {saveState === "saving"
+            ? "Đang lưu…"
+            : saveState === "saved"
+              ? "Đã tự lưu"
+              : saveState === "error"
+                ? "Chưa lưu được"
+                : "Số bạn nhập tự động được lưu"}
+        </Text>
+        <Pressable
+          style={styles.viewBtn}
+          onPress={() => setSheetOpen(true)}
+          accessibilityRole="button"
+        >
+          <Text style={styles.viewBtnText}>Đơn đã đặt</Text>
+        </Pressable>
+      </View>
       {!online && <Text style={styles.error}>Mất mạng — không lưu được</Text>}
       {message && <Text style={styles.message}>{message}</Text>}
 
       <ScrollView keyboardShouldPersistTaps="handled">
         <Text style={styles.section}>
-          {draft ? "Đơn nháp" : "Đơn mới"} — nhập số lượng cần đặt
+          {draft ? "Đơn nháp" : "Đơn mới"} · chạm món để nhập số lượng
         </Text>
         {groupItems.map((item) => {
           const stock = totalQty(lotsByItem.get(item.id) ?? []);
@@ -347,20 +414,29 @@ export function OrderScreen({ branchId }: Props) {
               onPress={() => setEditingItemId(item.id)}
               accessibilityRole="button"
             >
-              <Text style={styles.name}>
-                {item.name}
-                {item.name_zh ? ` · ${item.name_zh}` : ""}
-              </Text>
-              <Text style={styles.meta}>
-                Tồn kho thực tế: {formatItemQty(item, stock)} · Hàng đang về:{" "}
-                {formatItemQty(item, coming)} · Tồn kho dự tính:{" "}
-                {formatItemQty(item, projectedQty(stock, coming))}
-              </Text>
-              {validQty !== undefined && (
-                <Text style={styles.summaryText}>
-                  Đặt: {formatItemQty(item, validQty)}
+              <View style={styles.rowTop}>
+                <Text style={styles.name}>
+                  {item.name}
+                  {item.name_zh ? ` · ${item.name_zh}` : ""}
                 </Text>
-              )}
+                {validQty !== undefined && (
+                  <Text style={styles.orderPill}>
+                    Đặt {formatItemQty(item, validQty)}
+                  </Text>
+                )}
+              </View>
+              <View style={styles.stats}>
+                {[
+                  ["Tồn kho", formatItemQty(item, stock)],
+                  ["Đang về", formatItemQty(item, coming)],
+                  ["Dự tính", formatItemQty(item, projectedQty(stock, coming))],
+                ].map(([label, value]) => (
+                  <View key={label} style={styles.stat}>
+                    <Text style={styles.statLabel}>{label}</Text>
+                    <Text style={styles.statValue}>{value}</Text>
+                  </View>
+                ))}
+              </View>
               {fieldError && (
                 <Text style={styles.fieldError}>{fieldError}</Text>
               )}
@@ -374,22 +450,8 @@ export function OrderScreen({ branchId }: Props) {
 
       <View style={styles.footer}>
         <Pressable
-          style={[styles.primary, saveDisabled && styles.disabled]}
-          disabled={saveDisabled}
-          onPress={() => void handleSave()}
-          accessibilityRole="button"
-        >
-          <Text style={styles.primaryText}>
-            {saving ? "Đang lưu…" : "Lưu nháp"}
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[
-            styles.primary,
-            styles.place,
-            saveDisabled && styles.disabled,
-          ]}
-          disabled={saveDisabled}
+          style={[styles.primary, placeDisabled && styles.disabled]}
+          disabled={placeDisabled}
           onPress={handlePlace}
           accessibilityRole="button"
         >
@@ -430,12 +492,14 @@ export function OrderScreen({ branchId }: Props) {
         preview={editingPreview}
         onChangeText={(t) => {
           if (!editingItem) return;
+          dirty.current = true;
           setInputs((p) => ({ ...p, [editingItem.id]: t }));
         }}
         onDone={() => setEditingItemId(null)}
         onReset={() => {
           if (editingItem) {
             const id = editingItem.id;
+            dirty.current = true;
             setInputs((p) => {
               const next = { ...p };
               delete next[id];
@@ -466,20 +530,40 @@ const styles = themedStyles((c: Palette) => ({
   },
   tabsContent: { paddingHorizontal: 12, paddingVertical: 8, gap: 8 },
   chip: {
-    paddingHorizontal: 14,
-    minHeight: 44,
+    paddingHorizontal: 16,
+    minHeight: 40,
     justifyContent: "center",
-    borderRadius: 22,
+    borderRadius: 20,
     backgroundColor: c.accentSoft,
   },
   chipSelected: { backgroundColor: c.accentDeep },
   chipText: { fontSize: 15, color: c.ink },
   chipTextSelected: { color: c.onAccent, fontWeight: "600" },
+  statusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 12,
+  },
+  saveStatus: { flex: 1, fontSize: 13, color: c.muted },
+  viewBtn: {
+    minHeight: 36,
+    paddingHorizontal: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: c.accentDeep,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  viewBtnText: { color: c.accentDeep, fontSize: 14, fontWeight: "600" },
   section: {
-    fontSize: 16,
-    fontWeight: "700",
+    fontSize: 14,
+    fontWeight: "600",
     color: c.accentDeep,
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     backgroundColor: c.accentSoft,
   },
   row: {
@@ -488,11 +572,36 @@ const styles = themedStyles((c: Palette) => ({
     borderBottomWidth: 1,
     borderBottomColor: c.accentSoft,
     backgroundColor: c.surface,
-    gap: 6,
+    gap: 8,
   },
-  name: { fontSize: 16, fontWeight: "600", color: c.ink },
+  rowTop: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  name: { flex: 1, fontSize: 16, fontWeight: "600", color: c.ink },
+  orderPill: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: c.onAccent,
+    backgroundColor: c.accentDeep,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    overflow: "hidden",
+  },
+  stats: { flexDirection: "row", gap: 8 },
+  stat: {
+    flex: 1,
+    backgroundColor: c.bg,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  statLabel: { fontSize: 11, color: c.muted },
+  statValue: { fontSize: 14, fontWeight: "600", color: c.ink },
   meta: { fontSize: 13, color: c.muted, paddingHorizontal: 16 },
-  summaryText: { fontSize: 13, color: c.accentDeep, fontWeight: "600" },
   fieldError: { color: c.red, fontSize: 14 },
   error: { color: c.red, fontSize: 14, textAlign: "center" },
   message: {
@@ -501,33 +610,21 @@ const styles = themedStyles((c: Palette) => ({
     textAlign: "center",
     padding: 8,
   },
-  viewBtn: {
-    marginHorizontal: 12,
-    marginVertical: 6,
-    minHeight: 44,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: c.accentDeep,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  viewBtnText: { color: c.accentDeep, fontSize: 15, fontWeight: "600" },
   footer: {
     padding: 16,
-    gap: 8,
+    gap: 4,
     borderTopWidth: 1,
     borderTopColor: c.line,
     backgroundColor: c.surface,
   },
   primary: {
     backgroundColor: c.accentDeep,
-    borderRadius: 8,
+    borderRadius: 14,
     padding: 14,
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 44,
+    minHeight: 48,
   },
-  place: { backgroundColor: c.amber },
   disabled: { opacity: 0.5 },
   primaryText: { color: c.onAccent, fontSize: 16, fontWeight: "600" },
   linkBtn: { minHeight: 44, alignItems: "center", justifyContent: "center" },

@@ -33,11 +33,9 @@ describe("Hub", () => {
     ]);
   });
 
-  it("Đọc ảnh đơn chưa có màn hình nên đánh dấu 'sắp có'; các mục khác dùng được", () => {
+  it("mọi mục Hub đều dùng được, không còn mục 'sắp có'", () => {
     const items = HUB_SECTIONS.flatMap((s) => s.items);
-    expect(items.filter((i) => i.soon).map((i) => i.key)).toEqual([
-      "readOrder",
-    ]);
+    expect(items.filter((i) => i.soon)).toEqual([]);
   });
 
   it("điện thoại không còn mục quản trị (Nhật ký, Người dùng, Sửa hàng loạt)", () => {

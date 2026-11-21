@@ -76,6 +76,10 @@ _Tránh_: nhập kho, nhập hàng
 So ảnh chụp đơn của nhà cung cấp với Đơn đặt hàng đã đặt trong app để báo chỗ lệch (ít hơn, nhiều hơn, thiếu món, ngoài đơn) hoặc "đã ổn"; chỉ kiểm tra, không sửa Đơn đặt hàng. Đơn đã đặt vẫn là Hàng đang về.
 _Tránh_: nhập đơn từ ảnh, đồng bộ đơn
 
+**Hạn mức đọc ảnh**:
+Số ảnh đơn nhà cung cấp mỗi Người dùng được gửi đọc trong một ngày (giờ Việt Nam) ở một Chi nhánh; hết thì chọn "Đã đặt đúng như đơn" hoặc đợi ngày mai.
+_Tránh_: quota, rate limit
+
 **Tên nhà cung cấp**:
 Cách nhà cung cấp gọi một Nguyên vật liệu trên đơn của họ (kèm tên Trung, mô tả quy cách như "12 lon/thùng"); tên lạ chưa khớp thì hỏi một lần rồi nhớ cho các lần sau.
 _Tránh_: tên ngoài, alias
