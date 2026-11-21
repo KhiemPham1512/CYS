@@ -34,6 +34,7 @@ import { ThemeProvider, useTheme } from "./src/theme/ThemeContext";
 import type { Palette } from "./src/theme/themes";
 import { Bow, Glyph, Logo } from "./src/ui/icons";
 import { HubSheet } from "./src/ui/HubSheet";
+import { ConfirmHost } from "./src/ui/ConfirmHost";
 import { MenuScreen } from "./src/ui/MenuScreen";
 import { fontFamily, useReduceMotion } from "./src/ui/motion";
 import { Splash } from "./src/ui/Splash";
@@ -116,6 +117,7 @@ function Root() {
           <LoginScreen online={online} notice={notice} />
         )}
       </View>
+      <ConfirmHost />
       {!splashDone && <Splash onDone={finishSplash} />}
       <StatusBar style="dark" />
     </View>

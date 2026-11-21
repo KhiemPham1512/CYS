@@ -12,7 +12,7 @@ import type { Tables } from "../lib/database.types";
 import { useOnline } from "../lib/useOnline";
 import { formatItemQty } from "../stock/qty";
 import { loadOrders, type OrderLineRow, type OrderRow } from "../orders/api";
-import { sheetQtyByItem } from "../orders/orders";
+import { orderedByItem } from "../orders/orders";
 import { loadReceivingData } from "../orders/receivingApi";
 import { nameKey, type CompareStatus, type RawLine } from "./orderReconcile";
 import { reviewSupplierOrder } from "./orderReview";
@@ -47,9 +47,9 @@ export function ReadOrderScreen({ branchId }: Props) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
 
-  const [groupId, setGroupId] = useState<string | null>(null);
   const [picked, setPicked] = useState<ImageInput[]>([]);
   const [read, setRead] = useState<RawLine[][] | null>(null);
+  const [parts, setParts] = useState<(RawLine[] | null)[]>([]); // kết quả từng ảnh đã chọn
   const [reading, setReading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [asking, setAsking] = useState<RawLine | null>(null); // tên lạ đang chọn món
@@ -84,34 +84,39 @@ export function ReadOrderScreen({ branchId }: Props) {
     void fetchData();
   }, [fetchData]);
 
-  // Chỉ Nhóm đã có đơn đặt mới có gì để đối chiếu.
-  const groupsWithOrder = useMemo(() => {
+  // Đơn nhà cung cấp gửi chung nhiều Nhóm: so với đơn đã đặt của mọi Nhóm, khớp tên trong toàn bộ món.
+  const placedGroupNames = useMemo(() => {
     const ids = new Set(
       orders.filter((o) => o.placed_at !== null).map((o) => o.group_id)
     );
-    return groups.filter((g) => ids.has(g.id));
+    return groups.filter((g) => ids.has(g.id)).map((g) => g.name);
   }, [groups, orders]);
 
-  const groupItems = useMemo(
-    () => items.filter((i) => i.group_id === groupId).sort(compareItems),
-    [items, groupId]
-  );
   const itemsById = useMemo(
     () => new Map(items.map((i) => [i.id, i])),
     [items]
   );
 
+  // Danh sách chọn món cho tên lạ: theo Nhóm, mỗi Nhóm một tiêu đề.
+  const itemsByGroup = useMemo(
+    () =>
+      groups.map((g) => ({
+        group: g,
+        items: items.filter((i) => i.group_id === g.id).sort(compareItems),
+      })),
+    [groups, items]
+  );
+
   const review = useMemo(() => {
-    if (!read || !groupId) return null;
-    const groupOrders = orders.filter((o) => o.group_id === groupId);
-    const ordered = sheetQtyByItem(groupOrders, lines, receivedLineIds).qty;
+    if (!read) return null;
+    const placed = orders.filter((o) => o.placed_at !== null);
     return reviewSupplierOrder({
       images: read,
-      items: groupItems,
+      items,
       aliases,
-      ordered,
+      ordered: orderedByItem(placed, lines, receivedLineIds),
     });
-  }, [read, groupId, orders, lines, receivedLineIds, groupItems, aliases]);
+  }, [read, orders, lines, receivedLineIds, items, aliases]);
 
   async function pickImages() {
     const res = await ImagePicker.launchImageLibraryAsync({
@@ -126,6 +131,7 @@ export function ReadOrderScreen({ branchId }: Props) {
       .filter((a) => a.base64)
       .map((a) => ({ mime: a.mimeType ?? "image/jpeg", data: a.base64 ?? "" }));
     setPicked(chosen.slice(0, MAX_IMAGES));
+    setParts([]);
     setRead(null);
     setMessage(
       chosen.length > MAX_IMAGES ? `Chỉ lấy ${MAX_IMAGES} ảnh đầu tiên` : null
@@ -137,18 +143,26 @@ export function ReadOrderScreen({ branchId }: Props) {
     if (!online || reading || picked.length === 0) return;
     setReading(true);
     setMessage(null);
+    // Ảnh đã đọc xong giữ lại; bấm lại chỉ đọc các ảnh còn lỗi (không tốn thêm lượt).
+    const todo = picked.map((_, i) => i).filter((i) => !parts[i]);
     const results = await Promise.all(
-      picked.map((img) => readOrderImages(branchId, [img]))
+      todo.map((i) => readOrderImages(branchId, [picked[i]]))
     );
     setReading(false);
+    const next = [...parts];
+    todo.forEach((i, k) => {
+      next[i] = results[k].lines ?? null;
+    });
+    setParts(next);
     const failed = results.find((r) => r.error);
     if (failed) {
+      const done = next.filter((x) => x).length;
       setMessage(
-        `${failed.error} Hoặc chọn “Đã đặt đúng như đơn” ở mục Đặt hàng.`
+        `${failed.error} Đã đọc ${done}/${picked.length} ảnh, bấm đọc lại để đọc tiếp ảnh còn lại. Hoặc chọn “Đã đặt đúng như đơn” ở mục Đặt hàng.`
       );
       return;
     }
-    setRead(results.map((r) => r.lines ?? []));
+    setRead(next.map((x) => x ?? []));
   }
 
   async function remember(line: RawLine, itemId: string) {
@@ -194,81 +208,53 @@ export function ReadOrderScreen({ branchId }: Props) {
       )}
       {message && <Text style={styles.error}>{message}</Text>}
       <ScrollView keyboardShouldPersistTaps="handled">
-        <Text style={styles.section}>1. Chọn đơn của Nhà cung cấp</Text>
-        {groupsWithOrder.length === 0 ? (
+        <Text style={styles.section}>
+          1. Chọn ảnh chụp đơn (tối đa {MAX_IMAGES})
+        </Text>
+        {placedGroupNames.length === 0 ? (
           <Text style={styles.note}>
             Chưa có đơn nào đã đặt để đối chiếu. Đặt hàng trước ở mục Đặt hàng.
           </Text>
         ) : (
-          <View style={styles.chips}>
-            {groupsWithOrder.map((g) => (
-              <Pressable
-                key={g.id}
-                style={[styles.chip, g.id === groupId && styles.chipOn]}
-                disabled={reading}
-                onPress={() => {
-                  setGroupId(g.id);
-                  setRead(null);
-                }}
-                accessibilityRole="button"
-                accessibilityState={{ selected: g.id === groupId }}
-              >
-                <Text
-                  style={[
-                    styles.chipText,
-                    g.id === groupId && styles.chipTextOn,
-                  ]}
-                >
-                  {g.name}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        )}
-
-        {groupId && (
-          <>
-            <Text style={styles.section}>
-              2. Chọn ảnh chụp đơn (tối đa {MAX_IMAGES})
+          <View style={styles.pad}>
+            <Text style={styles.meta}>
+              Đối chiếu với đơn đã đặt của: {placedGroupNames.join(", ")}.
             </Text>
-            <View style={styles.pad}>
-              <Text style={styles.meta}>
-                Ảnh gửi để đọc bảng sản phẩm; app dặn bỏ qua số điện thoại, địa
-                chỉ, giá. Hãy cắt bớt phần đó nếu thấy cần.
+            <Text style={styles.meta}>
+              Ảnh gửi để đọc bảng sản phẩm; app dặn bỏ qua số điện thoại, địa
+              chỉ, giá. Hãy cắt bớt phần đó nếu thấy cần.
+            </Text>
+            <Pressable
+              style={[styles.secondary, reading && styles.disabled]}
+              disabled={reading}
+              onPress={() => void pickImages()}
+              accessibilityRole="button"
+            >
+              <Text style={styles.secondaryText}>
+                {picked.length > 0
+                  ? `Đã chọn ${picked.length} ảnh · chọn lại`
+                  : "Chọn ảnh"}
               </Text>
-              <Pressable
-                style={[styles.secondary, reading && styles.disabled]}
-                disabled={reading}
-                onPress={() => void pickImages()}
-                accessibilityRole="button"
-              >
-                <Text style={styles.secondaryText}>
-                  {picked.length > 0
-                    ? `Đã chọn ${picked.length} ảnh · chọn lại`
-                    : "Chọn ảnh"}
-                </Text>
-              </Pressable>
-              <Pressable
-                style={[
-                  styles.primary,
-                  (!online || reading || picked.length === 0) &&
-                    styles.disabled,
-                ]}
-                disabled={!online || reading || picked.length === 0}
-                onPress={() => void readAll()}
-                accessibilityRole="button"
-              >
-                <Text style={styles.primaryText}>
-                  {reading ? "Đang đọc ảnh..." : "Đọc ảnh và đối chiếu"}
-                </Text>
-              </Pressable>
-            </View>
-          </>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.primary,
+                (!online || reading || picked.length === 0) && styles.disabled,
+              ]}
+              disabled={!online || reading || picked.length === 0}
+              onPress={() => void readAll()}
+              accessibilityRole="button"
+            >
+              <Text style={styles.primaryText}>
+                {reading ? "Đang đọc ảnh..." : "Đọc ảnh và đối chiếu"}
+              </Text>
+            </Pressable>
+          </View>
         )}
 
         {review && (
           <>
-            <Text style={styles.section}>3. Kết quả đối chiếu</Text>
+            <Text style={styles.section}>2. Kết quả đối chiếu</Text>
             {noLines ? (
               <Text style={styles.error}>
                 Không đọc được dòng nào. Thử ảnh rõ hơn, hoặc chọn “Đã đặt đúng
@@ -341,15 +327,20 @@ export function ReadOrderScreen({ branchId }: Props) {
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{asking?.name} là món nào?</Text>
             <ScrollView>
-              {groupItems.map((it) => (
-                <Pressable
-                  key={it.id}
-                  style={styles.pickRow}
-                  onPress={() => asking && void remember(asking, it.id)}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.name}>{it.name}</Text>
-                </Pressable>
+              {itemsByGroup.map(({ group, items: groupList }) => (
+                <View key={group.id}>
+                  <Text style={styles.pickGroup}>{group.name}</Text>
+                  {groupList.map((it) => (
+                    <Pressable
+                      key={it.id}
+                      style={styles.pickRow}
+                      onPress={() => asking && void remember(asking, it.id)}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.name}>{it.name}</Text>
+                    </Pressable>
+                  ))}
+                </View>
               ))}
             </ScrollView>
             <Pressable
@@ -461,6 +452,12 @@ const styles = themedStyles((c: Palette) => ({
     gap: 8,
   },
   modalTitle: { fontSize: 18, fontWeight: "700", color: c.ink },
+  pickGroup: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: c.accentDeep,
+    paddingTop: 12,
+  },
   pickRow: {
     paddingVertical: 12,
     borderBottomWidth: 1,

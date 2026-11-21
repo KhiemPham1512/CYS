@@ -89,11 +89,14 @@ Deno.serve(async (req) => {
       "Hết lượt đọc ảnh hôm nay. Thử lại ngày mai hoặc chọn 'Đã đặt đúng như đơn'."
     );
 
-  // Model chính hay quá tải (503) hoặc treo: giới hạn 40s rồi thử model nhẹ hơn.
+  // Model chính hay quá tải (503) hoặc đứng hình: chờ 20s rồi thử model nhẹ hơn (chờ tới 40s).
   const payload = JSON.stringify(buildGeminiRequest(body.images));
   let parsed = parseGeminiResponse(null);
   let reached = false;
-  for (const m of [model, FALLBACK_MODEL]) {
+  for (const [m, timeoutMs] of [
+    [model, 20_000],
+    [FALLBACK_MODEL, 40_000],
+  ] as const) {
     try {
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`,
@@ -104,7 +107,7 @@ Deno.serve(async (req) => {
             "x-goog-api-key": geminiKey,
           },
           body: payload,
-          signal: AbortSignal.timeout(40_000),
+          signal: AbortSignal.timeout(timeoutMs),
         }
       );
       reached = true;

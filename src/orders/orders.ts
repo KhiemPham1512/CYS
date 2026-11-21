@@ -47,3 +47,27 @@ export function sheetQtyByItem(
     pending.size > 0 ? pending : incomingByItem([latest], lines, new Set());
   return { qty, placedAt: latest.placed_at };
 }
+
+// Đơn đã đặt của mọi Nhóm gộp một bảng (món → số lượng) để so với đơn nhà cung cấp gửi chung nhiều Nhóm.
+// Mỗi Nhóm tính như sheetQtyByItem; một món chỉ thuộc một Nhóm nên không cộng đụng nhau.
+export function orderedByItem(
+  orders: (Order & { group_id: string })[],
+  lines: OrderLine[],
+  receivedLineIds: Set<string>
+): Map<string, number> {
+  const byGroup = new Map<string, (Order & { group_id: string })[]>();
+  for (const o of orders) {
+    const list = byGroup.get(o.group_id);
+    if (list) list.push(o);
+    else byGroup.set(o.group_id, [o]);
+  }
+  const all = new Map<string, number>();
+  for (const groupOrders of byGroup.values())
+    for (const [item, qty] of sheetQtyByItem(
+      groupOrders,
+      lines,
+      receivedLineIds
+    ).qty)
+      all.set(item, qty);
+  return all;
+}
