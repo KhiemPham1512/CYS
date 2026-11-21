@@ -33,7 +33,7 @@ export function orderSheetRows(
       name_zh: item.name_zh,
       unit: item.unit,
       qty:
-        qty === undefined
+        qty === undefined || qty <= 0
           ? ""
           : formatSheetQty(qty, {
               caseSize: item.case_size,
@@ -43,8 +43,9 @@ export function orderSheetRows(
   });
 }
 
-// Ô ảnh Tồn kho dự tính: "<Hàng đang về>+<Tồn thực tế>(<ngày trong tháng của Ngày sản xuất gần nhất>)".
-// Chỉ món theo dõi Ngày sản xuất mới có ngoặc ngày; không có Hàng đang về thì bỏ phần "+".
+// Ô ảnh Tồn kho dự tính: "<Hàng đang về> <Tồn thực tế>(<ngày trong tháng của Ngày sản xuất gần nhất>)", cách bằng dấu cách.
+// Món theo dõi Ngày sản xuất: hàng đang về chưa có ngày thì ghi "()" (vd "6() 3(15)"); món không theo dõi thì không có ngoặc.
+// Tồn thực tế bằng 0 thì không ghi; cả ô bằng 0 thì ghi "0", trừ món/Nhóm có cờ blank_zero trong dữ liệu in thì để trống.
 export function stockSheetCell(p: {
   incoming: number;
   actual: number;
@@ -52,14 +53,19 @@ export function stockSheetCell(p: {
   trackMfg: boolean;
   caseSize: number | null;
   byPercent: boolean;
+  blankZero?: boolean;
 }): string {
   const opts = { caseSize: p.caseSize, byPercent: p.byPercent };
-  const actual = formatSheetQty(p.actual, opts);
-  const qty =
-    p.incoming > 0 ? `${formatSheetQty(p.incoming, opts)}+${actual}` : actual;
-  if (!p.trackMfg || !p.lastMfg) return qty;
-  const day = Number(p.lastMfg.slice(8, 10)); // tờ giấy chỉ ghi ngày trong tháng: 6+3(15)
-  return `${qty}(${day})`;
+  const parts: string[] = [];
+  if (p.incoming > 0)
+    parts.push(`${formatSheetQty(p.incoming, opts)}${p.trackMfg ? "()" : ""}`);
+  if (p.actual > 0) {
+    const day =
+      p.trackMfg && p.lastMfg ? `(${Number(p.lastMfg.slice(8, 10))})` : ""; // tờ giấy chỉ ghi ngày trong tháng
+    parts.push(`${formatSheetQty(p.actual, opts)}${day}`);
+  }
+  if (parts.length === 0 && !p.blankZero) parts.push("0");
+  return parts.join(" ");
 }
 
 const MAX_NAMES = 8;
@@ -174,3 +180,46 @@ export function sheetStrings<K extends string>(
     if (typeof obj[k] === "string" && obj[k] !== "") out[k] = obj[k] as string;
   return out;
 }
+
+// Dựng mẫu tờ từ dữ liệu thô của DB (cột JSON "in trên tờ" của Chi nhánh/Nhóm/món): dùng chung cho Xuất ảnh và Đơn đang đặt.
+export function sheetModelFor(p: {
+  kind: "order" | "stock";
+  branchName: string;
+  branchSheet: unknown;
+  group: { name: string; name_zh: string | null; sheet: unknown };
+  items: { id: string; name: string; unit: string; sheet: unknown }[];
+  qtyByItem: Map<string, string>;
+}): SheetModel {
+  return buildSheetModel({
+    kind: p.kind,
+    branch: {
+      name: p.branchName,
+      sheet: sheetStrings(p.branchSheet, ["title", "order_zh", "stock_zh"]),
+    },
+    group: {
+      name: p.group.name,
+      name_zh: p.group.name_zh,
+      sheet: sheetStrings(p.group.sheet, ["qty_label", "label", "label_zh"]),
+    },
+    items: p.items.map((i) => ({
+      id: i.id,
+      name: i.name,
+      unit: i.unit,
+      sheet: sheetStrings(i.sheet, [
+        "name",
+        "zh",
+        "unit",
+        "unit_zh",
+        "note",
+        "category",
+        "category_zh",
+      ]) satisfies ItemSheet,
+    })),
+    qtyByItem: p.qtyByItem,
+  });
+}
+
+// Cờ "để trống khi 0" ở ảnh Tồn kho, đặt trong dữ liệu in của Nhóm hoặc món (blank_zero).
+export const blankZero = (groupSheet: unknown, itemSheet: unknown): boolean =>
+  !!sheetStrings(groupSheet, ["blank_zero"]).blank_zero ||
+  !!sheetStrings(itemSheet, ["blank_zero"]).blank_zero;

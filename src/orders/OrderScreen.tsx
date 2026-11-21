@@ -16,6 +16,7 @@ import { stockByItem, totalQty } from "../stock/ledger";
 import { formatItemQty, parseQty } from "../stock/qty";
 import {
   deleteDraft,
+  loadBranchSheet,
   loadOrders,
   placeOrder,
   saveDraft,
@@ -23,13 +24,15 @@ import {
   type OrderLineRow,
   type OrderRow,
 } from "./api";
-import { incomingByItem, projectedQty, sheetQtyByItem } from "./orders";
-import { PlacedOrderSheet } from "./PlacedOrderSheet";
+import { businessDay, incomingByItem, projectedQty } from "./orders";
+import { DraftSheet } from "./DraftSheet";
+import { orderSheetRows, sheetModelFor } from "./exportSheet";
+import { formatDate } from "../stock/date";
 import { loadReceivingData, subscribeReceiving } from "./receivingApi";
 
-type Props = { branchId: string };
+type Props = { branchId: string; branchName: string };
 
-export function OrderScreen({ branchId }: Props) {
+export function OrderScreen({ branchId, branchName }: Props) {
   const online = useOnline();
   const [groups, setGroups] = useState<Tables<"item_groups">[]>([]);
   const [items, setItems] = useState<Tables<"items">[]>([]);
@@ -56,6 +59,7 @@ export function OrderScreen({ branchId }: Props) {
   const dirty = useRef(false); // có số chưa lưu (chỉ đặt khi người dùng gõ)
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [branchSheet, setBranchSheet] = useState<unknown>(null);
 
   // Chỉ nhận kết quả của lần tải mới nhất; lần tải cũ về sau bị bỏ.
   const latestRequest = useRef(0);
@@ -63,11 +67,12 @@ export function OrderScreen({ branchId }: Props) {
     const request = ++latestRequest.current;
     setError(false);
     try {
-      const [catalog, movs, ord, rec] = await Promise.all([
+      const [catalog, movs, ord, rec, bs] = await Promise.all([
         loadCatalog(branchId),
         loadMovements(branchId),
         loadOrders(branchId),
         loadReceivingData(branchId),
+        loadBranchSheet(branchId),
       ]);
       if (request !== latestRequest.current) return;
       setGroups([...catalog.groups].sort(compareGroups));
@@ -76,6 +81,7 @@ export function OrderScreen({ branchId }: Props) {
       setOrders(ord.orders);
       setLines(ord.lines);
       setReceivedLineIds(rec.receivedLineIds);
+      setBranchSheet(bs);
       setGroupId((g) => g ?? catalog.groups[0]?.id ?? null);
     } catch {
       if (request === latestRequest.current) setError(true);
@@ -121,14 +127,6 @@ export function OrderScreen({ branchId }: Props) {
         .sort(compareItems),
     [items, groupId]
   );
-  const placedOrders = useMemo(
-    () => orders.filter((o) => o.group_id === groupId && o.placed_at !== null),
-    [orders, groupId]
-  );
-  const sheetData = useMemo(
-    () => sheetQtyByItem(placedOrders, lines, receivedLineIds),
-    [placedOrders, lines, receivedLineIds]
-  );
   const itemsById = useMemo(
     () => new Map(items.map((i) => [i.id, i])),
     [items]
@@ -162,6 +160,30 @@ export function OrderScreen({ branchId }: Props) {
     }
     return { errors, values, wanted };
   }, [inputs, groupItems]);
+
+  // Đơn đang đặt (số đang nhập trong nháp) vẽ theo mẫu tờ của Xuất ảnh; ngày = Ngày của đơn nếu đặt lúc này.
+  const draftModel = useMemo(() => {
+    const group = groups.find((g) => g.id === groupId);
+    if (!group) return null;
+    const rows = orderSheetRows(
+      groupItems,
+      new Map(Object.entries(parsed.values))
+    );
+    return sheetModelFor({
+      kind: "order",
+      branchName,
+      branchSheet,
+      group,
+      items: groupItems,
+      qtyByItem: new Map(groupItems.map((i, idx) => [i.id, rows[idx].qty])),
+    });
+  }, [groups, groupId, groupItems, parsed.values, branchName, branchSheet]);
+  const draftDate = formatDate(
+    businessDay(
+      new Date().toISOString(),
+      movements.filter((m) => m.kind === "count").map((m) => m.created_at)
+    )
+  );
 
   // Alert xác nhận giữ closure cũ; đọc dữ liệu mới nhất từ ref khi thực sự lưu/đặt.
   const latest = useRef({
@@ -392,7 +414,7 @@ export function OrderScreen({ branchId }: Props) {
           onPress={() => setSheetOpen(true)}
           accessibilityRole="button"
         >
-          <Text style={styles.viewBtnText}>Đơn đã đặt</Text>
+          <Text style={styles.viewBtnText}>Đơn đang đặt</Text>
         </Pressable>
       </View>
       {!online && <Text style={styles.error}>Mất mạng — không lưu được</Text>}
@@ -469,13 +491,11 @@ export function OrderScreen({ branchId }: Props) {
         )}
       </View>
 
-      <PlacedOrderSheet
+      <DraftSheet
         visible={sheetOpen}
         onClose={() => setSheetOpen(false)}
-        groupName={groups.find((g) => g.id === groupId)?.name ?? ""}
-        items={groupItems}
-        qtyByItem={sheetData.qty}
-        placedAt={sheetData.placedAt}
+        model={draftModel}
+        date={draftDate}
       />
       <ItemQtyModal
         visible={editingItem !== null}

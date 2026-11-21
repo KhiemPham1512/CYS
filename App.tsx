@@ -446,7 +446,7 @@ function HomeScreen({
       case "use":
         return <UseScreen branchId={id} userId={userId} />;
       case "order":
-        return <OrderScreen branchId={id} />;
+        return <OrderScreen branchId={id} branchName={branch.branch_name} />;
       case "receive":
         return <ReceiveScreen branchId={id} />;
       case "owed":

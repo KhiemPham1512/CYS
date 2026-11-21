@@ -108,6 +108,10 @@ _Tránh_: kiểm kê, inventory count
 Danh sách Nguyên vật liệu và số lượng quản lý muốn đặt, lập trong app để xuất ảnh gửi cho người đặt hàng.
 _Tránh_: đề xuất đặt hàng, phiếu đặt, order
 
+**Ngày của đơn**:
+Ngày mà một Đơn đặt hàng thuộc về: đặt trước khi Kiểm kho trong ngày thì là đơn hôm nay, đặt sau khi đã Kiểm kho thì là đơn ngày mai. Ảnh của ngày D gồm Đặt hàng = các đơn ngày D, Tồn kho = Hàng đang về của các đơn trước ngày D cộng Tồn kho thực tế.
+_Tránh_: ngày đặt (giờ bấm), ngày giao
+
 **Người đặt hàng**:
 Người ngoài app nhận Đơn đặt hàng, đặt với nhà cung cấp rồi gửi ảnh đơn đã đặt vào nhóm Zalo.
 _Tránh_: người mua, purchaser

@@ -290,7 +290,14 @@ export function PaperSheet({ model, date, orderer, width, shotRef }: Props) {
             {model.rows.map((r) => (
               <View
                 key={r.stt}
-                style={[cell, { height: rowH, paddingHorizontal: 1.4 * u }]}
+                style={[
+                  cell,
+                  {
+                    height: rowH,
+                    paddingHorizontal: 1 * u,
+                    alignItems: "center", // giữa ô theo chiều ngang (dọc đã có justifyContent ở cell)
+                  },
+                ]}
               >
                 <Text
                   numberOfLines={1}
@@ -299,8 +306,10 @@ export function PaperSheet({ model, date, orderer, width, shotRef }: Props) {
                   style={{
                     fontFamily: SERIF,
                     fontWeight: "700",
-                    fontSize: 3.4 * u,
-                    color: BLUE,
+                    fontSize: 2.5 * u,
+                    color: INK,
+                    textAlign: "center",
+                    width: "100%",
                   }}
                 >
                   {r.qty}

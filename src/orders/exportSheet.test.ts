@@ -32,6 +32,10 @@ describe("orderSheetRows", () => {
     ]);
   });
 
+  it("món có số 0 cũng để trống, không ghi 0", () => {
+    const rows = orderSheetRows([item("a")], new Map([["a", 0]]));
+    expect(rows[0].qty).toBe("");
+  });
   it("Nhóm không có món nào được đặt vẫn ra bảng đủ dòng, ô trống", () => {
     const rows = orderSheetRows([item("a"), item("b")], new Map());
     expect(rows.map((r) => r.qty)).toEqual(["", ""]);
@@ -42,10 +46,10 @@ describe("orderSheetRows", () => {
 describe("stockSheetCell", () => {
   const base = { caseSize: null, byPercent: false, trackMfg: false };
 
-  it("có hàng đang về: <đang về>+<tồn>", () => {
+  it("có hàng đang về: <đang về> <tồn>, cách bằng dấu cách", () => {
     expect(
       stockSheetCell({ ...base, incoming: 5, actual: 23, lastMfg: null })
-    ).toBe("5+23");
+    ).toBe("5 23");
   });
   it("không có hàng đang về: chỉ tồn thực tế", () => {
     expect(
@@ -62,7 +66,7 @@ describe("stockSheetCell", () => {
         actual: 523,
         lastMfg: null,
       })
-    ).toBe("2T+1T+23");
+    ).toBe("2T 1T+23");
     expect(
       stockSheetCell({
         caseSize: null,
@@ -74,7 +78,7 @@ describe("stockSheetCell", () => {
       })
     ).toBe("95%");
   });
-  it("món theo dõi hạn: thêm (ngày trong tháng của Ngày sản xuất gần nhất) như tờ mẫu 6+3(15); món không theo dõi thì không", () => {
+  it("món theo dõi hạn: thêm (ngày trong tháng của Ngày sản xuất gần nhất) ; hàng đang về chưa có ngày thì ghi () như 6() 3(5)", () => {
     const mfg = { ...base, incoming: 0, actual: 3, lastMfg: "2026-11-10" };
     expect(stockSheetCell({ ...mfg, trackMfg: true })).toBe("3(10)");
     expect(
@@ -84,7 +88,7 @@ describe("stockSheetCell", () => {
         trackMfg: true,
         incoming: 6,
       })
-    ).toBe("6+3(5)");
+    ).toBe("6() 3(5)");
     expect(stockSheetCell({ ...mfg, trackMfg: false })).toBe("3");
   });
   it("món theo dõi hạn nhưng chưa có ngày: không thêm ngoặc", () => {
@@ -102,6 +106,12 @@ describe("stockSheetCell", () => {
     expect(
       stockSheetCell({ ...base, incoming: 0, actual: 0, lastMfg: null })
     ).toBe("0");
+  });
+  it("món/Nhóm có cờ để trống: hết sạch thì ô trống; còn hàng đang về thì chỉ ghi phần đang về", () => {
+    const blank = { ...base, blankZero: true, lastMfg: null };
+    expect(stockSheetCell({ ...blank, incoming: 0, actual: 0 })).toBe("");
+    expect(stockSheetCell({ ...blank, incoming: 4, actual: 0 })).toBe("4");
+    expect(stockSheetCell({ ...blank, incoming: 0, actual: 2 })).toBe("2");
   });
 });
 

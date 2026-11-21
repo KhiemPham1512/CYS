@@ -109,3 +109,14 @@ export function subscribeOrders(
     onChange
   );
 }
+
+// Dữ liệu "in trên tờ" của Chi nhánh (tiêu đề, chữ Trung) cho mẫu tờ đặt hàng/tồn kho.
+export async function loadBranchSheet(branchId: string): Promise<unknown> {
+  const { data, error } = await supabase
+    .from("branch_settings")
+    .select("sheet")
+    .eq("branch_id", branchId)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.sheet ?? null;
+}
