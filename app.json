@@ -2,7 +2,7 @@
   "expo": {
     "name": "CYS",
     "slug": "cys",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -22,7 +22,14 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-media-library", "expo-font"],
+    "plugins": [
+      "expo-media-library",
+      "expo-font",
+      [
+        "expo-image-picker",
+        { "photosPermission": "Cho phép chọn ảnh đơn nhà cung cấp để đọc." }
+      ]
+    ],
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",

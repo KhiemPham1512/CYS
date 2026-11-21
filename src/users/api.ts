@@ -1,4 +1,5 @@
 import type { AdminRequest } from "../../supabase/functions/admin-users/logic.ts";
+import { functionErrorMessage } from "../lib/functionError";
 import { supabase } from "../lib/supabase";
 
 export type ManagedUser = {
@@ -16,14 +17,7 @@ async function call<T>(
     body,
   });
   if (!error) return { data: (data?.data ?? null) as T | null, error: null };
-  const context: unknown = (error as { context?: unknown }).context;
-  if (context instanceof Response) {
-    const payload = await context.json().catch(() => null);
-    if (typeof payload?.error === "string") {
-      return { data: null, error: payload.error };
-    }
-  }
-  return { data: null, error: "Không kết nối được. Kiểm tra mạng." };
+  return { data: null, error: await functionErrorMessage(error) };
 }
 
 export const listUsers = () => call<ManagedUser[]>({ action: "list" });

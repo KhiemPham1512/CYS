@@ -24,7 +24,7 @@ function tokens(name: string): string[] {
     .split(/[\s,./-]+/)
     .filter((t) => t && !/^\d+(\.\d+)?(kg|g|l|ml|cc)$/.test(t));
 }
-const nameKey = (name: string) => tokens(vietnamesePart(name)).join(" ");
+export const nameKey = (name: string) => tokens(vietnamesePart(name)).join(" ");
 
 // Ảnh chụp màn hình dài thường chồng nhau: dòng đã có ở ảnh trước thì bỏ, không cộng đôi.
 // Cùng món khác số lượng giữ cả hai (không đoán). Khác mã đơn là hai dòng khác nhau.
