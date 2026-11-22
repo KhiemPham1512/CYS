@@ -46,10 +46,10 @@ export function parseQty(input: string, opts: ParseQtyOptions): ParseQtyResult {
       }
       const boxes = Number(paren[1]);
       const partial = paren[2] === undefined ? 1 : Number(paren[2]);
-      if (partial < 1 || partial > boxes) {
+      const left = Number(paren[3].replace(",", ".")) / 100;
+      if (partial < 1 || partial > boxes || left > 1) {
         return { ok: false, error: "Số lượng không hợp lệ" };
       }
-      const left = Number(paren[3].replace(",", ".")) / 100;
       total += boxes - partial + partial * left;
       continue;
     }
@@ -159,7 +159,7 @@ export function parseAdjust(
     : { ok: true, value };
 }
 
-// Số viết kiểu tờ giấy / ô nhập: "1T+3", "2T", "7", "2+95%". Khứ hồi với parseQty.
+// Số viết kiểu tờ giấy / ô nhập: "1T+3", "2T", "7", "1(90%)", "3(1:95%)". Khứ hồi với parseQty.
 export function formatSheetQty(qty: number, opts: ParseQtyOptions): string {
   const q = round4(qty);
   if (q <= 0) return "0";

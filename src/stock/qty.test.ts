@@ -43,6 +43,15 @@ describe("parseQty", () => {
       ok: false,
       error: "Số lượng không hợp lệ",
     });
+    // Phần trăm còn lại không quá 100.
+    expect(parseQty("1(150%)", { caseSize: null, byPercent: true })).toEqual({
+      ok: false,
+      error: "Số lượng không hợp lệ",
+    });
+    expect(parseQty("1(100%)", { caseSize: null, byPercent: true })).toEqual({
+      ok: true,
+      value: 1,
+    });
     expect(parseQty("1(90%)", { caseSize: null, byPercent: true })).toEqual({
       ok: true,
       value: 0.9,

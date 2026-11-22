@@ -432,8 +432,9 @@ export function ExportScreen({ branchId, branchName }: Props) {
               Ảnh đã tạo. Bấm Lưu ảnh rồi chọn "Lưu hình ảnh" để vào Ảnh (hoặc
               chạm giữ ảnh).
             </Text>
-            {(webShots ?? []).map((s) => (
-              <View key={s.name} style={styles.shotCard}>
+            {/* shortcut: mọi ảnh (PNG 1240x1754 dạng data URI) nằm cùng lúc trong bộ nhớ; ít Nhóm nên chưa tách, nặng máy thì cho lưu từng Nhóm. */}
+            {(webShots ?? []).map((s, i) => (
+              <View key={`${i}-${s.name}`} style={styles.shotCard}>
                 {createElement("img", {
                   src: s.uri,
                   alt: s.name,
