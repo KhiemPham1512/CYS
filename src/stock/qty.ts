@@ -36,6 +36,18 @@ export function parseQty(input: string, opts: ParseQtyOptions): ParseQtyResult {
       return { ok: false, error: "Số lượng không hợp lệ" };
     }
 
+    // Viết như tờ giấy "N(P%)": N hộp, hộp cuối còn P% (1(90%) = 0,9; 2(90%) = 1,9).
+    const paren = /^(\d+)\s*\(\s*(\d+(?:[.,]\d+)?)\s*%\s*\)$/.exec(term);
+    if (paren) {
+      if (!opts.byPercent) {
+        return { ok: false, error: "Chỉ món Ghi theo % mới gõ được %" };
+      }
+      const boxes = Number(paren[1]);
+      if (boxes < 1) return { ok: false, error: "Số lượng không hợp lệ" };
+      total += boxes - 1 + Number(paren[2].replace(",", ".")) / 100;
+      continue;
+    }
+
     const match = /^(\d+(?:[.,]\d+)?)\s*([tT%])?$/.exec(term);
     if (!match) {
       return { ok: false, error: "Số lượng không hợp lệ" };
@@ -80,7 +92,7 @@ function formatRest(
     const frac = round4(r - whole);
     if (frac > 0) {
       const pct = formatDecimal(round4(frac * 100));
-      return whole > 0 ? `${whole} ${unitLower} ${pct}%` : `${pct}%`;
+      return whole > 0 ? `${whole} ${unitLower} ${pct}%` : `1(${pct}%)`;
     }
     return `${whole} ${unitLower}`;
   }
@@ -153,7 +165,7 @@ export function formatSheetQty(qty: number, opts: ParseQtyOptions): string {
       const frac = round4(r - whole);
       if (frac > 0) {
         const pct = formatDecimal(round4(frac * 100));
-        return whole > 0 ? `${whole}+${pct}%` : `${pct}%`;
+        return whole > 0 ? `${whole}+${pct}%` : `1(${pct}%)`;
       }
       return String(whole);
     }
