@@ -189,11 +189,19 @@ export function CountScreen({ branchId, onDone }: Props) {
     }
   }
 
-  // Lần Kiểm kho gần nhất (dòng count có batch_id, seq lớn nhất) để xem lại món lệch.
+  // Lần Kiểm kho gần nhất (dòng count chưa bị hủy có batch_id, seq lớn nhất) để xem lại món lệch.
   const latestBatchId = useMemo(() => {
+    const voided = new Set(
+      movements.flatMap((m) => (m.voids_id ? [m.voids_id] : []))
+    );
     let best: { seq: number; id: string } | null = null;
     for (const m of movements) {
-      if (m.kind === "count" && m.batch_id && (!best || m.seq > best.seq)) {
+      if (
+        m.kind === "count" &&
+        !voided.has(m.id) &&
+        m.batch_id &&
+        (!best || m.seq > best.seq)
+      ) {
         best = { seq: m.seq, id: m.batch_id };
       }
     }

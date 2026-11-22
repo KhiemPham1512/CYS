@@ -3,7 +3,10 @@ import {
   checkedSince,
   checkResetAt,
   countDiffs,
+  countTimes,
   localDate,
+  rollbackBatches,
+  rollbackPreview,
   stockByItem,
   stockLots,
   todaysUses,
@@ -13,7 +16,8 @@ import {
 } from "./ledger";
 
 function mv(
-  overrides: Partial<Movement> & Pick<Movement, "seq" | "kind">
+  overrides: Partial<Movement> &
+    Pick<Movement, "seq" | "kind"> & { note?: string | null }
 ): Movement {
   return {
     item_id: "item-1",
@@ -26,6 +30,7 @@ function mv(
     id: `id-${overrides.seq}`,
     voids_id: null,
     created_by: "user-1",
+    note: null,
     ...overrides,
   };
 }
@@ -214,6 +219,49 @@ describe("stockLots", () => {
   it("count qty = 0 trả về mảng rỗng", () => {
     expect(stockLots([mv({ seq: 1, kind: "count", qty: 0 })])).toEqual([]);
   });
+
+  it("bỏ qua Kiểm kho, Thêm Ngày sản xuất và Ghi dùng đã bị hủy (void)", () => {
+    const lots = stockLots([
+      mv({ seq: 1, item_id: "item-a", kind: "count", qty: 10, id: "c1" }),
+      mv({ seq: 2, item_id: "item-a", kind: "count", qty: 99, id: "c2" }),
+      mv({
+        seq: 3,
+        item_id: "item-a",
+        kind: "void",
+        voids_id: "c2",
+        note: "rollback",
+        batch_id: "rb-1",
+      }),
+      mv({
+        seq: 4,
+        item_id: "item-a",
+        kind: "assign_mfg",
+        qty: 4,
+        mfg_date: "2026-10-01",
+        id: "m1",
+      }),
+      mv({
+        seq: 5,
+        item_id: "item-a",
+        kind: "void",
+        voids_id: "m1",
+        note: "rollback",
+        batch_id: "rb-1",
+      }),
+      mv({ seq: 6, item_id: "item-a", kind: "use", qty: 3, id: "u1" }),
+      mv({
+        seq: 7,
+        item_id: "item-a",
+        kind: "void",
+        voids_id: "u1",
+        note: "rollback",
+        batch_id: "rb-1",
+      }),
+    ]);
+
+    expect(lots).toEqual([{ mfgDate: null, qty: 10, enteredOn: "2026-11-17" }]);
+    expect(totalQty(lots)).toBe(10);
+  });
 });
 
 describe("stockByItem", () => {
@@ -291,6 +339,44 @@ describe("countDiffs", () => {
     expect(diffs).toEqual([
       { item_id: "a", expected: 8, actual: 10, diff: 2 },
       { item_id: "c", expected: 5, actual: 3, diff: -2 },
+    ]);
+  });
+
+  it("bỏ qua dòng Kiểm kho đã bị hủy", () => {
+    const diffs = countDiffs(
+      [
+        mv({
+          seq: 1,
+          item_id: "item-a",
+          kind: "count",
+          qty: 10,
+          expected_qty: 8,
+          batch_id: "b1",
+          id: "c1",
+        }),
+        mv({
+          seq: 2,
+          item_id: "item-b",
+          kind: "count",
+          qty: 3,
+          expected_qty: 5,
+          batch_id: "b1",
+          id: "c2",
+        }),
+        mv({
+          seq: 3,
+          item_id: "item-b",
+          kind: "void",
+          voids_id: "c2",
+          note: "rollback",
+          batch_id: "rb-1",
+        }),
+      ],
+      "b1"
+    );
+
+    expect(diffs).toEqual([
+      { item_id: "item-a", expected: 8, actual: 10, diff: 2 },
     ]);
   });
 });
@@ -552,5 +638,202 @@ describe("checkedSince: món đã Kiểm kho kể từ mốc reset", () => {
       now
     );
     expect(r.has("a")).toBe(true);
+  });
+  it("bỏ qua Kiểm kho đã bị hủy", () => {
+    const r = checkedSince(
+      [
+        mv({
+          seq: 1,
+          kind: "count",
+          item_id: "item-a",
+          qty: 3,
+          id: "c1",
+          created_at: "2026-11-19T01:00:00Z",
+        }),
+        mv({
+          seq: 2,
+          kind: "count",
+          item_id: "item-b",
+          qty: 5,
+          id: "c2",
+          created_at: "2026-11-19T02:00:00Z",
+        }),
+        mv({
+          seq: 3,
+          kind: "void",
+          item_id: "item-b",
+          voids_id: "c2",
+          note: "rollback",
+          created_at: "2026-11-19T03:00:00Z",
+        }),
+      ],
+      now
+    );
+    expect([...r]).toEqual(["item-a"]);
+  });
+});
+
+describe("countTimes", () => {
+  it("chỉ lấy thời điểm của các dòng Kiểm kho chưa bị hủy", () => {
+    const times = countTimes([
+      mv({
+        seq: 1,
+        item_id: "item-a",
+        kind: "count",
+        qty: 5,
+        id: "c1",
+        created_at: "2026-11-17T01:00:00Z",
+      }),
+      mv({
+        seq: 2,
+        item_id: "item-a",
+        kind: "use",
+        qty: 1,
+        id: "u1",
+        created_at: "2026-11-17T02:00:00Z",
+      }),
+      mv({
+        seq: 3,
+        item_id: "item-a",
+        kind: "count",
+        qty: 4,
+        id: "c2",
+        created_at: "2026-11-18T01:00:00Z",
+      }),
+      mv({
+        seq: 4,
+        item_id: "item-a",
+        kind: "void",
+        voids_id: "c2",
+        note: "rollback",
+        created_at: "2026-11-18T02:00:00Z",
+      }),
+    ]);
+
+    expect(times).toEqual(["2026-11-17T01:00:00Z"]);
+  });
+});
+
+describe("rollbackBatches & rollbackPreview", () => {
+  it("rollbackBatches gom theo batch_id và xếp đợt mới nhất lên đầu", () => {
+    const batches = rollbackBatches([
+      mv({
+        seq: 1,
+        item_id: "item-a",
+        kind: "void",
+        note: "rollback",
+        batch_id: "batch-1",
+        voids_id: "c1",
+        created_at: "2026-11-18T01:00:00Z",
+      }),
+      mv({
+        seq: 2,
+        item_id: "item-a",
+        kind: "void",
+        note: "rollback",
+        batch_id: "batch-1",
+        voids_id: "c2",
+        created_at: "2026-11-18T01:00:05Z",
+      }),
+      mv({
+        seq: 3,
+        item_id: "item-a",
+        kind: "void",
+        note: null,
+        batch_id: null,
+        voids_id: "u1",
+        created_at: "2026-11-18T02:00:00Z",
+      }),
+      mv({
+        seq: 4,
+        item_id: "item-a",
+        kind: "void",
+        note: "rollback",
+        batch_id: "batch-2",
+        voids_id: "c3",
+        created_at: "2026-11-19T04:00:00Z",
+      }),
+    ]);
+
+    expect(batches).toEqual([
+      { batchId: "batch-2", at: "2026-11-19T04:00:00Z", count: 1 },
+      { batchId: "batch-1", at: "2026-11-18T01:00:05Z", count: 2 },
+    ]);
+  });
+
+  it("rollbackPreview chỉ đếm dòng hợp lệ (bỏ dòng void, đã bị hủy, trước mốc, khác người tạo)", () => {
+    const since = "2026-11-18T05:00:00Z";
+    const rows: Movement[] = [
+      mv({
+        seq: 1,
+        item_id: "item-a",
+        kind: "count",
+        qty: 10,
+        created_by: "user-a",
+        created_at: "2026-11-18T04:59:59Z",
+      }),
+      mv({
+        seq: 2,
+        item_id: "item-a",
+        kind: "count",
+        qty: 12,
+        created_by: "user-a",
+        created_at: "2026-11-18T05:00:00Z",
+      }),
+      mv({
+        seq: 3,
+        item_id: "item-a",
+        kind: "adjust",
+        qty: 15,
+        created_by: "user-a",
+        created_at: "2026-11-18T06:00:00Z",
+      }),
+      mv({
+        seq: 4,
+        item_id: "item-a",
+        kind: "assign_mfg",
+        qty: 5,
+        mfg_date: "2026-11-01",
+        created_by: "user-a",
+        created_at: "2026-11-18T07:00:00Z",
+      }),
+      mv({
+        seq: 5,
+        item_id: "item-a",
+        kind: "use",
+        qty: 2,
+        created_by: "user-b",
+        created_at: "2026-11-18T08:00:00Z",
+      }),
+      mv({
+        seq: 6,
+        item_id: "item-a",
+        kind: "use",
+        qty: 1,
+        id: "u-voided",
+        created_by: "user-a",
+        created_at: "2026-11-18T09:00:00Z",
+      }),
+      mv({
+        seq: 7,
+        item_id: "item-a",
+        kind: "void",
+        voids_id: "u-voided",
+        created_by: "user-a",
+        created_at: "2026-11-18T10:00:00Z",
+      }),
+      mv({
+        seq: 8,
+        item_id: "item-a",
+        kind: "receive",
+        qty: 4,
+        created_by: "user-a",
+        created_at: "2026-11-18T11:00:00Z",
+      }),
+    ];
+
+    expect(rollbackPreview(rows, since, null)).toBe(4);
+    expect(rollbackPreview(rows, since, "user-a")).toBe(3);
+    expect(rollbackPreview(rows, since, "user-b")).toBe(1);
   });
 });

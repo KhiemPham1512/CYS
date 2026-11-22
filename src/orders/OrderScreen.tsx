@@ -12,7 +12,7 @@ import { ItemQtyModal } from "../components/ItemQtyModal";
 import type { Tables } from "../lib/database.types";
 import { useOnline } from "../lib/useOnline";
 import { loadMovements, subscribeMovements } from "../stock/api";
-import { stockByItem, totalQty } from "../stock/ledger";
+import { countTimes, stockByItem, totalQty } from "../stock/ledger";
 import { formatItemQty, parseQty } from "../stock/qty";
 import {
   deleteDraft,
@@ -179,10 +179,7 @@ export function OrderScreen({ branchId, branchName }: Props) {
     });
   }, [groups, groupId, groupItems, parsed.values, branchName, branchSheet]);
   const draftDate = formatDate(
-    businessDay(
-      new Date().toISOString(),
-      movements.filter((m) => m.kind === "count").map((m) => m.created_at)
-    )
+    businessDay(new Date().toISOString(), countTimes(movements))
   );
 
   // Alert xác nhận giữ closure cũ; đọc dữ liệu mới nhất từ ref khi thực sự lưu/đặt.
