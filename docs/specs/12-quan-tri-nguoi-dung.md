@@ -38,7 +38,7 @@ Không import gì ngoài TS thuần (chạy được cả trong Deno lẫn Vites
 ## 3. Client — `src/users/api.ts`
 
 - `type ManagedUser = { user_id: string; email: string; is_admin: boolean; is_locked: boolean; created_at: string }`.
-- Hàm nội bộ `call<T>(body: AdminRequest): Promise<{ data: T | null; error: string | null }>` dùng `supabase.functions.invoke("admin-users", { body })`. Khi `error`: nếu `error.context` là `Response` thì `await error.context.json()` lấy `.error`; không được → "Không kết nối được. Kiểm tra mạng.".
+- Hàm nội bộ `call<T>(body: AdminRequest): Promise<{ data: T | null; error: string | null }>` dùng `supabase.functions.invoke("admin-users", { body })`. Khi `error`: dùng `functionErrorMessage` (`src/lib/functionError.ts`): có `error.context` là phản hồi máy chủ thì lấy `.error` trong thân JSON, thân không đọc được thì "Máy chủ báo lỗi (<mã>). Thử lại sau."; không có phản hồi (mất mạng) → "Không kết nối được. Kiểm tra mạng.".
 - Xuất `listUsers()`, `createUser(email, password, isAdmin)`, `setLocked(userId, locked)`, `setAdmin(userId, isAdmin)`.
 
 ## 4. Màn — `src/users/UsersScreen.tsx` (props `{ currentUserId: string }`)
