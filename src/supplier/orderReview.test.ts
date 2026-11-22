@@ -80,6 +80,38 @@ describe("reviewSupplierOrder", () => {
     expect(known.rows[0]).toMatchObject({ itemId: "jam", supplied: 1 });
   });
 
+  it("dòng khớp nhờ tên đã nhớ hoặc đoán gần đúng được liệt kê để sửa; khớp tên đúng thì không", () => {
+    const strange = raw({ name: "Hàng X - 某", qty: 1 });
+    const remembered = reviewSupplierOrder({
+      images: [[strange]],
+      items: [jam, tea],
+      aliases: { "hang x": "tea" },
+      ordered: new Map(),
+    });
+    expect(remembered.matched).toEqual([
+      { line: strange, itemId: "tea", via: "alias" },
+    ]);
+
+    const fuzzyLine = raw({ name: "Mứt cam loại 1", qty: 2 });
+    const guessed = reviewSupplierOrder({
+      images: [[fuzzyLine]],
+      items: [jam],
+      aliases: {},
+      ordered: new Map(),
+    });
+    expect(guessed.matched).toEqual([
+      { line: fuzzyLine, itemId: "jam", via: "fuzzy" },
+    ]);
+
+    const exact = reviewSupplierOrder({
+      images: [[raw({ name: "Mứt cam" })]],
+      items: [jam],
+      aliases: {},
+      ordered: new Map(),
+    });
+    expect(exact.matched).toEqual([]);
+  });
+
   it("đơn vị không quy đổi được thì báo riêng, không đoán số", () => {
     const odd = raw({ qty: 2, unit: "Kiện", pack: null });
     const r = reviewSupplierOrder({

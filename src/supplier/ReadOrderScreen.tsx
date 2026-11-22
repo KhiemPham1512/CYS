@@ -324,6 +324,31 @@ export function ReadOrderScreen({ branchId }: Props) {
               </View>
             ))}
 
+            {review.matched.length > 0 && (
+              <>
+                <Text style={styles.note}>
+                  Tên nhà cung cấp đã khớp (đã nhớ hoặc đoán). Nhầm thì bấm Sửa
+                </Text>
+                {review.matched.map(({ line, itemId, via }, i) => (
+                  <View key={`m${i}`} style={styles.row}>
+                    <Text style={styles.name}>{line.name}</Text>
+                    <Text style={styles.meta}>
+                      → {nameOf(itemId)} · {via === "alias" ? "đã nhớ" : "đoán"}
+                    </Text>
+                    <Pressable
+                      style={[styles.secondary, !online && styles.disabled]}
+                      disabled={!online}
+                      onPress={() => setAsking(line)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Sửa món khớp cho ${line.name}`}
+                    >
+                      <Text style={styles.secondaryText}>Sửa</Text>
+                    </Pressable>
+                  </View>
+                ))}
+              </>
+            )}
+
             {review.unconvertible.map(({ line, itemId }, i) => (
               <View key={`c${i}`} style={styles.row}>
                 <Text style={styles.name}>{nameOf(itemId)}</Text>

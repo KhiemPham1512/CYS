@@ -104,6 +104,17 @@ describe("formatQty", () => {
     ).toBe("15 hộp");
   });
 
+  it("món đơn vị là thùng (1 thùng = 1 thùng): in số thập phân, không lặp 'thùng thùng'", () => {
+    const o = { caseSize: 1, unit: "Thùng", byPercent: false };
+    expect(formatQty(1.5, o)).toBe("1,5 thùng");
+    expect(formatQty(2, o)).toBe("2 thùng");
+    expect(formatQty(0.5, o)).toBe("0,5 thùng");
+    // Đơn vị là thùng mà Quy cách thùng khác 1 cũng không tách "thùng" + phần dư cùng tên.
+    expect(formatQty(15, { ...o, caseSize: 12 })).toBe("15 thùng");
+    // Quy cách 1 với đơn vị khác: 1 thùng = 1 đơn vị, tách ra chỉ thừa chữ.
+    expect(formatQty(2.5, { ...o, unit: "Hộp" })).toBe("2,5 hộp");
+  });
+
   it("khứ hồi parseQty(formatQty(x)) với món có caseSize cho các giá trị nguyên", () => {
     const caseSize = 12;
     const toInput = (formatted: string): string =>

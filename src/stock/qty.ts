@@ -96,7 +96,10 @@ export function formatQty(qty: number, opts: FormatQtyOptions): string {
     return `0 ${unitLower}`;
   }
 
-  if (opts.caseSize !== null && opts.caseSize > 0 && q >= opts.caseSize) {
+  // Quy cách 1 hoặc đơn vị chính là "thùng": tách "N thùng" + phần dư sẽ lặp chữ (1 thùng 0,5 thùng), in số thẳng.
+  const splitCases =
+    opts.caseSize !== null && opts.caseSize > 1 && unitLower !== "thùng";
+  if (splitCases && opts.caseSize !== null && q >= opts.caseSize) {
     const cases = Math.floor((q + 1e-9) / opts.caseSize);
     const rest = Math.max(0, round4(q - cases * opts.caseSize));
     if (rest === 0) {
