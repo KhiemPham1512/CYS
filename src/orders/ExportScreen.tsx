@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as MediaLibrary from "expo-media-library/legacy";
 import {
+  createElement,
   useCallback,
   useEffect,
   useMemo,
@@ -10,6 +11,7 @@ import {
 } from "react";
 import {
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   useWindowDimensions,
@@ -42,6 +44,7 @@ import {
 } from "./exportSheet";
 import { PaperSheet } from "./PaperSheet";
 import { businessDay, incomingBefore, orderedOnDay } from "./orders";
+import { dataUriToFile, imageFileName, shareOrDownload } from "./webImage";
 import { loadReceivingData } from "./receivingApi";
 
 type Props = { branchId: string; branchName: string };
@@ -49,8 +52,9 @@ type Kind = "order" | "stock";
 
 const NAMES_KEY = "cys.orderer-names";
 
-// Xuất ảnh theo mẫu tờ giấy: mỗi Nhóm một ảnh, lưu thẳng vào Thư viện ảnh của máy.
-// shortcut: chỉ Android/iOS (chưa tải PNG trên web); chưa ghi người xuất.
+// Xuất ảnh theo mẫu tờ giấy: mỗi Nhóm một ảnh. App: lưu thẳng vào Thư viện ảnh của máy.
+// Web (iPhone Safari không có Thư viện): hiện các ảnh đã chụp, mỗi ảnh một nút Lưu/Chia sẻ.
+// shortcut: chưa ghi người xuất.
 export function ExportScreen({ branchId, branchName }: Props) {
   const [groups, setGroups] = useState<Tables<"item_groups">[]>([]);
   const [items, setItems] = useState<Tables<"items">[]>([]);
@@ -68,6 +72,9 @@ export function ExportScreen({ branchId, branchName }: Props) {
   const [target, setTarget] = useState<string | null>(null); // Nhóm đang mở bản xem trước
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [webShots, setWebShots] = useState<
+    { name: string; uri: string }[] | null
+  >(null); // web: ảnh đã chụp, chờ người dùng bấm Lưu/Chia sẻ
   const shot = useRef<ComponentRef<typeof View>>(null);
 
   const fetchData = useCallback(async () => {
@@ -194,16 +201,40 @@ export function ExportScreen({ branchId, branchName }: Props) {
     [group, kind, branchName, branchSheet, groupItems, qtyByItem]
   );
 
-  // Chụp bảng đang mở trong khung và lưu vào Thư viện ảnh.
-  const captureAndSave = async () => {
+  const isWeb = Platform.OS === "web";
+
+  // Chụp bảng đang mở trong khung (web trả data URI, app trả file tạm).
+  const capture = async () => {
     if (!shot.current) throw new Error("no sheet");
-    const uri = await captureRef(shot, {
+    return captureRef(shot, {
       format: "png",
       quality: 1,
       width: 1240,
       height: 1754,
+      result: isWeb ? "data-uri" : "tmpfile",
     });
-    await MediaLibrary.saveToLibraryAsync(uri);
+  };
+
+  // App: chụp rồi lưu vào Thư viện ảnh.
+  const captureAndSave = async () => {
+    await MediaLibrary.saveToLibraryAsync(await capture());
+  };
+
+  const fileNameFor = (groupName: string) =>
+    imageFileName(
+      kind === "order" ? "Đơn đặt hàng" : "Tồn kho dự tính",
+      groupName,
+      date
+    );
+
+  const shareShot = async (s: { name: string; uri: string }) => {
+    try {
+      await shareOrDownload(dataUriToFile(s.uri, s.name));
+    } catch (e) {
+      setMessage(
+        `Không lưu được ảnh: ${e instanceof Error ? e.message : String(e)}`
+      );
+    }
   };
 
   const rememberName = () => {
@@ -221,27 +252,39 @@ export function ExportScreen({ branchId, branchName }: Props) {
     setBusy(true);
     setMessage(null);
     try {
-      const perm = await MediaLibrary.requestPermissionsAsync(true);
-      if (!perm.granted) {
-        setMessage("Cần cho phép lưu ảnh vào Thư viện.");
-        return;
+      if (!isWeb) {
+        const perm = await MediaLibrary.requestPermissionsAsync(true);
+        if (!perm.granted) {
+          setMessage("Cần cho phép lưu ảnh vào Thư viện.");
+          return;
+        }
       }
+      const shots: { name: string; uri: string }[] = [];
       if (all) {
         for (const g of groups) {
           setTarget(g.id);
           // shortcut: chờ cố định để bảng của Nhóm mới vẽ xong trước khi chụp.
           await new Promise((r) => setTimeout(r, 500));
-          await captureAndSave();
+          if (isWeb)
+            shots.push({ name: fileNameFor(g.name), uri: await capture() });
+          else await captureAndSave();
         }
+      } else if (isWeb) {
+        shots.push({
+          name: fileNameFor(group?.name ?? ""),
+          uri: await capture(),
+        });
       } else {
         await captureAndSave();
       }
       rememberName();
-      setMessage(
-        all
-          ? `Đã lưu ${groups.length} ảnh vào Thư viện.`
-          : "Đã lưu ảnh vào Thư viện."
-      );
+      if (isWeb) setWebShots(shots);
+      else
+        setMessage(
+          all
+            ? `Đã lưu ${groups.length} ảnh vào Thư viện.`
+            : "Đã lưu ảnh vào Thư viện."
+        );
     } catch (e) {
       setMessage(
         `Không lưu được ảnh: ${e instanceof Error ? e.message : String(e)}`
@@ -316,7 +359,7 @@ export function ExportScreen({ branchId, branchName }: Props) {
           <Text style={styles.primaryText}>
             {busy
               ? "Đang lưu..."
-              : `Xuất ${groups.length} ảnh ${kind === "order" ? "Đơn đặt hàng" : "Tồn kho dự tính"} vào Thư viện`}
+              : `Xuất ${groups.length} ảnh ${kind === "order" ? "Đơn đặt hàng" : "Tồn kho dự tính"}${isWeb ? "" : " vào Thư viện"}`}
           </Text>
         </Pressable>
         {message && !group ? <Text style={styles.error}>{message}</Text> : null}
@@ -377,12 +420,53 @@ export function ExportScreen({ branchId, branchName }: Props) {
           </View>
         </View>
       </Modal>
+
+      <Modal
+        visible={webShots !== null}
+        animationType="slide"
+        onRequestClose={() => setWebShots(null)}
+      >
+        <View style={styles.modal}>
+          <ScrollView contentContainerStyle={styles.pad}>
+            <Text style={styles.label}>
+              Ảnh đã tạo. Bấm Lưu ảnh rồi chọn "Lưu hình ảnh" để vào Ảnh (hoặc
+              chạm giữ ảnh).
+            </Text>
+            {(webShots ?? []).map((s) => (
+              <View key={s.name} style={styles.shotCard}>
+                {createElement("img", {
+                  src: s.uri,
+                  alt: s.name,
+                  style: { width: "100%", height: "auto" },
+                })}
+                <Pressable
+                  style={styles.primary}
+                  onPress={() => void shareShot(s)}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.primaryText}>Lưu ảnh</Text>
+                </Pressable>
+              </View>
+            ))}
+          </ScrollView>
+          {message ? <Text style={styles.error}>{message}</Text> : null}
+          <View style={styles.btnRow}>
+            <Pressable
+              style={[styles.secondary, styles.half]}
+              onPress={() => setWebShots(null)}
+            >
+              <Text style={styles.secondaryText}>Xong</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = themedStyles((c: Palette) => ({
   paperWrap: { alignItems: "center", paddingVertical: 12 },
+  shotCard: { gap: 8, marginBottom: 16 },
   container: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
   pad: { padding: 16, gap: 8 },
