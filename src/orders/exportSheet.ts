@@ -100,6 +100,7 @@ export type ItemSheet = {
   zh?: string;
   unit?: string;
   unit_zh?: string;
+  qty_suffix?: string; // chữ viết kèm số lượng trong ô (vd. "Sấp" → "1 Sấp"), như viết tay trên tờ
   note?: string;
   category?: string;
   category_zh?: string;
@@ -155,7 +156,11 @@ export function buildSheetModel(p: {
   const rows: SheetModel["rows"] = [];
   const categories: SheetModel["categories"] = [];
   for (const item of p.items) {
-    const qty = p.qtyByItem.get(item.id) ?? "";
+    const raw = p.qtyByItem.get(item.id) ?? "";
+    const qty =
+      item.sheet.qty_suffix && raw !== "" && raw !== "0"
+        ? `${raw} ${item.sheet.qty_suffix}`
+        : raw;
     rows.push({
       stt: rows.length + 1,
       name: item.sheet.name ?? item.name,
@@ -223,6 +228,7 @@ export function sheetModelFor(p: {
         "zh",
         "unit",
         "unit_zh",
+        "qty_suffix",
         "note",
         "category",
         "category_zh",

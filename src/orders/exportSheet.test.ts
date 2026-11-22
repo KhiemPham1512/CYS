@@ -76,7 +76,7 @@ describe("stockSheetCell (đúng cách viết trên tờ giấy)", () => {
     ).toBe("2T+1T+23");
     expect(
       stockSheetCell({ ...base, byPercent: true, lots: [lot(0.95)] })
-    ).toBe("95%");
+    ).toBe("1(95%)");
   });
   it("món theo dõi hạn: hàng đang về chưa có ngày ghi (), mỗi lô ghi riêng, cách bằng dấu cách: 6() 4(21)", () => {
     const t = { ...base, trackMfg: true };
@@ -152,6 +152,25 @@ describe("buildSheetModel (tờ giấy giống mẫu)", () => {
     const stock = buildSheetModel({ ...base, kind: "stock" });
     expect(stock.title).toBe("TỒN KHO MỖI NGÀY - CN X");
     expect(stock.titleZh).toBe("（庫存）");
+  });
+
+  it("qty_suffix: ô số lượng của món in kèm chữ như viết tay (1 Sấp); ô trống hoặc 0 thì để nguyên", () => {
+    const m = buildSheetModel({
+      ...base,
+      items: [
+        mi("a", { sheet: { qty_suffix: "Sấp" } }),
+        mi("b", { sheet: { qty_suffix: "Sấp" } }),
+        mi("c", { sheet: { qty_suffix: "Sấp" } }),
+        mi("d"),
+      ],
+      qtyByItem: new Map([
+        ["a", "1"],
+        ["b", ""],
+        ["c", "0"],
+        ["d", "2"],
+      ]),
+    });
+    expect(m.rows.map((r) => r.qty)).toEqual(["1 Sấp", "", "0", "2"]);
   });
 
   it("chưa có tên in thì dùng tên Chi nhánh viết hoa", () => {
