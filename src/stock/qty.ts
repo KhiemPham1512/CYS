@@ -36,15 +36,21 @@ export function parseQty(input: string, opts: ParseQtyOptions): ParseQtyResult {
       return { ok: false, error: "Số lượng không hợp lệ" };
     }
 
-    // Viết như tờ giấy "N(P%)": N hộp, hộp cuối còn P% (1(90%) = 0,9; 2(90%) = 1,9).
-    const paren = /^(\d+)\s*\(\s*(\d+(?:[.,]\d+)?)\s*%\s*\)$/.exec(term);
+    // Viết như tờ giấy "N(k:P%)": N hộp, trong đó k hộp còn P%, còn lại nguyên; bỏ "k:" thì k = 1
+    // (1(90%) = 0,9; 2(1:90%) = 2(90%) = 1,9).
+    const paren =
+      /^(\d+)\s*\(\s*(?:(\d+)\s*:\s*)?(\d+(?:[.,]\d+)?)\s*%\s*\)$/.exec(term);
     if (paren) {
       if (!opts.byPercent) {
         return { ok: false, error: "Chỉ món Ghi theo % mới gõ được %" };
       }
       const boxes = Number(paren[1]);
-      if (boxes < 1) return { ok: false, error: "Số lượng không hợp lệ" };
-      total += boxes - 1 + Number(paren[2].replace(",", ".")) / 100;
+      const partial = paren[2] === undefined ? 1 : Number(paren[2]);
+      const left = Number(paren[3].replace(",", ".")) / 100;
+      if (partial < 1 || partial > boxes || left > 1) {
+        return { ok: false, error: "Số lượng không hợp lệ" };
+      }
+      total += boxes - partial + partial * left;
       continue;
     }
 
@@ -92,7 +98,7 @@ function formatRest(
     const frac = round4(r - whole);
     if (frac > 0) {
       const pct = formatDecimal(round4(frac * 100));
-      return whole > 0 ? `${whole} ${unitLower} ${pct}%` : `1(${pct}%)`;
+      return whole > 0 ? `${whole + 1}(1:${pct}%)` : `1(${pct}%)`;
     }
     return `${whole} ${unitLower}`;
   }
@@ -153,7 +159,7 @@ export function parseAdjust(
     : { ok: true, value };
 }
 
-// Số viết kiểu tờ giấy / ô nhập: "1T+3", "2T", "7", "2+95%". Khứ hồi với parseQty.
+// Số viết kiểu tờ giấy / ô nhập: "1T+3", "2T", "7", "1(90%)", "3(1:95%)". Khứ hồi với parseQty.
 export function formatSheetQty(qty: number, opts: ParseQtyOptions): string {
   const q = round4(qty);
   if (q <= 0) return "0";
@@ -165,7 +171,8 @@ export function formatSheetQty(qty: number, opts: ParseQtyOptions): string {
       const frac = round4(r - whole);
       if (frac > 0) {
         const pct = formatDecimal(round4(frac * 100));
-        return whole > 0 ? `${whole}+${pct}%` : `1(${pct}%)`;
+        // shortcut: chỉ biết tổng nên coi phần lẻ là đúng 1 hộp lẻ (k = 1); nhiều hộp lẻ khác mức thì gõ tay N(k:P%).
+        return whole > 0 ? `${whole + 1}(1:${pct}%)` : `1(${pct}%)`;
       }
       return String(whole);
     }

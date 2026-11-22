@@ -29,7 +29,29 @@ describe("parseQty", () => {
       ok: true,
       value: 2.95,
     });
-    // Viết như tờ giấy: "1(90%)" = 1 hộp còn 90%; "2(90%)" = 2 hộp, hộp cuối còn 90%.
+    // Viết như tờ giấy: "N(k:P%)" = N hộp, trong đó k hộp còn P%, còn lại nguyên; bỏ "k:" thì k = 1.
+    // "1(90%)" = 0,9; "2(1:90%)" = "2(90%)" = 1,9; "3(2:50%)" = 1 + 2×0,5 = 2.
+    expect(parseQty("2(1:90%)", { caseSize: null, byPercent: true })).toEqual({
+      ok: true,
+      value: 1.9,
+    });
+    expect(parseQty("3(2:50%)", { caseSize: null, byPercent: true })).toEqual({
+      ok: true,
+      value: 2,
+    });
+    expect(parseQty("2(3:90%)", { caseSize: null, byPercent: true })).toEqual({
+      ok: false,
+      error: "Số lượng không hợp lệ",
+    });
+    // Phần trăm còn lại không quá 100.
+    expect(parseQty("1(150%)", { caseSize: null, byPercent: true })).toEqual({
+      ok: false,
+      error: "Số lượng không hợp lệ",
+    });
+    expect(parseQty("1(100%)", { caseSize: null, byPercent: true })).toEqual({
+      ok: true,
+      value: 1,
+    });
     expect(parseQty("1(90%)", { caseSize: null, byPercent: true })).toEqual({
       ok: true,
       value: 0.9,
@@ -109,7 +131,7 @@ describe("formatQty", () => {
     );
     expect(
       formatQty(2.95, { caseSize: null, unit: "Hộp", byPercent: true })
-    ).toBe("2 hộp 95%");
+    ).toBe("3(1:95%)");
     expect(
       formatQty(0.95, { caseSize: null, unit: "Hộp", byPercent: true })
     ).toBe("1(95%)");
@@ -206,9 +228,19 @@ describe("formatSheetQty (số viết kiểu tờ giấy)", () => {
   });
 
   it("Ghi theo %: phần lẻ viết bằng %", () => {
-    expect(formatSheetQty(2.95, { caseSize: null, byPercent: true })).toBe(
-      "2+95%"
+    // Có hộp nguyên + 1 hộp lẻ: "N(1:P%)" (N hộp, 1 hộp còn P%): 1,9 → "2(1:90%)", 2,95 → "3(1:95%)".
+    expect(formatSheetQty(1.9, { caseSize: null, byPercent: true })).toBe(
+      "2(1:90%)"
     );
+    expect(formatSheetQty(2.95, { caseSize: null, byPercent: true })).toBe(
+      "3(1:95%)"
+    );
+    expect(
+      parseQty(formatSheetQty(1.9, { caseSize: null, byPercent: true }), {
+        caseSize: null,
+        byPercent: true,
+      })
+    ).toEqual({ ok: true, value: 1.9 });
     // Chưa đủ 1 hộp: viết như tờ giấy "1(95%)" (1 hộp còn 95%); khứ hồi với parseQty.
     expect(formatSheetQty(0.95, { caseSize: null, byPercent: true })).toBe(
       "1(95%)"
