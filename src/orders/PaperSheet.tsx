@@ -46,6 +46,9 @@ export function PaperSheet({ model, date, orderer, width, shotRef }: Props) {
     (model.rows.length > 16 ? 1.95 : model.rows.length > 12 ? 2.4 : 2.5) * u;
   const nameFs = Math.min(baseFs, nameColW / longest);
   const unitFs = (model.rows.length > 16 ? 1.8 : 2.1) * u;
+  // Tiêu đề (kèm chữ Trung) thu nhỏ vừa khổ giấy; adjustsFontSizeToFit không chạy trên web nên tính tay.
+  const titleText = `${model.title}${model.titleZh ? `   ${model.titleZh}` : ""}`;
+  const titleFs = Math.min(4.4 * u, (tableW * 0.95) / textEm(titleText));
   const cell = useMemo(
     (): ViewStyle => ({
       borderRightWidth: 1,
@@ -72,17 +75,14 @@ export function PaperSheet({ model, date, orderer, width, shotRef }: Props) {
     >
       <Text
         numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.6}
         style={{
           fontFamily: SERIF,
           fontWeight: "700",
-          fontSize: 4.4 * u,
+          fontSize: titleFs,
           color: INK,
         }}
       >
-        {model.title}
-        {model.titleZh ? `   ${model.titleZh}` : ""}
+        {titleText}
       </Text>
 
       <View
