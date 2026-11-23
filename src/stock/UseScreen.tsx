@@ -39,7 +39,7 @@ export function UseScreen({ branchId, userId }: Props) {
   const [items, setItems] = useState<Tables<"items">[]>([]);
   const [groupOrder, setGroupOrder] = useState<Map<string, number>>(new Map());
   const [movements, setMovements] = useState<Tables<"stock_movements">[]>([]);
-  const [emails, setEmails] = useState<Map<string, string>>(new Map());
+  const [names, setNames] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [query, setQuery] = useState("");
@@ -64,8 +64,8 @@ export function UseScreen({ branchId, userId }: Props) {
       setGroupOrder(new Map(catalog.groups.map((g) => [g.id, g.sort_order])));
       setMovements(movs);
       setOrder((prev) => prev ?? usageCounts(movs, userId));
-      // Email chỉ để hiện "ai ghi"; lỗi thì hiện không tên, không chặn màn hình.
-      loadMemberNames(branchId).then(setEmails, () => {});
+      // Tên (hoặc email) chỉ để hiện "ai ghi"; lỗi thì hiện không tên, không chặn màn hình.
+      loadMemberNames(branchId).then(setNames, () => {});
     } catch {
       setError(true);
     } finally {
@@ -354,7 +354,7 @@ export function UseScreen({ branchId, userId }: Props) {
             <Text style={styles.useText}>
               {itemsById.get(m.item_id)?.name ?? "?"}:{" "}
               {formatItemQty(itemsById.get(m.item_id), m.qty)} ·{" "}
-              {emails.get(m.created_by) ?? "—"} · {localTime(m.created_at)}
+              {names.get(m.created_by) ?? "—"} · {localTime(m.created_at)}
             </Text>
             {editing?.id === m.id ? (
               <>

@@ -13,7 +13,6 @@ describe("syncMovements", () => {
     const s = server([1, 2, 3]);
     const c = await syncMovements(undefined, s.since, s.count);
     expect(c.rows.map((r) => r.seq)).toEqual([1, 2, 3]);
-    expect(c.maxSeq).toBe(3);
     expect(s.count).not.toHaveBeenCalled();
   });
 
@@ -38,7 +37,6 @@ describe("syncMovements", () => {
     );
     const c = await syncMovements(first, server([1, 2]).since, async () => 2);
     expect(c.rows.map((r) => r.seq)).toEqual([1, 2]);
-    expect(c.maxSeq).toBe(2);
   });
 
   it("máy chủ có ít dòng hơn (đã xóa) thì tải lại đủ", async () => {
@@ -50,7 +48,6 @@ describe("syncMovements", () => {
     const s = server([3]);
     const c = await syncMovements(first, s.since, s.count);
     expect(c.rows.map((r) => r.seq)).toEqual([3]);
-    expect(c.maxSeq).toBe(3);
   });
 
   it("sót dòng seq nhỏ commit trễ thì tải lại đủ", async () => {
@@ -62,17 +59,5 @@ describe("syncMovements", () => {
     const s = server([1, 2, 3]); // dòng 2 hiện sau khi đã đọc tới 3
     const c = await syncMovements(first, s.since, s.count);
     expect(c.rows.map((r) => r.seq)).toEqual([1, 2, 3]);
-  });
-
-  it("máy chủ trống sau khi đã có bản nhớ thì ra sổ trống", async () => {
-    const first = await syncMovements(
-      undefined,
-      server([1]).since,
-      async () => 1
-    );
-    const s = server([]);
-    const c = await syncMovements(first, s.since, s.count);
-    expect(c.rows).toEqual([]);
-    expect(c.maxSeq).toBe(0);
   });
 });

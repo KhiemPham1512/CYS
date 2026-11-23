@@ -53,7 +53,7 @@ export function DevScreen({
 }) {
   const online = useOnline();
   const [movements, setMovements] = useState<Tables<"stock_movements">[]>([]);
-  const [members, setMembers] = useState<{ id: string; email: string }[]>([]);
+  const [members, setMembers] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
 
@@ -71,12 +71,12 @@ export function DevScreen({
     setLoadError(false);
     resetMovementCache(branchId); // sau Quay lại/Xóa dữ liệu, tải đủ sổ thay vì nối thêm
     try {
-      const [movs, emailMap] = await Promise.all([
+      const [movs, nameMap] = await Promise.all([
         loadMovements(branchId),
         loadMemberNames(branchId),
       ]);
       setMovements(movs);
-      setMembers([...emailMap.entries()].map(([id, email]) => ({ id, email })));
+      setMembers([...nameMap.entries()].map(([id, name]) => ({ id, name })));
     } catch {
       setLoadError(true);
     } finally {
@@ -331,7 +331,7 @@ export function DevScreen({
                   accessibilityRole="button"
                 >
                   <Text style={[styles.chipText, on && styles.chipTextOn]}>
-                    {m.email}
+                    {m.name}
                   </Text>
                 </Pressable>
               );
