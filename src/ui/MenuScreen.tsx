@@ -1,17 +1,30 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { cleanDisplayName, initialsOf } from "../profile/name";
+import { loadProfile, pickAvatar, saveProfile } from "../profile/api";
 import { useTheme } from "../theme/ThemeContext";
 import { PALETTES, type ThemeName } from "../theme/themes";
 import { Bow, Glyph, Logo } from "./icons";
+import { TextInput } from "./TextInput";
 import { fontFamily } from "./motion";
 
 // Menu ≡: tài khoản, chi nhánh, kết nối, chủ đề, đăng xuất.
 export function MenuScreen({
+  userId,
   email,
   isAdmin,
   branchName,
   online,
   onSignOut,
 }: {
+  userId: string;
   email: string;
   isAdmin: boolean;
   branchName: string;
@@ -19,7 +32,55 @@ export function MenuScreen({
   onSignOut: () => void;
 }) {
   const { theme, palette, setTheme } = useTheme();
-  const initials = (email.split("@")[0] || "?").slice(0, 2).toUpperCase();
+  const [name, setName] = useState<string | null>(null);
+  const [avatar, setAvatar] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [draftName, setDraftName] = useState("");
+  const [draftAvatar, setDraftAvatar] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    loadProfile(userId).then(
+      (p) => {
+        setName(p.display_name);
+        setAvatar(p.avatar);
+      },
+      () => {}
+    );
+  }, [userId]);
+  const initials = initialsOf(name, email);
+
+  function startEdit() {
+    setDraftName(name ?? "");
+    setDraftAvatar(avatar);
+    setError(null);
+    setEditing(true);
+  }
+  async function choosePhoto() {
+    try {
+      const picked = await pickAvatar();
+      if (picked) setDraftAvatar(picked);
+    } catch {
+      setError("Không chọn được ảnh.");
+    }
+  }
+  async function save() {
+    if (busy) return;
+    setBusy(true);
+    const next = {
+      display_name: cleanDisplayName(draftName),
+      avatar: draftAvatar,
+    };
+    const { error: err } = await saveProfile(userId, next);
+    setBusy(false);
+    if (err) {
+      setError(err);
+      return;
+    }
+    setName(next.display_name);
+    setAvatar(next.avatar);
+    setEditing(false);
+  }
   const card = [
     styles.card,
     { backgroundColor: palette.surface, borderColor: palette.line },
@@ -27,22 +88,104 @@ export function MenuScreen({
   return (
     <ScrollView contentContainerStyle={styles.page}>
       <View style={[card, styles.profile]}>
-        <View style={[styles.avatar, { backgroundColor: palette.accent }]}>
-          <Text style={styles.avatarText}>{initials}</Text>
-        </View>
+        <Avatar uri={avatar} initials={initials} />
         <View style={styles.grow}>
           <Text
             style={[styles.email, { color: palette.ink }]}
             numberOfLines={1}
           >
-            {email}
+            {name ?? email}
           </Text>
+          {name && (
+            <Text
+              style={[styles.sub, { color: palette.muted }]}
+              numberOfLines={1}
+            >
+              {email}
+            </Text>
+          )}
           <Text style={[styles.sub, { color: palette.muted }]}>
             {isAdmin ? "Quản trị" : "Nhân viên"}
           </Text>
         </View>
         <Logo theme={theme} size={34} />
       </View>
+
+      {editing ? (
+        <View style={[card, styles.edit]}>
+          <View style={styles.editPhoto}>
+            <Avatar
+              uri={draftAvatar}
+              initials={initialsOf(cleanDisplayName(draftName), email)}
+            />
+            <Pressable
+              onPress={choosePhoto}
+              accessibilityRole="button"
+              accessibilityLabel="Chọn ảnh đại diện"
+            >
+              <Text style={[styles.link, { color: palette.accent }]}>
+                Chọn ảnh
+              </Text>
+            </Pressable>
+            {draftAvatar && (
+              <Pressable
+                onPress={() => setDraftAvatar(null)}
+                accessibilityRole="button"
+                accessibilityLabel="Xóa ảnh đại diện"
+              >
+                <Text style={[styles.link, { color: palette.red }]}>
+                  Xóa ảnh
+                </Text>
+              </Pressable>
+            )}
+          </View>
+          <TextInput
+            value={draftName}
+            onChangeText={setDraftName}
+            placeholder="Tên hiển thị (để trống thì hiện email)"
+            maxLength={40}
+            accessibilityLabel="Tên hiển thị"
+          />
+          {error && <Text style={{ color: palette.red }}>{error}</Text>}
+          <View style={styles.editButtons}>
+            <Pressable
+              style={[styles.btn, { borderColor: palette.line }]}
+              onPress={() => setEditing(false)}
+              accessibilityRole="button"
+            >
+              <Text style={{ color: palette.ink }}>Hủy</Text>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.btn,
+                {
+                  backgroundColor: palette.accent,
+                  borderColor: palette.accent,
+                },
+                busy && { opacity: 0.6 },
+              ]}
+              onPress={save}
+              disabled={busy}
+              accessibilityRole="button"
+              accessibilityLabel="Lưu tài khoản"
+            >
+              <Text style={{ color: "#fff", fontFamily: fontFamily.semi }}>
+                {busy ? "Đang lưu…" : "Lưu"}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : (
+        <Pressable
+          onPress={startEdit}
+          accessibilityRole="button"
+          accessibilityLabel="Sửa tài khoản"
+        >
+          <Text style={[styles.link, { color: palette.accent }]}>
+            Sửa tên và ảnh đại diện
+          </Text>
+        </Pressable>
+      )}
 
       <Text style={[styles.group, { color: palette.muted }]}>CHI NHÁNH</Text>
       <View style={card}>
@@ -91,6 +234,26 @@ export function MenuScreen({
       </Text>
     </ScrollView>
   );
+
+  function Avatar({
+    uri,
+    initials: ini,
+  }: {
+    uri: string | null;
+    initials: string;
+  }) {
+    return uri ? (
+      <Image
+        source={{ uri }}
+        style={styles.avatar}
+        accessibilityLabel="Ảnh đại diện"
+      />
+    ) : (
+      <View style={[styles.avatar, { backgroundColor: palette.accent }]}>
+        <Text style={styles.avatarText}>{ini}</Text>
+      </View>
+    );
+  }
 
   function Row({
     icon,
@@ -178,6 +341,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   avatarText: { color: "#fff", fontFamily: fontFamily.bold },
+  edit: { padding: 14, gap: 12 },
+  editPhoto: { flexDirection: "row", alignItems: "center", gap: 16 },
+  editButtons: { flexDirection: "row", gap: 10, justifyContent: "flex-end" },
+  btn: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  link: { fontSize: 14, fontFamily: fontFamily.semi },
   email: { fontSize: 15, fontFamily: fontFamily.semi },
   sub: { fontSize: 12, fontFamily: fontFamily.regular },
   group: {
