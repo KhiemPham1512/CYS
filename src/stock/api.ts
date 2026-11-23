@@ -180,7 +180,16 @@ export async function loadMemberEmails(
     p_branch_id: branchId,
   });
   if (error) throw error;
-  return new Map((data ?? []).map((r) => [r.user_id, r.email]));
+  const names = await supabase.from("profiles").select("user_id, display_name");
+  const shown = new Map(
+    (names.data ?? []).flatMap((p) =>
+      p.display_name ? [[p.user_id, p.display_name] as const] : []
+    )
+  );
+  // Tên hiển thị nếu người đó đã đặt, không thì email.
+  return new Map(
+    (data ?? []).map((r) => [r.user_id, shown.get(r.user_id) ?? r.email])
+  );
 }
 
 export function subscribeMovements(

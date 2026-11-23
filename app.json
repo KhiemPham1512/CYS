@@ -2,7 +2,7 @@
   "expo": {
     "name": "CYS",
     "slug": "cys",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -27,7 +27,9 @@
       "expo-font",
       [
         "expo-image-picker",
-        { "photosPermission": "Cho phép chọn ảnh đơn nhà cung cấp để đọc." }
+        {
+          "photosPermission": "Cho phép chọn ảnh đơn nhà cung cấp để đọc hoặc ảnh đại diện."
+        }
       ]
     ],
     "splash": {

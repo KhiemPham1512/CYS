@@ -303,6 +303,27 @@ export type Database = {
           },
         ];
       };
+      profiles: {
+        Row: {
+          avatar: string | null;
+          display_name: string | null;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          avatar?: string | null;
+          display_name?: string | null;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          avatar?: string | null;
+          display_name?: string | null;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: { [_ in never]: never };
     Functions: {

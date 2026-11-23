@@ -132,6 +132,10 @@ _Tránh_: config, settings
 Bản ghi ai đã thay đổi gì, lúc nào, giá trị cũ và mới.
 _Tránh_: log, lịch sử, audit
 
+**Hồ sơ cá nhân**:
+Tên hiển thị và ảnh đại diện mà mỗi Người dùng tự sửa ở Menu; người cùng Chi nhánh thấy tên đó thay cho email ở Ghi dùng và Chế độ phát triển, để trống thì hiện email.
+_Tránh_: profile, avatar, tài khoản (khi nói riêng tên và ảnh)
+
 **Chế độ phát triển**:
 Chế độ dành riêng cho Quản trị, bật bằng cách bấm 10 lần vào logo ở tab Tồn kho để mở các thao tác sửa lỗi dữ liệu nâng cao (Quay lại sổ kho, Xóa dữ liệu phát sinh); chỉ tồn tại trong phiên đang mở và tự tắt khi tắt app.
 _Tránh_: dev mode, debug mode, chế độ thử nghiệm

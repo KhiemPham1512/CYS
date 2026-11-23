@@ -487,6 +487,7 @@ function HomeScreen({
       case "menu":
         return (
           <MenuScreen
+            userId={userId}
             email={email}
             isAdmin={isAdmin}
             branchName={branch.branch_name}
