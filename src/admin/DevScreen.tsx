@@ -2,7 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import type { Tables } from "../lib/database.types";
 import { useOnline } from "../lib/useOnline";
-import { loadMemberNames, loadMovements } from "../stock/api";
+import {
+  loadMemberNames,
+  loadMovements,
+  resetMovementCache,
+} from "../stock/api";
 import {
   localDate,
   localTime,
@@ -65,6 +69,7 @@ export function DevScreen({
 
   const fetchData = useCallback(async () => {
     setLoadError(false);
+    resetMovementCache(branchId); // sau Quay lại/Xóa dữ liệu, tải đủ sổ thay vì nối thêm
     try {
       const [movs, emailMap] = await Promise.all([
         loadMovements(branchId),
