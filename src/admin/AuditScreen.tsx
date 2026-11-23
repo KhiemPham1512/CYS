@@ -14,6 +14,7 @@ import { Text } from "../ui/Text";
 import { WIDE_LAYOUT } from "../navigation/adminWeb";
 import { Loading } from "../ui/Loading";
 import { parseShortDate } from "../stock/date";
+import { loadMemberEmails } from "../stock/api";
 import { localDate, localTime } from "../stock/ledger";
 import { listUsers, type ManagedUser } from "../users/api";
 import { loadAuditFeed, type AuditRow } from "./api";
@@ -40,6 +41,7 @@ export function AuditScreen({ branchId }: Props) {
   const { width } = useWindowDimensions();
   const wide = width >= WIDE_LAYOUT;
   const [users, setUsers] = useState<ManagedUser[]>([]);
+  const [names, setNames] = useState<Map<string, string>>(new Map()); // Tên hiển thị, không có thì email
   const [actor, setActor] = useState<string | null>(null);
   const [fromText, setFromText] = useState("");
   const [toText, setToText] = useState("");
@@ -78,7 +80,8 @@ export function AuditScreen({ branchId }: Props) {
 
   useEffect(() => {
     listUsers().then((r) => setUsers(r.data ?? []));
-  }, []);
+    loadMemberEmails(branchId).then(setNames, () => {});
+  }, [branchId]);
 
   // shortcut: lọc món theo tên ở máy trên tối đa 200 dòng mới nhất đã tải.
   const shown = useMemo(() => {
@@ -112,7 +115,7 @@ export function AuditScreen({ branchId }: Props) {
               {users.map((u) => (
                 <Chip
                   key={u.user_id}
-                  label={u.email}
+                  label={names.get(u.user_id) ?? u.email}
                   on={actor === u.user_id}
                   onPress={() => setActor(u.user_id)}
                 />
@@ -195,7 +198,12 @@ export function AuditScreen({ branchId }: Props) {
               </View>
             )}
             {shown.map((r, idx) => (
-              <LogRow key={`${r.logged_at}-${idx}`} row={r} wide={wide} />
+              <LogRow
+                key={`${r.logged_at}-${idx}`}
+                row={r}
+                whoName={(r.actor && names.get(r.actor)) || r.actor_email}
+                wide={wide}
+              />
             ))}
             <Text style={styles.meta}>
               Hiện {shown.length} dòng mới nhất (tối đa 200).
@@ -228,7 +236,15 @@ function Chip({
   );
 }
 
-function LogRow({ row, wide }: { row: AuditRow; wide: boolean }) {
+function LogRow({
+  row,
+  whoName,
+  wide,
+}: {
+  row: AuditRow;
+  whoName: string | null;
+  wide: boolean;
+}) {
   const entry: AuditEntry = {
     table_name: row.table_name,
     action: row.action,
@@ -237,7 +253,7 @@ function LogRow({ row, wide }: { row: AuditRow; wide: boolean }) {
   };
   const lines = describeChange(entry);
   const when = `${localDate(row.logged_at).split("-").reverse().join("/")} ${localTime(row.logged_at)}`;
-  const who = row.actor_email ?? "Hệ thống";
+  const who = whoName ?? "Hệ thống";
   const what = `${TABLE_LABEL[row.table_name] ?? row.table_name}${row.item_name ? `: ${row.item_name}` : ""}`;
   const change = (
     <View>
