@@ -10,6 +10,7 @@ const item = (over: Partial<Tables<"items">> = {}): Tables<"items"> => ({
   group_id: "g",
   id: "i1",
   is_hidden: false,
+  skip_count: false,
   sheet: {},
   name: "Món A",
   name_zh: null,

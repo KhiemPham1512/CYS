@@ -1,7 +1,7 @@
 import { expiredLots, type ExpiryItem } from "./expiry";
 import type { Lot } from "./ledger";
 
-export type SummaryItem = ExpiryItem & { id: string };
+export type SummaryItem = ExpiryItem & { id: string; skip_count?: boolean };
 export type StockFlag = "unchecked" | "expired" | "incoming";
 
 // Tóm tắt đầu màn Tồn kho: món nào Chưa kiểm, có Lô Quá hạn, đang có Hàng đang về.
@@ -18,7 +18,8 @@ export function stockSummary(input: {
     incoming: new Set(),
   };
   for (const item of input.items) {
-    if (!input.checked.has(item.id)) ids.unchecked.add(item.id);
+    if (!item.skip_count && !input.checked.has(item.id))
+      ids.unchecked.add(item.id);
     if (
       expiredLots(input.lotsByItem.get(item.id) ?? [], item, input.today)
         .length > 0

@@ -26,7 +26,7 @@ import {
   voidedIds,
   type CountDiff,
 } from "./ledger";
-import { formatQty, parseQty, round4 } from "./qty";
+import { formatQty, formatStockQty, parseQty, round4 } from "./qty";
 
 type Props = {
   branchId: string;
@@ -100,13 +100,19 @@ export function CountScreen({ branchId, onDone }: Props) {
   const validation = useMemo(() => {
     const errors: Record<string, string> = {};
     const parsedValues: Record<string, number> = {};
-    const rows: { item_id: string; qty: number; expected_qty: number }[] = [];
+    const rows: {
+      item_id: string;
+      qty: number;
+      expected_qty: number;
+      qty_text: string | null;
+    }[] = [];
 
     for (const item of items) {
       if (item.is_hidden) continue;
       const raw = inputs[item.id] ?? "";
-      if (!raw.trim()) continue;
-      const parsed = parseQty(raw, {
+      const trimmed = raw.trim();
+      if (!trimmed) continue;
+      const parsed = parseQty(trimmed, {
         caseSize: item.case_size,
         byPercent: item.record_by_percent,
       });
@@ -120,6 +126,7 @@ export function CountScreen({ branchId, onDone }: Props) {
           item_id: item.id,
           qty: parsed.value,
           expected_qty: expected,
+          qty_text: trimmed.length <= 40 ? trimmed : null,
         });
       }
     }
@@ -248,6 +255,7 @@ export function CountScreen({ branchId, onDone }: Props) {
               caseSize: item?.case_size ?? null,
               unit: item?.unit ?? "",
               byPercent: item?.record_by_percent ?? false,
+              splitCases: false,
             };
             const expectedText = formatQty(d.expected, opts);
             const actualText = formatQty(d.actual, opts);
@@ -289,11 +297,7 @@ export function CountScreen({ branchId, onDone }: Props) {
     : null;
   const editingPreview =
     editingItem && editingQty !== undefined && !editingError
-      ? `= ${formatQty(editingQty, {
-          caseSize: editingItem.case_size,
-          unit: editingItem.unit,
-          byPercent: editingItem.record_by_percent,
-        })}`
+      ? `= ${formatStockQty(editingItem, editingQty, inputs[editingItem.id])}`
       : null;
 
   return (
@@ -346,7 +350,7 @@ export function CountScreen({ branchId, onDone }: Props) {
                 {item.name}
                 {item.name_zh ? ` · ${item.name_zh}` : ""}
               </Text>
-              {!checked.has(item.id) && (
+              {!item.skip_count && !checked.has(item.id) && (
                 <Text style={styles.uncheckedTag}>Chưa kiểm</Text>
               )}
               <Text style={styles.itemMeta}>
@@ -358,12 +362,7 @@ export function CountScreen({ branchId, onDone }: Props) {
               </Text>
               {parsedQty !== undefined && (
                 <Text style={styles.summaryText}>
-                  Đã đếm:{" "}
-                  {formatQty(parsedQty, {
-                    caseSize: item.case_size,
-                    unit: item.unit,
-                    byPercent: item.record_by_percent,
-                  })}
+                  Đã đếm: {formatStockQty(item, parsedQty, inputs[item.id])}
                 </Text>
               )}
               {fieldError && (

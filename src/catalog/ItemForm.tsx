@@ -320,6 +320,22 @@ export function ItemForm({
             />
           </View>
 
+          <View style={styles.switchRow}>
+            <View style={styles.switchTextCol}>
+              <Text style={styles.switchLabel}>
+                Không cần kiểm kho (ngừng bán)
+              </Text>
+              <Text style={styles.switchHint}>
+                Món vẫn hiện nhưng không tính vào Chưa kiểm
+              </Text>
+            </View>
+            <Switch
+              value={values.skip_count}
+              onValueChange={(val) => setField("skip_count", val)}
+              trackColor={switchTrack()}
+            />
+          </View>
+
           {!online && (
             <Text style={styles.offlineNote} accessibilityRole="alert">
               Mất mạng — không lưu được
@@ -441,7 +457,9 @@ const styles = themedStyles((c: Palette) => ({
     minHeight: 48,
     marginTop: 4,
   },
+  switchTextCol: { flex: 1, paddingRight: 12 },
   switchLabel: { fontSize: 15, fontWeight: "600", color: c.ink, flex: 1 },
+  switchHint: { fontSize: 13, color: c.muted, marginTop: 2 },
   error: { color: c.red, fontSize: 13 },
   offlineNote: {
     color: c.red,

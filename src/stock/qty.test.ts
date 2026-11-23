@@ -3,6 +3,7 @@ import {
   formatItemQty,
   formatQty,
   formatSheetQty,
+  formatStockQty,
   parseAdjust,
   parseQty,
 } from "./qty";
@@ -143,6 +144,25 @@ describe("formatQty", () => {
     ).toBe("15 hộp");
   });
 
+  it("splitCases = false luôn in đơn vị lẻ, không gộp lên thùng", () => {
+    expect(
+      formatQty(6, {
+        caseSize: 6,
+        unit: "Bình",
+        byPercent: false,
+        splitCases: false,
+      })
+    ).toBe("6 bình");
+    expect(
+      formatQty(516, {
+        caseSize: 500,
+        unit: "Ly",
+        byPercent: false,
+        splitCases: false,
+      })
+    ).toBe("516 ly");
+  });
+
   it("món đơn vị là thùng (1 thùng = 1 thùng): in số thập phân, không lặp 'thùng thùng'", () => {
     const o = { caseSize: 1, unit: "Thùng", byPercent: false };
     expect(formatQty(1.5, o)).toBe("1,5 thùng");
@@ -272,5 +292,41 @@ describe("formatItemQty", () => {
   });
   it("món chưa tải thì in số trần", () => {
     expect(formatItemQty(undefined, 3)).toBe("3 ");
+  });
+});
+
+describe("formatStockQty", () => {
+  const item = { case_size: 20, unit: "Cây", record_by_percent: false };
+
+  it("giữ cách viết thùng/lẻ như lúc người dùng nhập khi tổng khớp", () => {
+    expect(formatStockQty(item, 23, "1T+3")).toBe("1 thùng 3 cây");
+    expect(formatStockQty(item, 40, "2T")).toBe("2 thùng");
+    expect(formatStockQty(item, 23, "23")).toBe("23 cây");
+    expect(
+      formatStockQty(
+        { case_size: 6, unit: "Bình", record_by_percent: false },
+        6,
+        "6"
+      )
+    ).toBe("6 bình");
+    expect(
+      formatStockQty(
+        { case_size: 6, unit: "Bình", record_by_percent: false },
+        6,
+        "1T"
+      )
+    ).toBe("1 thùng");
+  });
+
+  it("khi số tồn đã đổi hoặc không có qtyText thì hiện đơn vị lẻ", () => {
+    expect(formatStockQty(item, 22, "1T+3")).toBe("22 cây");
+    expect(formatStockQty(item, 40, null)).toBe("40 cây");
+    expect(formatStockQty(item, 40)).toBe("40 cây");
+  });
+
+  it("hỗ trợ món Ghi theo % và món chưa tải", () => {
+    const pctItem = { case_size: null, unit: "Hộp", record_by_percent: true };
+    expect(formatStockQty(pctItem, 0.9, "1(90%)")).toBe("1(90%)");
+    expect(formatStockQty(undefined, 3, "3")).toBe("3 ");
   });
 });

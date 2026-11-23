@@ -17,6 +17,7 @@ describe("parseItemForm", () => {
       shelf_life_after_open_unit: "day",
       track_mfg_date: true,
       record_by_percent: false,
+      skip_count: true,
     });
     expect(res).toEqual({
       ok: true,
@@ -34,6 +35,7 @@ describe("parseItemForm", () => {
         shelf_life_after_open_unit: "day",
         track_mfg_date: true,
         record_by_percent: false,
+        skip_count: true,
       },
     });
   });
@@ -62,6 +64,7 @@ describe("parseItemForm", () => {
         shelf_life_after_open_unit: "day",
         track_mfg_date: false,
         record_by_percent: false,
+        skip_count: false,
       },
     });
   });
@@ -103,7 +106,8 @@ describe("parseItemForm", () => {
 });
 
 describe("toFormValues", () => {
-  it("chuyển item DB về giá trị form giữ nguyên đơn vị", () => {
+  it("chuyển item DB về giá trị form giữ nguyên đơn vị và skip_count", () => {
+    expect(emptyForm().skip_count).toBe(false);
     expect(
       toFormValues({
         sheet: {},
@@ -122,11 +126,12 @@ describe("toFormValues", () => {
         shelf_life_after_open: 3,
         shelf_life_after_open_unit: "day",
         record_by_percent: true,
+        skip_count: true,
         is_hidden: false,
         created_at: "",
         updated_at: "",
         sort_order: 1000,
-      })
+      } as Parameters<typeof toFormValues>[0])
     ).toEqual({
       name: "Sữa tươi",
       name_zh: "",
@@ -141,6 +146,7 @@ describe("toFormValues", () => {
       shelf_life_after_open_unit: "day",
       track_mfg_date: false,
       record_by_percent: true,
+      skip_count: true,
     });
   });
 });

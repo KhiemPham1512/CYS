@@ -10,6 +10,7 @@ export type FormatQtyOptions = {
   caseSize: number | null;
   unit: string;
   byPercent: boolean;
+  splitCases?: boolean;
 };
 
 export function round4(n: number): number {
@@ -116,7 +117,10 @@ export function formatQty(qty: number, opts: FormatQtyOptions): string {
 
   // Quy cách 1 hoặc đơn vị chính là "thùng": tách "N thùng" + phần dư sẽ lặp chữ (1 thùng 0,5 thùng), in số thẳng.
   const splitCases =
-    opts.caseSize !== null && opts.caseSize > 1 && unitLower !== "thùng";
+    (opts.splitCases ?? true) &&
+    opts.caseSize !== null &&
+    opts.caseSize > 1 &&
+    unitLower !== "thùng";
   if (splitCases && opts.caseSize !== null && q >= opts.caseSize) {
     const cases = Math.floor((q + 1e-9) / opts.caseSize);
     const rest = Math.max(0, round4(q - cases * opts.caseSize));
@@ -140,6 +144,46 @@ export function formatItemQty(
     caseSize: item?.case_size ?? null,
     unit: item?.unit ?? "",
     byPercent: item?.record_by_percent ?? false,
+  });
+}
+
+// Tồn kho/Kiểm kho/Ghi dùng: giữ nguyên cách viết thùng/lẻ của người dùng nếu tổng vẫn khớp, ngược lại hiện đơn vị lẻ.
+export function formatStockQty(
+  item:
+    | { case_size: number | null; unit: string; record_by_percent: boolean }
+    | undefined,
+  qty: number,
+  qtyText?: string | null
+): string {
+  if (item && qtyText && qtyText.trim()) {
+    const parsed = parseQty(qtyText, {
+      caseSize: item.case_size,
+      byPercent: item.record_by_percent,
+    });
+    if (parsed.ok && round4(parsed.value) === round4(qty)) {
+      let cases = 0;
+      for (const part of qtyText.split("+")) {
+        const m = /^(\d+(?:[.,]\d+)?)\s*[tT]$/.exec(part.trim());
+        if (m) {
+          cases = round4(cases + Number(m[1].replace(",", ".")));
+        }
+      }
+      const rest = round4(qty - cases * (item.case_size ?? 0));
+      const unitLower = item.unit.trim().toLowerCase();
+      const head = cases > 0 ? `${cases} thùng` : "";
+      const tail =
+        rest > 0 || cases === 0
+          ? formatRest(rest, unitLower, item.record_by_percent)
+          : "";
+      return [head, tail].filter(Boolean).join(" ");
+    }
+  }
+
+  return formatQty(qty, {
+    caseSize: item?.case_size ?? null,
+    unit: item?.unit ?? "",
+    byPercent: item?.record_by_percent ?? false,
+    splitCases: false,
   });
 }
 

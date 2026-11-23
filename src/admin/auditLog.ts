@@ -21,6 +21,7 @@ const FIELDS: Record<string, Record<string, string>> = {
     track_mfg_date: "Theo dõi Ngày sản xuất",
     shelf_life_from_receipt_days: "Hạn từ ngày nhập (ngày)",
     record_by_percent: "Ghi theo %",
+    skip_count: "Không cần kiểm kho",
     is_hidden: "Ẩn",
   },
   item_groups: { name: "Tên Nhóm", name_zh: "Tên Nhóm tiếng Trung" },
@@ -30,6 +31,7 @@ const FIELDS: Record<string, Record<string, string>> = {
 const BOOLEAN_FIELDS = new Set([
   "track_mfg_date",
   "record_by_percent",
+  "skip_count",
   "is_hidden",
   "is_admin",
   "is_locked",

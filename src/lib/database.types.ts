@@ -85,6 +85,7 @@ export type Database = {
           shelf_life: number | null;
           shelf_life_unit: "day" | "month";
           shelf_life_from_receipt_days: number | null;
+          skip_count: boolean;
           sort_order: number;
           track_mfg_date: boolean;
           unit: string;
@@ -107,6 +108,7 @@ export type Database = {
           shelf_life?: number | null;
           shelf_life_unit?: "day" | "month";
           shelf_life_from_receipt_days?: number | null;
+          skip_count?: boolean;
           sort_order?: number;
           track_mfg_date?: boolean;
           unit: string;
@@ -129,6 +131,7 @@ export type Database = {
           shelf_life?: number | null;
           shelf_life_unit?: "day" | "month";
           shelf_life_from_receipt_days?: number | null;
+          skip_count?: boolean;
           sort_order?: number;
           track_mfg_date?: boolean;
           unit?: string;
@@ -253,6 +256,7 @@ export type Database = {
           note: string | null;
           order_line_id: string | null;
           qty: number;
+          qty_text: string | null;
           seq: number;
           voids_id: string | null;
         };
@@ -267,6 +271,7 @@ export type Database = {
           mfg_date?: string | null;
           note?: string | null;
           qty: number;
+          qty_text?: string | null;
         };
         Update: never;
         Relationships: [];
