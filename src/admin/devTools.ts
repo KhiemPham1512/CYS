@@ -1,3 +1,4 @@
+import { VN_OFFSET_MS } from "../stock/ledger";
 import { supabase } from "../lib/supabase";
 
 export type DevToolsResult = {
@@ -57,8 +58,6 @@ export async function resetBranchActivity(
   return { error: devToolsError(error) };
 }
 
-const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
-
 // Phân tích chuỗi 'dd/mm' hoặc 'dd/mm hh:mm' (giờ Việt Nam, năm lấy từ nowIso) sang ISO UTC.
 export function parseCutoff(text: string, nowIso: string): string | null {
   const nowMs = Date.parse(nowIso);
@@ -73,8 +72,13 @@ export function parseCutoff(text: string, nowIso: string): string | null {
   const minute = match[4] !== undefined ? Number(match[4]) : 0;
   if (month < 1 || month > 12 || day < 1 || day > 31) return null;
   if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
-  const year = new Date(nowMs + VN_OFFSET_MS).getUTCFullYear();
-  const d = new Date(Date.UTC(year, month - 1, day, hour, minute, 0, 0));
+  let year = new Date(nowMs + VN_OFFSET_MS).getUTCFullYear();
+  let d = new Date(Date.UTC(year, month - 1, day, hour, minute, 0, 0));
+  // Mốc ở tương lai (vd. gõ 30/12 khi đang tháng 1) nghĩa là năm trước.
+  if (d.getTime() - VN_OFFSET_MS > nowMs) {
+    year -= 1;
+    d = new Date(Date.UTC(year, month - 1, day, hour, minute, 0, 0));
+  }
   if (
     d.getUTCFullYear() !== year ||
     d.getUTCMonth() !== month - 1 ||

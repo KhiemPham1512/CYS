@@ -35,7 +35,7 @@ export type CountDiff = {
 
 // shortcut: múi giờ cố định giờ Việt Nam (UTC+7) để mọi máy ra cùng "ngày vào kho";
 // khi có Chi nhánh ở múi giờ khác thì lưu múi giờ theo Chi nhánh.
-const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
+export const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
 
 // Ngày (giờ Việt Nam) của một thời điểm ISO, dạng yyyy-mm-dd.
 export function localDate(iso: string): string {
@@ -67,7 +67,7 @@ function takeOldestFirst(map: Map<string, number>, amount: number): number {
 const sum = (map: Map<string, number>) =>
   [...map.values()].reduce((s, q) => s + q, 0);
 
-const voidedIds = (movements: Movement[]) =>
+export const voidedIds = (movements: Movement[]) =>
   new Set(movements.flatMap((m) => (m.voids_id ? [m.voids_id] : [])));
 
 // Ghi dùng trong ngày hôm nay (giờ Việt Nam) chưa bị hủy, theo thứ tự ghi.

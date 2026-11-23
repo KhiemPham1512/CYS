@@ -153,4 +153,10 @@ describe("parseCutoff", () => {
     expect(parseCutoff("2026-11-23", nowIso)).toBeNull();
     expect(parseCutoff("23/11 8", nowIso)).toBeNull();
   });
+
+  it("mốc ở tương lai trong năm thì lấy năm trước", () => {
+    expect(parseCutoff("30/12 08:00", "2027-01-05T03:00:00Z")).toBe(
+      "2026-12-30T01:00:00.000Z"
+    );
+  });
 });

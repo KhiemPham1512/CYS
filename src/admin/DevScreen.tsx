@@ -8,6 +8,7 @@ import {
   localTime,
   rollbackBatches,
   rollbackPreview,
+  VN_OFFSET_MS,
 } from "../stock/ledger";
 import type { Palette } from "../theme/themes";
 import { themedStyles } from "../theme/themedStyles";
@@ -22,7 +23,6 @@ import {
   rollbackStock,
 } from "./devTools";
 
-const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 

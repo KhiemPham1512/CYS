@@ -23,6 +23,7 @@ import {
   countDiffs,
   stockByItem,
   totalQty,
+  voidedIds,
   type CountDiff,
 } from "./ledger";
 import { formatQty, parseQty, round4 } from "./qty";
@@ -191,9 +192,7 @@ export function CountScreen({ branchId, onDone }: Props) {
 
   // Lần Kiểm kho gần nhất (dòng count chưa bị hủy có batch_id, seq lớn nhất) để xem lại món lệch.
   const latestBatchId = useMemo(() => {
-    const voided = new Set(
-      movements.flatMap((m) => (m.voids_id ? [m.voids_id] : []))
-    );
+    const voided = voidedIds(movements);
     let best: { seq: number; id: string } | null = null;
     for (const m of movements) {
       if (

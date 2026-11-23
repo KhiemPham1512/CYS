@@ -1,3 +1,4 @@
+import { VN_OFFSET_MS } from "../stock/ledger";
 export type AuditEntry = {
   table_name: string; // items | item_groups | branch_settings | members | stock_movements
   action: string; // insert | update | delete, hoặc loại biến động kho (use, count, ...)
@@ -60,8 +61,6 @@ const STOCK_LABEL: Record<string, string> = {
   return_damaged: "Trả hàng hư",
   void: "Hủy Ghi dùng",
 };
-
-const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
 
 function formatVnDateTime(iso: unknown): string {
   const ms = typeof iso === "string" ? Date.parse(iso) : Number.NaN;
