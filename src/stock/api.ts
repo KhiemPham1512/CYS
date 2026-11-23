@@ -1,25 +1,56 @@
 import { subscribeTables } from "../lib/subscribeTables";
 import type { Tables, TablesInsert } from "../lib/database.types";
 import { supabase } from "../lib/supabase";
+import { syncMovements, type MovementCache } from "./movementCache";
 
 const PAGE = 1000; // giới hạn dòng mỗi lần của PostgREST
 
-export async function loadMovements(
-  branchId: string
+// Sổ đã tải theo Chi nhánh, nhớ trong bộ nhớ: lần sau chỉ tải dòng mới (xem movementCache.ts).
+const caches = new Map<string, MovementCache>();
+
+export function resetMovementCache(branchId: string): void {
+  caches.delete(branchId);
+}
+
+async function fetchSince(
+  branchId: string,
+  afterSeq: number
 ): Promise<Tables<"stock_movements">[]> {
-  // shortcut: tải toàn bộ sổ theo trang, đủ cho quy mô nhỏ; đổi sang chỉ tải từ mốc chốt khi sổ lớn.
   const all: Tables<"stock_movements">[] = [];
-  for (let from = 0; ; from += PAGE) {
+  for (let after = afterSeq; ;) {
     const { data, error } = await supabase
       .from("stock_movements")
       .select("*")
       .eq("branch_id", branchId)
+      .gt("seq", after)
       .order("seq", { ascending: true })
-      .range(from, from + PAGE - 1);
+      .limit(PAGE);
     if (error) throw error;
     all.push(...data);
     if (data.length < PAGE) return all;
+    after = data[data.length - 1].seq;
   }
+}
+
+async function countMovements(branchId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from("stock_movements")
+    .select("id", { count: "exact", head: true })
+    .eq("branch_id", branchId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+export async function loadMovements(
+  branchId: string
+): Promise<Tables<"stock_movements">[]> {
+  const next = await syncMovements(
+    caches.get(branchId),
+    (after) => fetchSince(branchId, after),
+    () => countMovements(branchId)
+  );
+  caches.set(branchId, next);
+  return next.rows.slice();
 }
 
 function newBatchId(): string {
@@ -173,7 +204,7 @@ export async function editUse(
   };
 }
 
-export async function loadMemberEmails(
+export async function loadMemberNames(
   branchId: string
 ): Promise<Map<string, string>> {
   const { data, error } = await supabase.rpc("branch_member_emails", {

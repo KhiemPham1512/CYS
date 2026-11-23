@@ -14,7 +14,7 @@ import { Text } from "../ui/Text";
 import { WIDE_LAYOUT } from "../navigation/adminWeb";
 import { Loading } from "../ui/Loading";
 import { parseShortDate } from "../stock/date";
-import { loadMemberEmails } from "../stock/api";
+import { loadMemberNames } from "../stock/api";
 import { localDate, localTime } from "../stock/ledger";
 import { listUsers, type ManagedUser } from "../users/api";
 import { loadAuditFeed, type AuditRow } from "./api";
@@ -80,7 +80,7 @@ export function AuditScreen({ branchId }: Props) {
 
   useEffect(() => {
     listUsers().then((r) => setUsers(r.data ?? []));
-    loadMemberEmails(branchId).then(setNames, () => {});
+    loadMemberNames(branchId).then(setNames, () => {});
   }, [branchId]);
 
   // shortcut: lọc món theo tên ở máy trên tối đa 200 dòng mới nhất đã tải.
