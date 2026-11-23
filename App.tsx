@@ -496,7 +496,7 @@ function HomeScreen({
           />
         );
       case "readOrder":
-        return <ReadOrderScreen branchId={id} />;
+        return <ReadOrderScreen userId={userId} branchId={id} />;
       case "catalog":
         return <CatalogScreen branchId={id} />;
       case "dev":

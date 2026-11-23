@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
@@ -16,12 +17,17 @@ import { incomingByItem } from "../orders/orders";
 import { loadReceivingData } from "../orders/receivingApi";
 import { sheetStrings } from "../orders/exportSheet";
 import {
-  nameKey,
+  aliasKey,
   suggestItems,
   type CompareStatus,
   type RawLine,
 } from "./orderReconcile";
 import { reviewSupplierOrder } from "./orderReview";
+import {
+  packReadResults,
+  readCacheKey,
+  unpackReadResults,
+} from "./readOrderCache";
 import {
   loadAliases,
   readOrderImages,
@@ -38,9 +44,9 @@ const STATUS_TEXT: Record<CompareStatus, string> = {
   extra: "Ngoài đơn đã đặt",
 };
 
-type Props = { branchId: string };
+type Props = { userId: string; branchId: string };
 
-export function ReadOrderScreen({ branchId }: Props) {
+export function ReadOrderScreen({ userId, branchId }: Props) {
   const online = useOnline();
   const [groups, setGroups] = useState<Tables<"item_groups">[]>([]);
   const [items, setItems] = useState<Tables<"items">[]>([]);
@@ -56,8 +62,33 @@ export function ReadOrderScreen({ branchId }: Props) {
   const [picked, setPicked] = useState<ImageInput[]>([]);
   const [read, setRead] = useState<RawLine[][] | null>(null);
   const [parts, setParts] = useState<(RawLine[] | null)[]>([]); // kết quả từng ảnh đã chọn
+  const [savedAt, setSavedAt] = useState<number | null>(null); // giờ lưu kết quả đang hiện (null: vừa đọc xong ở phiên này)
   const [reading, setReading] = useState(false);
   const readingRef = useRef(false);
+
+  const touched = useRef(false); // người dùng đã chọn/đọc ảnh: không áp kết quả cũ đè lên
+
+  // Kết quả đọc nhớ trên máy (theo người dùng và Chi nhánh): rời tab hay thoát app vào lại vẫn còn, không phải đọc lại (tốn lượt, chờ lâu).
+  useEffect(() => {
+    let cancelled = false;
+    touched.current = false;
+    setRead(null);
+    setParts([]);
+    setPicked([]);
+    setSavedAt(null);
+    AsyncStorage.getItem(readCacheKey(userId, branchId))
+      .then((raw) => {
+        const saved = unpackReadResults(raw, Date.now());
+        if (!saved || cancelled || touched.current) return;
+        setParts(saved.parts);
+        setRead(saved.parts);
+        setSavedAt(saved.savedAt);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, branchId]);
   const [message, setMessage] = useState<string | null>(null);
   const [asking, setAsking] = useState<RawLine | null>(null); // tên lạ đang chọn món
 
@@ -154,9 +185,14 @@ export function ReadOrderScreen({ branchId }: Props) {
     const chosen = res.assets
       .filter((a) => a.base64)
       .map((a) => ({ mime: a.mimeType ?? "image/jpeg", data: a.base64 ?? "" }));
+    touched.current = true;
     setPicked(chosen.slice(0, MAX_IMAGES));
     setParts([]);
     setRead(null);
+    setSavedAt(null);
+    AsyncStorage.removeItem(readCacheKey(userId, branchId)).catch(
+      () => undefined
+    );
     setMessage(
       chosen.length > MAX_IMAGES ? `Chỉ lấy ${MAX_IMAGES} ảnh đầu tiên` : null
     );
@@ -165,6 +201,7 @@ export function ReadOrderScreen({ branchId }: Props) {
   // Mỗi ảnh một lượt gọi để gộp ảnh chồng nhau ở máy (mergeRawLines); một ảnh lỗi thì báo, không so một nửa.
   async function readAll() {
     if (!online || readingRef.current || picked.length === 0) return;
+    touched.current = true;
     readingRef.current = true; // chống bấm đôi trước khi state kịp cập nhật
     setReading(true);
     setMessage(null);
@@ -188,17 +225,36 @@ export function ReadOrderScreen({ branchId }: Props) {
       );
       return;
     }
-    setRead(next.map((x) => x ?? []));
+    const all = next.map((x) => x ?? []);
+    setRead(all);
+    setSavedAt(null);
+    if (all.some((p) => p.length > 0))
+      AsyncStorage.setItem(
+        readCacheKey(userId, branchId),
+        packReadResults(all, Date.now())
+      ).catch(() => undefined);
   }
 
   async function remember(line: RawLine, itemId: string) {
     setAsking(null);
+    // Cập nhật màn hình ngay (mạng chậm thì bảng so sánh không đứng yên làm người dùng bấm lại), lỗi thì trả về như cũ.
+    const key = aliasKey(line.name);
+    const before = aliases[key];
+    setAliases((a) => ({ ...a, [key]: itemId }));
     const { error } = await saveAlias(branchId, line.name, itemId);
-    if (error) {
-      setMessage(error);
+    if (!error) {
+      setMessage(null);
       return;
     }
-    setAliases((a) => ({ ...a, [nameKey(line.name)]: itemId })); // so lại ngay, lần sau tự khớp
+    // Chỉ hoàn lại nếu chưa có lần chọn khác đè lên trong lúc chờ.
+    setAliases((a) => {
+      if (a[key] !== itemId) return a;
+      const next = { ...a };
+      if (before) next[key] = before;
+      else delete next[key];
+      return next;
+    });
+    setMessage(error);
   }
 
   if (loading)
@@ -281,6 +337,18 @@ export function ReadOrderScreen({ branchId }: Props) {
         {review && (
           <>
             <Text style={styles.section}>2. Kết quả đối chiếu</Text>
+            {savedAt !== null && (
+              <Text style={styles.note}>
+                Kết quả đã đọc lúc{" "}
+                {new Date(savedAt).toLocaleString("vi-VN", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  day: "2-digit",
+                  month: "2-digit",
+                })}{" "}
+                (nhớ trên máy). Muốn đọc lại thì chọn ảnh mới.
+              </Text>
+            )}
             {noLines ? (
               <Text style={styles.error}>
                 Không đọc được dòng nào. Thử ảnh rõ hơn, hoặc chọn “Đã đặt đúng

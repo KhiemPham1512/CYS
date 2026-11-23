@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  aliasKey,
   compareOrders,
   matchSupplierName,
   mergeRawLines,
@@ -298,5 +299,123 @@ describe("không đoán khi mơ hồ (review)", () => {
       name_zh: "珍珠",
     };
     expect(matchSupplierName("Gì đó - 珍珠 5kg", [pearl], {})).toBeNull();
+  });
+});
+
+describe("aliasKey (khóa nhớ tên NCC)", () => {
+  const cup = (ml: string) => `Ly X (${ml}) - 杯 (${ml})`;
+
+  it("khác dung tích trong ngoặc thì khác khóa, để chọn món cho dòng này không ghi đè dòng kia", () => {
+    expect(aliasKey(cup("960cc"))).not.toBe(aliasKey(cup("700cc")));
+  });
+
+  it("viết cách chữ hoặc dấu phẩy vẫn là cùng dung tích; 1,5l khác 5l", () => {
+    expect(aliasKey("Ly X (960 cc)")).toBe(aliasKey("Ly X (960cc)"));
+    expect(aliasKey("Ly X (1,5l)")).toBe(aliasKey("Ly X (1.5l)"));
+    expect(aliasKey("Ly X (1,5l)")).not.toBe(aliasKey("Ly X (5l)"));
+  });
+
+  it("cùng tên cùng dung tích (hoa thường, tên Trung khác) thì cùng khóa", () => {
+    expect(aliasKey("LY X (960cc) - 杯")).toBe(aliasKey(cup("960cc")));
+  });
+
+  it("chữ trong ngoặc như (không đường) là phần phân biệt món: khác khóa; viết có ngoặc hay không vẫn cùng khóa", () => {
+    expect(aliasKey("Trà xanh (không đường) - 綠茶")).not.toBe(
+      aliasKey("Trà xanh - 綠茶")
+    );
+    expect(aliasKey("Trà xanh (không đường) - 綠茶")).toBe(
+      aliasKey("Trà xanh KHÔNG Đường - 綠茶")
+    );
+  });
+
+  it("alias nhớ cho dung tích này không áp sang dung tích kia", () => {
+    const items = [
+      item({ id: "l", name: "Ly lớn" }),
+      item({ id: "n", name: "Ly nhỏ" }),
+    ];
+    const aliases = { [aliasKey(cup("960cc"))]: "l" };
+    expect(matchSupplierName(cup("960cc"), items, aliases)?.itemId).toBe("l");
+    expect(matchSupplierName(cup("700cc"), items, aliases)?.via).not.toBe(
+      "alias"
+    );
+  });
+
+  it("hai dòng khác dung tích, cùng số lượng, ở hai ảnh liền nhau không bị gộp nhầm", () => {
+    const merged = mergeRawLines([
+      [raw({ name: cup("960cc"), qty: 1, unit: "Thùng" })],
+      [raw({ name: cup("700cc"), qty: 1, unit: "Thùng" })],
+    ]);
+    expect(merged).toHaveLength(2);
+  });
+});
+
+describe("món có chữ trong ngoặc như (không đường)", () => {
+  const items = [
+    item({ id: "tra", name: "Trà mơ", unit: "Bao", case_size: null }),
+    item({
+      id: "tra0",
+      name: "Trà mơ (không đường)",
+      unit: "Bao",
+      case_size: null,
+    }),
+  ];
+
+  it("tên NCC có 'KHÔNG Đường' khớp món không đường, không khớp món thường", () => {
+    expect(matchSupplierName("Trà Mơ KHÔNG Đường - 無糖", items, {})).toEqual({
+      itemId: "tra0",
+      via: "exact",
+    });
+    expect(matchSupplierName("Trà Mơ - 梅", items, {})).toEqual({
+      itemId: "tra",
+      via: "exact",
+    });
+  });
+
+  it("tên NCC dài hơn (thêm chữ Hồng) vẫn nghiêng về món không đường", () => {
+    expect(
+      matchSupplierName("Hồng Trà Mơ KHÔNG Đường - 無糖", items, {})
+    ).toEqual({ itemId: "tra0", via: "fuzzy" });
+  });
+});
+
+describe("toItemQty khi NCC ghi đơn vị lẻ khác tên", () => {
+  const can = item({ id: "can", name: "Đào hộp", unit: "Lon", case_size: 12 });
+  const bag = item({ id: "bag", name: "Thạch X", unit: "Bao", case_size: 20 });
+
+  it("'5 Hộp, 12 lon/thùng' cho món tính theo lon thì là 5 lon", () => {
+    expect(
+      toItemQty({ qty: 5, unit: "Hộp", pack: "12 lon/thùng" }, can)
+    ).toEqual({ ok: true, qty: 5 });
+  });
+
+  it("'20 Hộp, 20bao/thùng' cho món tính theo bao thì là 20 bao", () => {
+    expect(
+      toItemQty({ qty: 20, unit: "Hộp", pack: "20bao/thùng" }, bag)
+    ).toEqual({ ok: true, qty: 20 });
+  });
+
+  it("không có mô tả quy cách thì vẫn không đoán", () => {
+    expect(toItemQty({ qty: 5, unit: "Hộp", pack: null }, can)).toEqual({
+      ok: false,
+    });
+  });
+
+  it("thùng vẫn nhân theo quy cách như cũ", () => {
+    expect(
+      toItemQty({ qty: 2, unit: "Thùng", pack: "12 lon/thùng" }, can)
+    ).toEqual({ ok: true, qty: 24 });
+  });
+});
+
+describe("toItemQty: đơn vị bao ngoài lạ không bị tính nhầm là đơn vị lẻ", () => {
+  const can = item({ id: "can", name: "Đào hộp", unit: "Lon", case_size: 12 });
+
+  it("'2 Lốc' hoặc '1 Kiện' với mô tả 12 lon/thùng thì không đoán", () => {
+    expect(
+      toItemQty({ qty: 2, unit: "Lốc", pack: "12 lon/thùng" }, can)
+    ).toEqual({ ok: false });
+    expect(
+      toItemQty({ qty: 1, unit: "Kiện", pack: "12 lon/thùng" }, can)
+    ).toEqual({ ok: false });
   });
 });
