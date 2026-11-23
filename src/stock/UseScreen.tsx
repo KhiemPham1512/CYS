@@ -23,6 +23,7 @@ import {
   voidUse,
 } from "./api";
 import {
+  latestQtyText,
   localTime,
   stockByItem,
   todaysUses,
@@ -30,7 +31,7 @@ import {
   usageCounts,
   type Movement,
 } from "./ledger";
-import { formatItemQty, parseQty, round4 } from "./qty";
+import { formatStockQty, parseQty, round4 } from "./qty";
 
 type Props = { branchId: string; userId: string };
 
@@ -109,6 +110,7 @@ export function UseScreen({ branchId, userId }: Props) {
   }, [branchId, fetchData, fetchMovements]);
 
   const lotsByItem = useMemo(() => stockByItem(movements), [movements]);
+  const texts = useMemo(() => latestQtyText(movements), [movements]);
   const itemsById = useMemo(
     () => new Map(items.map((i) => [i.id, i])),
     [items]
@@ -309,7 +311,7 @@ export function UseScreen({ branchId, userId }: Props) {
                   <Text style={styles.stepText}>−</Text>
                 </Pressable>
                 <Text style={styles.stockText}>
-                  Tồn kho: {formatItemQty(item, stock)}
+                  Tồn kho: {formatStockQty(item, stock, texts.get(item.id))}
                 </Text>
                 <Pressable
                   style={[
@@ -339,7 +341,8 @@ export function UseScreen({ branchId, userId }: Props) {
               )}
               {qty > stock && (
                 <Text style={styles.warn}>
-                  Vượt Tồn kho thực tế ({formatItemQty(item, stock)}) — vẫn lưu
+                  Vượt Tồn kho thực tế (
+                  {formatStockQty(item, stock, texts.get(item.id))}) — vẫn lưu
                   được
                 </Text>
               )}
@@ -353,7 +356,7 @@ export function UseScreen({ branchId, userId }: Props) {
           <View key={m.id} style={styles.useRow}>
             <Text style={styles.useText}>
               {itemsById.get(m.item_id)?.name ?? "?"}:{" "}
-              {formatItemQty(itemsById.get(m.item_id), m.qty)} ·{" "}
+              {formatStockQty(itemsById.get(m.item_id), m.qty)} ·{" "}
               {names.get(m.created_by) ?? "—"} · {localTime(m.created_at)}
             </Text>
             {editing?.id === m.id ? (

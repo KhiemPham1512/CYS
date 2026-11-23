@@ -18,6 +18,7 @@ export type ItemFormValues = {
   shelf_life_after_open_unit: ShelfLifeUnit;
   track_mfg_date: boolean;
   record_by_percent: boolean;
+  skip_count: boolean;
 };
 
 export function emptyForm(groupId = ""): ItemFormValues {
@@ -35,6 +36,7 @@ export function emptyForm(groupId = ""): ItemFormValues {
     shelf_life_after_open_unit: "day",
     track_mfg_date: false,
     record_by_percent: false,
+    skip_count: false,
   };
 }
 
@@ -59,6 +61,7 @@ export function toFormValues(item: Tables<"items">): ItemFormValues {
     shelf_life_after_open_unit: item.shelf_life_after_open_unit,
     track_mfg_date: item.track_mfg_date,
     record_by_percent: item.record_by_percent,
+    skip_count: item.skip_count,
   };
 }
 
@@ -129,6 +132,7 @@ export function parseItemForm(
       shelf_life_after_open: shelfLifeOpen.value,
       shelf_life_after_open_unit: v.shelf_life_after_open_unit,
       record_by_percent: v.record_by_percent,
+      skip_count: v.skip_count,
     },
   };
 }

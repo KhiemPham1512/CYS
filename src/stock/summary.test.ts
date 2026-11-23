@@ -64,4 +64,28 @@ describe("tóm tắt Tồn kho", () => {
     const s = stockSummary(input);
     expect(filterByFlag(items, s, null)).toEqual(items);
   });
+
+  it("món skip_count chưa kiểm không vào unchecked nhưng vẫn tính quá hạn/đang về", () => {
+    const s = stockSummary({
+      items: [
+        item("b"), // món thường chưa kiểm
+        item("e", { skip_count: true } as Partial<SummaryItem>), // ngừng bán, chưa kiểm, có lô quá hạn + đang về
+      ],
+      lotsByItem: new Map<string, Lot[]>([
+        ["b", [fresh]],
+        ["e", [old]],
+      ]),
+      checked: new Set(),
+      incoming: new Map([["e", 5]]),
+      today,
+    });
+    expect(Array.from(s.ids.unchecked)).toEqual(["b"]);
+    expect(Array.from(s.ids.expired)).toEqual(["e"]);
+    expect(Array.from(s.ids.incoming)).toEqual(["e"]);
+    expect(s.counts).toEqual({
+      unchecked: 1,
+      expired: 1,
+      incoming: 1,
+    });
+  });
 });

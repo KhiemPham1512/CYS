@@ -7,6 +7,7 @@ export type Movement = Pick<
   | "item_id"
   | "kind"
   | "qty"
+  | "qty_text"
   | "mfg_date"
   | "expected_qty"
   | "batch_id"
@@ -297,4 +298,26 @@ export function rollbackPreview(
     }
   }
   return n;
+}
+
+// Chuỗi số lượng ở lần Kiểm kho/Điều chỉnh mới nhất chưa bị hủy của từng món.
+export function latestQtyText(
+  movements: Movement[]
+): Map<string, string | null> {
+  const voided = voidedIds(movements);
+  const latest = new Map<string, { seq: number; text: string | null }>();
+  for (const m of movements) {
+    if ((m.kind !== "count" && m.kind !== "adjust") || voided.has(m.id)) {
+      continue;
+    }
+    const cur = latest.get(m.item_id);
+    if (!cur || m.seq > cur.seq) {
+      latest.set(m.item_id, { seq: m.seq, text: m.qty_text ?? null });
+    }
+  }
+  const result = new Map<string, string | null>();
+  for (const [itemId, v] of latest.entries()) {
+    result.set(itemId, v.text);
+  }
+  return result;
 }

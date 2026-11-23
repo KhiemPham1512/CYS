@@ -63,7 +63,12 @@ function newBatchId(): string {
 
 export async function saveCount(
   branchId: string,
-  rows: { item_id: string; qty: number; expected_qty: number }[]
+  rows: {
+    item_id: string;
+    qty: number;
+    expected_qty: number;
+    qty_text: string | null;
+  }[]
 ): Promise<{ batchId: string; error: string | null }> {
   const batchId = newBatchId();
   if (rows.length === 0) {
@@ -76,6 +81,7 @@ export async function saveCount(
     kind: "count",
     qty: r.qty,
     expected_qty: r.expected_qty,
+    qty_text: r.qty_text,
     batch_id: batchId,
   }));
 
@@ -91,7 +97,8 @@ export async function saveAdjust(
   itemId: string,
   qty: number,
   expectedQty: number,
-  note: string | null
+  note: string | null,
+  qtyText: string | null
 ): Promise<{ error: string | null }> {
   const trimmedNote = note?.trim() ? note.trim() : null;
   const { error } = await supabase.from("stock_movements").insert({
@@ -101,6 +108,7 @@ export async function saveAdjust(
     qty,
     expected_qty: expectedQty,
     note: trimmedNote,
+    qty_text: qtyText,
   });
 
   if (error) {

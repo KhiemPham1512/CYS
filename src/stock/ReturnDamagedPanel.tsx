@@ -34,7 +34,8 @@ export function ReturnDamagedPanel({ item, lots, online }: Props) {
   const [saving, setSaving] = useState(false);
 
   const opts = { caseSize: item.case_size, byPercent: item.record_by_percent };
-  const fmt = (q: number) => formatQty(q, { ...opts, unit: item.unit });
+  const fmt = (q: number) =>
+    formatQty(q, { ...opts, unit: item.unit, splitCases: false });
   const lot = lots.find((l) => lotKey(l) === chosen);
 
   if (lots.length === 0)

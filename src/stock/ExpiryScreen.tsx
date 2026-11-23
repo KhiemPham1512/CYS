@@ -14,7 +14,7 @@ import { formatDate } from "./date";
 import { expiryAlerts, inUseExpiry, lotExpiry } from "./expiry";
 import { endInUse, loadInUse, subscribeInUse, type InUseRow } from "./inUseApi";
 import { localDate, stockByItem, totalQty } from "./ledger";
-import { formatItemQty, round4 } from "./qty";
+import { formatStockQty, round4 } from "./qty";
 
 type Props = { branchId: string };
 
@@ -145,7 +145,7 @@ export function ExpiryScreen({ branchId }: Props) {
     );
 
   const lotLine = (r: LotRow) =>
-    `${r.item.name} — ${formatItemQty(r.item, r.qty)} — hạn ${formatDate(r.expiry)}`;
+    `${r.item.name} — ${formatStockQty(r.item, r.qty)} — hạn ${formatDate(r.expiry)}`;
 
   return (
     <ScrollView contentContainerStyle={styles.pad}>

@@ -41,8 +41,11 @@ Phần Tồn kho thực tế của một Nguyên vật liệu có cùng Ngày s�
 _Tránh_: batch, mẻ
 
 **Chưa kiểm**:
-Nhãn trên một Nguyên vật liệu chưa được Kiểm kho kể từ 7h sáng giờ Việt Nam gần nhất. Ghi dùng không bỏ nhãn; chỉ Kiểm kho (lưu số đếm) mới bỏ, đến 7h sáng hôm sau nhãn hiện lại. Nhãn giúp người kiểm kho đối chiếu thủ công, không thay thế Kiểm kho.
+Nhãn trên một Nguyên vật liệu chưa được Kiểm kho kể từ 7h sáng giờ Việt Nam gần nhất. Ghi dùng không bỏ nhãn; chỉ Kiểm kho (lưu số đếm) mới bỏ, đến 7h sáng hôm sau nhãn hiện lại. Nhãn giúp người kiểm kho đối chiếu thủ công, không thay thế Kiểm kho. Món bật **Không cần kiểm kho** (ngừng bán) không bao giờ mang nhãn này nhưng vẫn hiện ở Tồn kho và tờ giấy.
 _Tránh_: chưa đếm
+
+**Số lượng hiện như đã nhập**:
+Ở Tồn kho, Kiểm kho, Ghi dùng, số lượng không tự gộp lên thùng: nhập "6" thì hiện "6 bình", nhập "1T+3" thì hiện "1 thùng 3 cây". Khi số đã đổi (Ghi dùng, Nhận hàng...) thì hiện đơn vị lẻ. Màn đặt hàng và nhận hàng vẫn hiện theo thùng.
 
 **Đang dùng**:
 Đơn vị đã khui của một Nguyên vật liệu có hạn sau khi khui dài (hơn 7 ngày), được theo dõi để biết còn dùng được đến ngày nào. Mỗi lần Ghi dùng thêm một đơn vị (ngày khui = hôm nay); có thể khui sẵn nhiều đơn vị cùng lúc; Người dùng bấm "Hết" khi dùng xong đơn vị đó.

@@ -4,6 +4,7 @@ import {
   checkResetAt,
   countDiffs,
   countTimes,
+  latestQtyText,
   localDate,
   rollbackBatches,
   rollbackPreview,
@@ -17,11 +18,15 @@ import {
 
 function mv(
   overrides: Partial<Movement> &
-    Pick<Movement, "seq" | "kind"> & { note?: string | null }
+    Pick<Movement, "seq" | "kind"> & {
+      note?: string | null;
+      qty_text?: string | null;
+    }
 ): Movement {
   return {
     item_id: "item-1",
     qty: 0,
+    qty_text: null,
     mfg_date: null,
     expected_qty: null,
     batch_id: null,
@@ -835,5 +840,72 @@ describe("rollbackBatches & rollbackPreview", () => {
     expect(rollbackPreview(rows, since, null)).toBe(4);
     expect(rollbackPreview(rows, since, "user-a")).toBe(3);
     expect(rollbackPreview(rows, since, "user-b")).toBe(1);
+  });
+});
+
+describe("latestQtyText", () => {
+  it("lấy qty_text của dòng count/adjust mới nhất theo seq, bỏ dòng void và use/receive", () => {
+    const map = latestQtyText([
+      mv({
+        seq: 1,
+        item_id: "item-a",
+        kind: "count",
+        qty: 20,
+        qty_text: "1T",
+        id: "c1",
+      }),
+      mv({
+        seq: 2,
+        item_id: "item-a",
+        kind: "adjust",
+        qty: 23,
+        qty_text: "1T+3",
+        id: "a1",
+      }),
+      mv({
+        seq: 3,
+        item_id: "item-a",
+        kind: "use",
+        qty: 1,
+        qty_text: "1",
+      }),
+      mv({
+        seq: 4,
+        item_id: "item-a",
+        kind: "receive",
+        qty: 20,
+      }),
+      mv({
+        seq: 5,
+        item_id: "item-a",
+        kind: "count",
+        qty: 40,
+        qty_text: "2T",
+        id: "c2",
+      }),
+      mv({
+        seq: 6,
+        item_id: "item-a",
+        kind: "void",
+        voids_id: "c2",
+      }),
+      mv({
+        seq: 7,
+        item_id: "item-b",
+        kind: "count",
+        qty: 6,
+        qty_text: null,
+      }),
+      mv({
+        seq: 8,
+        item_id: "item-c",
+        kind: "receive",
+        qty: 10,
+      }),
+    ]);
+
+    expect(map.get("item-a")).toBe("1T+3");
+    expect(map.get("item-b")).toBeNull();
+    expect(map.has("item-c")).toBe(false);
   });
 });

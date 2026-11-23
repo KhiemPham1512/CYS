@@ -31,6 +31,7 @@ import { incomingByItem, projectedQty } from "../orders/orders";
 import { loadReceivingData, subscribeReceiving } from "../orders/receivingApi";
 import {
   checkedSince,
+  latestQtyText,
   localDate,
   stockByItem,
   totalQty,
@@ -39,7 +40,13 @@ import {
 import { expiredLots, formatDayMonth, formatMfg, usesMfgDate } from "./expiry";
 import { ReturnDamagedPanel } from "./ReturnDamagedPanel";
 import { filterByFlag, stockSummary, type StockFlag } from "./summary";
-import { formatQty, formatSheetQty, parseAdjust, parseQty } from "./qty";
+import {
+  formatQty,
+  formatSheetQty,
+  formatStockQty,
+  parseAdjust,
+  parseQty,
+} from "./qty";
 
 type Props = {
   branchId: string;
@@ -123,6 +130,7 @@ export function StockScreen({ branchId }: Props) {
   }, [branchId, fetchData]);
 
   const lotsByItem = useMemo(() => stockByItem(movements), [movements]);
+  const texts = useMemo(() => latestQtyText(movements), [movements]);
   const now = useNow();
   const today = localDate(now);
   const checked = useMemo(() => checkedSince(movements, now), [movements, now]);
@@ -173,7 +181,11 @@ export function StockScreen({ branchId }: Props) {
     };
     const r = parseAdjust(adjustInput, totalQty(selectedLots), opts);
     return r.ok
-      ? formatQty(r.value, { ...opts, unit: selectedItem.unit })
+      ? formatQty(r.value, {
+          ...opts,
+          unit: selectedItem.unit,
+          splitCases: false,
+        })
       : null;
   }, [adjustInput, selectedItem, selectedLots]);
 
@@ -230,12 +242,16 @@ export function StockScreen({ branchId }: Props) {
       setAdjustError(parsed.ok ? "Số lượng không đổi" : parsed.error);
       return;
     }
+    const trimmed = adjustInput.trim();
+    const qtyText =
+      /^[+\-−]/.test(trimmed) || trimmed.length > 40 ? null : trimmed;
     const { error: err } = await saveAdjust(
       branchId,
       selectedItem.id,
       parsed.value,
       expected,
-      adjustNote || null
+      adjustNote || null,
+      qtyText
     );
     busy.current = false;
     setSavingAdjust(false);
@@ -268,6 +284,7 @@ export function StockScreen({ branchId }: Props) {
           caseSize: selectedItem.case_size,
           unit: selectedItem.unit,
           byPercent: selectedItem.record_by_percent,
+          splitCases: false,
         })} chưa có Ngày sản xuất`
       );
       hasErr = true;
@@ -396,14 +413,17 @@ export function StockScreen({ branchId }: Props) {
             caseSize: item.case_size,
             unit: item.unit,
             byPercent: item.record_by_percent,
+            splitCases: false,
           };
           const total = lots ? totalQty(lots) : 0;
+          const totalText = formatStockQty(item, total, texts.get(item.id));
           const coming = incoming.get(item.id) ?? 0;
           const expired = expiredLots(lots ?? [], item, today);
+          const unchecked = summary.ids.unchecked.has(item.id);
           const stripe =
             expired.length > 0
               ? styles.stripeRed
-              : !checked.has(item.id)
+              : unchecked
                 ? styles.stripeAmber
                 : styles.stripeAccent;
 
@@ -413,8 +433,8 @@ export function StockScreen({ branchId }: Props) {
               onPress={() => openItem(item)}
               accessibilityRole="button"
               accessibilityLabel={[
-                `${item.name}, ${formatQty(total, qtyOpts)}`,
-                !checked.has(item.id) ? "chưa kiểm" : null,
+                `${item.name}, ${totalText}`,
+                unchecked ? "chưa kiểm" : null,
                 expired.length > 0
                   ? `quá hạn ${formatQty(totalQty(expired), qtyOpts)}`
                   : null,
@@ -431,15 +451,11 @@ export function StockScreen({ branchId }: Props) {
                   <Text style={styles.itemTitle} numberOfLines={2}>
                     {item.name}
                   </Text>
-                  <Text style={styles.itemQty}>
-                    {formatQty(total, qtyOpts)}
-                  </Text>
+                  <Text style={styles.itemQty}>{totalText}</Text>
                 </View>
-                {(!checked.has(item.id) ||
-                  expired.length > 0 ||
-                  coming > 0) && (
+                {(unchecked || expired.length > 0 || coming > 0) && (
                   <View style={styles.pills}>
-                    {!checked.has(item.id) && (
+                    {unchecked && (
                       <Text style={[styles.pill, styles.pillAmber]}>
                         Chưa kiểm
                       </Text>
@@ -540,11 +556,11 @@ export function StockScreen({ branchId }: Props) {
                   <View style={styles.cardSection}>
                     <Text style={styles.sectionHeading}>
                       Tồn kho thực tế:{" "}
-                      {formatQty(totalQty(selectedLots), {
-                        caseSize: selectedItem.case_size,
-                        unit: selectedItem.unit,
-                        byPercent: selectedItem.record_by_percent,
-                      })}
+                      {formatStockQty(
+                        selectedItem,
+                        totalQty(selectedLots),
+                        texts.get(selectedItem.id)
+                      )}
                     </Text>
                     {usesMfgDate(selectedItem) &&
                       selectedLots.map((lot) => (
@@ -560,6 +576,7 @@ export function StockScreen({ branchId }: Props) {
                             caseSize: selectedItem.case_size,
                             unit: selectedItem.unit,
                             byPercent: selectedItem.record_by_percent,
+                            splitCases: false,
                           })}
                         </Text>
                       ))}
@@ -706,6 +723,7 @@ export function StockScreen({ branchId }: Props) {
                                   caseSize: selectedItem.case_size,
                                   unit: selectedItem.unit,
                                   byPercent: selectedItem.record_by_percent,
+                                  splitCases: false,
                                 })}
                                 {lot.enteredOn
                                   ? ` — vào kho ${formatDayMonth(lot.enteredOn)}`
