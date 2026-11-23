@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
       "Hết lượt đọc ảnh hôm nay. Thử lại ngày mai hoặc chọn 'Đã đặt đúng như đơn'."
     );
 
-  // Model chính hay quá tải (503) hoặc đứng hình: chờ 20s rồi thử model nhẹ hơn (chờ tới 40s).
+  // Model chính quá tải, lỗi hoặc đứng hình: chờ 12s rồi thử model nhẹ hơn (chờ tới 40s).
   const payload = JSON.stringify(buildGeminiRequest(body.images));
   const { reached, parsed } = await readWithFallback(
     async (m, timeoutMs) => {
@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
       return { status: res.status, body: () => res.json() };
     },
     [
-      [model, 20_000],
+      [model, 12_000],
       [FALLBACK_MODEL, 40_000],
     ]
   );

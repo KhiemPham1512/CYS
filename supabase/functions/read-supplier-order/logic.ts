@@ -141,7 +141,7 @@ export type GeminiCall = (
   timeoutMs: number
 ) => Promise<{ status: number; body: () => Promise<unknown> }>;
 
-// Model chính hay quá tải (503) hoặc đứng hình: thử lần lượt các model; chỉ 503/lỗi mạng mới sang model kế.
+// Model chính hay quá tải, đứng hình hoặc lỗi lạ: thử lần lượt các model, đọc được là dừng (model chính lỗi 4-5s mà không thử dự phòng từng làm người dùng phải bấm đọc lại).
 // reached=false khi không model nào trả lời được (để báo 502 "không kết nối").
 export async function readWithFallback(
   call: GeminiCall,
@@ -154,7 +154,7 @@ export async function readWithFallback(
       const res = await call(model, timeoutMs);
       reached = true;
       parsed = parseGeminiResponse(await res.body());
-      if (parsed.ok || res.status !== 503) break;
+      if (parsed.ok) break;
     } catch {
       // hết giờ hoặc lỗi mạng: thử model kế
     }

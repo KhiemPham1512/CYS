@@ -175,14 +175,30 @@ describe("readWithFallback", () => {
     expect(r.parsed.ok).toBe(true);
   });
 
-  it("lỗi khác 503 (hết hạn mức 429) thì dừng, không đốt thêm lượt model dự phòng", async () => {
+  it("model chính lỗi kiểu nào (500, 429 hết hạn mức riêng) cũng thử model dự phòng", async () => {
+    for (const status of [500, 429]) {
+      const call = vi.fn(async (m: string) =>
+        m === "chinh"
+          ? reply(status, { error: { code: status, status: "X" } })
+          : reply(200, ok)
+      );
+      const r = await readWithFallback(call, models);
+      expect(call).toHaveBeenCalledTimes(2);
+      expect(r.parsed.ok).toBe(true);
+    }
+  });
+
+  it("cả hai model đều hết hạn mức 429 thì báo hết hạn mức", async () => {
     const call = vi.fn(async () =>
       reply(429, { error: { code: 429, status: "RESOURCE_EXHAUSTED" } })
     );
     const r = await readWithFallback(call, models);
-    expect(call).toHaveBeenCalledTimes(1);
+    expect(call).toHaveBeenCalledTimes(2);
     expect(r.reached).toBe(true);
-    expect(r.parsed.ok).toBe(false);
+    expect(r.parsed).toEqual({
+      ok: false,
+      error: expect.stringContaining("Hết hạn mức"),
+    });
   });
 
   it("không model nào trả lời được thì reached=false (báo không kết nối)", async () => {
