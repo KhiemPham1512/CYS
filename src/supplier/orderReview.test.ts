@@ -138,3 +138,73 @@ describe("reviewSupplierOrder", () => {
     expect(by).toEqual({ jam: "missing", tea: "extra" });
   });
 });
+
+describe("hai dòng NCC cùng khớp một món", () => {
+  const jelly: MatchItem = {
+    id: "jelly",
+    name: "Thạch lá",
+    unit: "Hộp",
+    case_size: null,
+  };
+
+  it("dòng có quy cách riêng trong ngoặc (200g) không cộng dồn vào món chung, mà hỏi lại", () => {
+    const r = reviewSupplierOrder({
+      images: [
+        [
+          raw({ name: "Thạch Lá - 葉", unit: "Hộp", qty: 4 }),
+          raw({ name: "Thạch Lá (200g) - 葉 (200g)", unit: "Hộp", qty: 2 }),
+        ],
+      ],
+      items: [jelly],
+      aliases: {},
+      ordered: new Map([["jelly", 4]]),
+    });
+    expect(r.unknown.map((l) => l.qty)).toEqual([2]);
+    expect(r.rows).toEqual([
+      { itemId: "jelly", ordered: 4, supplied: 4, status: "ok" },
+    ]);
+    expect(r.allOk).toBe(false); // còn một dòng chưa biết, không báo "đã ổn"
+  });
+
+  it("món đã được người dùng chọn tay (alias) thì giữ nguyên, không bị loại", () => {
+    const r = reviewSupplierOrder({
+      images: [
+        [
+          raw({ name: "Thạch Lá - 葉", unit: "Hộp", qty: 4 }),
+          raw({ name: "Thạch Lá (200g) - 葉 (200g)", unit: "Hộp", qty: 2 }),
+        ],
+      ],
+      items: [jelly],
+      aliases: { "thach la 200g": "jelly" },
+      ordered: new Map([["jelly", 6]]),
+    });
+    expect(r.unknown).toEqual([]);
+    expect(r.rows[0].supplied).toBe(6);
+  });
+});
+
+describe("món trong app có sẵn quy cách trong tên", () => {
+  it("món 'Thạch lá (200g)' và hai dòng NCC 'Thạch lá', 'Thạch lá (200g)': dòng (200g) đúng món nên giữ", () => {
+    const small: MatchItem = {
+      id: "small",
+      name: "Thạch lá (200g)",
+      unit: "Hộp",
+      case_size: null,
+    };
+    const r = reviewSupplierOrder({
+      images: [
+        [
+          raw({ name: "Thạch Lá (200g) - 葉", unit: "Hộp", qty: 2 }),
+          raw({ name: "Thạch Lá - 葉", unit: "Hộp", qty: 4 }),
+        ],
+      ],
+      items: [small],
+      aliases: {},
+      ordered: new Map(),
+    });
+    expect(r.rows.find((x) => x.itemId === "small")?.supplied).toBeGreaterThan(
+      0
+    );
+    expect(r.unknown.map((l) => l.qty)).not.toContain(2);
+  });
+});

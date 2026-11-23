@@ -3,6 +3,7 @@ import {
   compareOrders,
   matchSupplierName,
   mergeRawLines,
+  sizeTags,
   toItemQty,
   type CompareRow,
   type MatchItem,
@@ -30,10 +31,32 @@ export function reviewSupplierOrder(input: {
   const unconvertible: SupplierReview["unconvertible"] = [];
   const matched: SupplierReview["matched"] = [];
 
-  for (const line of mergeRawLines(input.images)) {
-    const match = matchSupplierName(line.name, input.items, input.aliases);
+  const claims = mergeRawLines(input.images).map((line) => ({
+    line,
+    match: matchSupplierName(line.name, input.items, input.aliases),
+  }));
+  // Hai dòng NCC cùng đoán vào một món mà một dòng có thêm quy cách riêng ("(200g)"): dòng đó là hàng khác, hỏi lại thay vì cộng dồn.
+  const fewestSizes = new Map<string, number>();
+  for (const { line, match } of claims)
+    if (match && match.via !== "alias")
+      fewestSizes.set(
+        match.itemId,
+        Math.min(
+          fewestSizes.get(match.itemId) ?? Infinity,
+          sizeTags(line.name).length
+        )
+      );
+
+  for (const { line, match } of claims) {
     const item = match && byId.get(match.itemId);
-    if (!match || !item) {
+    const lineSizes = sizeTags(line.name);
+    const itemSizes = item ? sizeTags(item.name) : [];
+    const extraSize =
+      match &&
+      match.via !== "alias" &&
+      lineSizes.length > (fewestSizes.get(match.itemId) ?? 0) &&
+      lineSizes.some((t) => !itemSizes.includes(t)); // quy cách không có trong tên món mới là hàng khác
+    if (!match || !item || extraSize) {
       unknown.push(line);
       continue;
     }

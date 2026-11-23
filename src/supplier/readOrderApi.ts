@@ -4,7 +4,7 @@ import type {
 } from "../../supabase/functions/read-supplier-order/logic.ts";
 import { functionErrorMessage } from "../lib/functionError";
 import { supabase } from "../lib/supabase";
-import { nameKey } from "./orderReconcile";
+import { aliasKey } from "./orderReconcile";
 
 export type { ImageInput };
 
@@ -39,7 +39,7 @@ export async function saveAlias(
   supplierName: string,
   itemId: string
 ): Promise<{ error: string | null }> {
-  const key = nameKey(supplierName);
+  const key = aliasKey(supplierName);
   const table = supabase.from("supplier_aliases");
   let { error } = await table.insert({
     branch_id: branchId,

@@ -20,15 +20,32 @@ export type MatchItem = {
 
 const vietnamesePart = (name: string) => name.split(" - ")[0];
 
-// Bỏ nội dung trong ngoặc và token khối lượng/dung tích (1kg, 500g, 2l) để so tên ổn định.
+// Bỏ ngoặc có số (dung tích/khối lượng như "(960cc)", "(200g)") và token khối lượng (1kg, 500g, 2l) để so tên ổn định;
+// ngoặc chỉ có chữ như "(không đường)" là phần phân biệt món nên giữ lại.
 function tokens(name: string): string[] {
-  return normalizeVi(name.replace(/\([^)]*\)/g, " "))
+  return normalizeVi(
+    name.replace(/\([^)]*\d[^)]*\)/g, " ").replace(/[()]/g, " ")
+  )
     .split(/[\s,./-]+/)
     .filter((t) => t && !/^\d+(\.\d+)?(kg|g|l|ml|cc)$/.test(t));
 }
 const namesOf = (i: MatchItem): string[] =>
   i.alt_name && i.alt_name !== i.name ? [i.name, i.alt_name] : [i.name];
 export const nameKey = (name: string) => tokens(vietnamesePart(name)).join(" ");
+
+// sizeTags: khối lượng/dung tích trong ngoặc của phần tên Việt; "(960 cc)" = "(960cc)", "(1,5l)" = "1.5l".
+export const sizeTags = (name: string): string[] =>
+  [...vietnamesePart(name).matchAll(/\(([^)]*)\)/g)].flatMap((paren) =>
+    [
+      ...normalizeVi(paren[1]).matchAll(
+        /(\d+(?:[.,]\d+)?)\s*(kg|g|l|ml|cc)\b/g
+      ),
+    ].map((m) => `${m[1].replace(",", ".")}${m[2]}`)
+  );
+
+// Khóa nhớ tên và gộp dòng: như nameKey nhưng giữ khối lượng/dung tích trong ngoặc, vì "(960cc)" và "(700cc)" là hai món khác nhau.
+export const aliasKey = (name: string) =>
+  [nameKey(name), ...sizeTags(name)].filter(Boolean).join(" ");
 
 // Ảnh chụp màn hình dài thường chồng nhau: dòng đã có ở ảnh trước thì bỏ, không cộng đôi.
 // Cùng món khác số lượng giữ cả hai (không đoán). Khác mã đơn là hai dòng khác nhau.
@@ -41,7 +58,7 @@ export function mergeRawLines(images: RawLine[][]): RawLine[] {
     for (const raw of image) {
       if (raw.orderCode) lastCode = raw.orderCode;
       const line = { ...raw, orderCode: raw.orderCode ?? lastCode };
-      const key = `${line.orderCode ?? ""}|${nameKey(line.name)}|${normalizeVi(line.unit)}|${line.qty}`;
+      const key = `${line.orderCode ?? ""}|${aliasKey(line.name)}|${normalizeVi(line.unit)}|${line.qty}`;
       if (seenBefore.has(key)) continue;
       out.push(line);
       thisImage.push(key);
@@ -79,12 +96,13 @@ export type NameMatch = {
 export function matchSupplierName(
   supplierName: string,
   items: MatchItem[],
-  aliases: Record<string, string> // khóa = nameKey, giá trị = id món
+  aliases: Record<string, string> // khóa = aliasKey, giá trị = id món
 ): NameMatch | null {
   const key = nameKey(supplierName);
+  const alias = aliasKey(supplierName);
   const zh = zhKey(supplierName);
   if (!key && !zh) return null;
-  const aliased = key ? aliases[key] : undefined;
+  const aliased = alias ? aliases[alias] : undefined;
   if (aliased && items.some((i) => i.id === aliased))
     return { itemId: aliased, via: "alias" };
   const exact = key
@@ -122,6 +140,18 @@ export function matchSupplierName(
 }
 
 const MEASURES = new Set(["l", "ml", "kg", "g", "cc"]);
+// shortcut: danh sách đơn vị lẻ viết tay, không dấu; nâng cấp (lấy từ dữ liệu) khi gặp đơn vị lẻ mới bị báo "không quy đổi được".
+const RETAIL_UNITS = new Set([
+  "hop",
+  "lon",
+  "goi",
+  "chai",
+  "binh",
+  "bao",
+  "tui",
+  "hu",
+  "cai",
+]);
 
 // "12 lon/thùng" -> 12 lon mỗi thùng. Mô tả kiểu "2L/BÌNH" (dung tích) không phải quy cách đếm được.
 export function parsePack(
@@ -146,6 +176,10 @@ export function toItemQty(
   const pack = parsePack(raw.pack);
   if (pack && unit === pack.outer && pack.inner === itemUnit)
     return { ok: true, qty: round4(raw.qty * pack.per) };
+  // NCC ghi đơn vị lẻ khác tên ("5 Hộp") nhưng mô tả quy cách cho thấy là chính món lẻ ("12 lon/thùng"): coi là cùng đơn vị.
+  // Chỉ với đơn vị lẻ đã biết; "Lốc", "Kiện"... là bao ngoài nên không đoán.
+  if (pack && pack.inner === itemUnit && RETAIL_UNITS.has(unit))
+    return { ok: true, qty: round4(raw.qty) };
   if (unit === "thung" && item.case_size)
     return { ok: true, qty: round4(raw.qty * item.case_size) };
   return { ok: false };
