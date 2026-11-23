@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
 
   // Model chính quá tải, lỗi hoặc đứng hình: chờ 12s rồi thử model nhẹ hơn (chờ tới 40s).
   const payload = JSON.stringify(buildGeminiRequest(body.images));
-  const { reached, parsed } = await readWithFallback(
+  const { reached, parsed, errors } = await readWithFallback(
     async (m, timeoutMs) => {
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`,
@@ -112,6 +112,7 @@ Deno.serve(async (req) => {
       [FALLBACK_MODEL, 40_000],
     ]
   );
+  if (!parsed.ok) console.error("gemini", errors.join(" | ")); // chỉ mã lỗi và thông báo ngắn, không có ảnh
   if (!reached)
     return fail(502, "Không kết nối được dịch vụ đọc ảnh. Thử lại sau.");
   if (!parsed.ok) return fail(502, parsed.error);

@@ -143,21 +143,39 @@ export type GeminiCall = (
 
 // Model chính hay quá tải, đứng hình hoặc lỗi lạ: thử lần lượt các model, đọc được là dừng (model chính lỗi 4-5s mà không thử dự phòng từng làm người dùng phải bấm đọc lại).
 // reached=false khi không model nào trả lời được (để báo 502 "không kết nối").
+// errors: tóm tắt lỗi từng model (mã HTTP, mã lỗi, thông báo ngắn) để ghi log chẩn đoán; không chứa ảnh hay dòng đơn.
 export async function readWithFallback(
   call: GeminiCall,
   models: readonly (readonly [string, number])[]
-): Promise<{ reached: boolean; parsed: ParsedRead }> {
+): Promise<{ reached: boolean; parsed: ParsedRead; errors: string[] }> {
   let parsed = parseGeminiResponse(null);
   let reached = false;
+  const errors: string[] = [];
   for (const [model, timeoutMs] of models) {
     try {
       const res = await call(model, timeoutMs);
       reached = true;
-      parsed = parseGeminiResponse(await res.body());
+      const body = await res.body();
+      parsed = parseGeminiResponse(body);
       if (parsed.ok) break;
-    } catch {
+      errors.push(
+        `${model}: HTTP ${res.status} ${describeGeminiFailure(body)}`
+      );
+    } catch (e) {
       // hết giờ hoặc lỗi mạng: thử model kế
+      errors.push(`${model}: ${e instanceof Error ? e.name : "lỗi mạng"}`);
     }
   }
-  return { reached, parsed };
+  return { reached, parsed, errors };
+}
+
+function describeGeminiFailure(body: unknown): string {
+  const b = body as {
+    error?: { status?: string; message?: unknown };
+    candidates?: { finishReason?: string }[];
+  } | null;
+  if (b?.error)
+    return `${b.error.status ?? ""} ${String(b.error.message ?? "").slice(0, 200)}`.trim();
+  const reason = b?.candidates?.[0]?.finishReason;
+  return reason ? `finishReason ${reason}` : "không đọc được nội dung trả về";
 }
