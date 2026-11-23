@@ -349,6 +349,28 @@ export type Database = {
         };
         Returns: void;
       };
+      reset_branch_activity: {
+        Args: {
+          p_branch: string;
+          p_confirm: string;
+        };
+        Returns: undefined;
+      };
+      restore_rollback: {
+        Args: {
+          p_branch: string;
+          p_batch: string;
+        };
+        Returns: number;
+      };
+      rollback_stock: {
+        Args: {
+          p_branch: string;
+          p_since: string;
+          p_actor?: string | null;
+        };
+        Returns: number;
+      };
       settle_owed: {
         Args: {
           p_item_id: string;

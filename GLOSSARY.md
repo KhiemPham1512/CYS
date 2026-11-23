@@ -131,3 +131,15 @@ _Tránh_: config, settings
 **Nhật ký thay đổi**:
 Bản ghi ai đã thay đổi gì, lúc nào, giá trị cũ và mới.
 _Tránh_: log, lịch sử, audit
+
+**Chế độ phát triển**:
+Chế độ dành riêng cho Quản trị, bật bằng cách bấm 10 lần vào logo ở tab Tồn kho để mở các thao tác sửa lỗi dữ liệu nâng cao (Quay lại sổ kho, Xóa dữ liệu phát sinh); chỉ tồn tại trong phiên đang mở và tự tắt khi tắt app.
+_Tránh_: dev mode, debug mode, chế độ thử nghiệm
+
+**Quay lại sổ kho**:
+Thao tác trong Chế độ phát triển giúp Quản trị hủy các dòng Kiểm kho, Điều chỉnh tồn kho, Thêm Ngày sản xuất và Ghi dùng từ một mốc giờ đã chọn (có thể lọc chỉ của một Người dùng), không gồm Nhận hàng và Trả hàng hư; vì sổ kho chỉ ghi thêm nên lần quay lại này có thể khôi phục được.
+_Tránh_: rollback, hoàn tác kho, tua lại kho
+
+**Xóa dữ liệu phát sinh**:
+Thao tác trong Chế độ phát triển giúp Quản trị xóa toàn bộ sổ kho, Đơn đặt hàng, Nhận hàng, Hàng thiếu, Đang dùng, lượt đọc ảnh và Nhật ký thay đổi của Chi nhánh (giữ lại Danh mục, thành viên và dữ liệu in); phải gõ đúng tên Chi nhánh để xác nhận.
+_Tránh_: reset, wipe, xóa trắng kho

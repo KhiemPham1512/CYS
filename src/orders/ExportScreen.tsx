@@ -28,7 +28,7 @@ import { compareGroups, compareItems } from "../catalog/sections";
 import type { Tables } from "../lib/database.types";
 import { loadMovements } from "../stock/api";
 import { formatDate } from "../stock/date";
-import { stockByItem } from "../stock/ledger";
+import { countTimes as getCountTimes, stockByItem } from "../stock/ledger";
 import {
   loadBranchSheet,
   loadOrders,
@@ -125,10 +125,7 @@ export function ExportScreen({ branchId, branchName }: Props) {
 
   const lotsByItem = useMemo(() => stockByItem(movements), [movements]);
   // Ngày D của ảnh = Ngày của đơn nếu đặt lúc này (đã Kiểm kho hôm nay thì là ngày mai).
-  const countTimes = useMemo(
-    () => movements.filter((m) => m.kind === "count").map((m) => m.created_at),
-    [movements]
-  );
+  const countTimes = useMemo(() => getCountTimes(movements), [movements]);
   const day = businessDay(new Date().toISOString(), countTimes);
   const incoming = useMemo(
     () => incomingBefore(orders, lines, received, day, countTimes),

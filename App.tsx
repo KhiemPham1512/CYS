@@ -40,6 +40,7 @@ import { fontFamily, useReduceMotion } from "./src/ui/motion";
 import { Splash } from "./src/ui/Splash";
 import { TabBar } from "./src/ui/TabBar";
 import { AdminWebGate } from "./src/admin/AdminWebGate";
+import { DevScreen } from "./src/admin/DevScreen";
 import { adminWebView } from "./src/navigation/adminWeb";
 import { CatalogScreen } from "./src/catalog/CatalogScreen";
 import { CountScreen } from "./src/stock/CountScreen";
@@ -294,7 +295,7 @@ function Enter({
   );
 }
 
-type HomeView = "stock" | "use" | "catalog" | "menu" | HubKey;
+type HomeView = "stock" | "use" | "catalog" | "menu" | HubKey | "dev";
 
 // Màn tự cập nhật theo thời gian thực: giữ lại khi chuyển tab. Màn khác dựng mới mỗi lần mở.
 const KEEP_ALIVE = new Set<HomeView>([
@@ -363,6 +364,7 @@ const TITLES: Record<HomeView, string> = {
   count: "Kiểm kho",
   expiry: "Hạn dùng",
   export: "Xuất ảnh",
+  dev: "Chế độ phát triển",
 };
 
 function HomeScreen({
@@ -389,6 +391,31 @@ function HomeScreen({
   const [roleError, setRoleError] = useState(false);
   const [view, setView] = useState<HomeView>("stock");
   const [hubOpen, setHubOpen] = useState(false);
+  const [devMode, setDevMode] = useState(false);
+  const devTapRef = useRef<{ count: number; firstAt: number }>({
+    count: 0,
+    firstAt: 0,
+  });
+
+  const onLogoPress = () => {
+    if (!isAdmin || view !== "stock") return;
+    const now = Date.now();
+    if (
+      devTapRef.current.count === 0 ||
+      now - devTapRef.current.firstAt > 6000
+    ) {
+      devTapRef.current = { count: 1, firstAt: now };
+      return;
+    }
+    const next = devTapRef.current.count + 1;
+    if (next >= 10) {
+      devTapRef.current = { count: 0, firstAt: 0 };
+      setDevMode(true);
+      setView("dev");
+    } else {
+      devTapRef.current.count = next;
+    }
+  };
 
   useEffect(() => {
     // shortcut: lấy Chi nhánh đầu tiên; khi một người thuộc nhiều Chi nhánh thì thêm bước chọn.
@@ -471,6 +498,17 @@ function HomeScreen({
         return <ReadOrderScreen branchId={id} />;
       case "catalog":
         return <CatalogScreen branchId={id} />;
+      case "dev":
+        return (
+          <DevScreen
+            branchId={id}
+            branchName={branch.branch_name}
+            onExit={() => {
+              setDevMode(false);
+              setView("stock");
+            }}
+          />
+        );
     }
   }
 
@@ -507,8 +545,23 @@ function HomeScreen({
           {theme === "pink" && view === "stock" && (
             <Bow color={palette.accent} width={26} />
           )}
-          <Logo theme={theme} size={34} />
+          <Pressable
+            onPress={onLogoPress}
+            accessibilityRole="button"
+            accessibilityLabel="Logo"
+          >
+            <Logo theme={theme} size={34} />
+          </Pressable>
         </View>
+        {devMode && (
+          <Pressable
+            style={styles.devStrip}
+            onPress={() => setView("dev")}
+            accessibilityRole="button"
+          >
+            <Text style={styles.devStripText}>Chế độ phát triển</Text>
+          </Pressable>
+        )}
         {/* Màn đã mở được giữ lại (ẩn đi) để quay lại tức thì, không tải lại; chỉ màn có cập nhật thời gian thực. */}
         {mounted.map((k) => (
           <Pane
@@ -649,4 +702,15 @@ const makeStyles = (c: Palette) =>
     topTitle: { flex: 1 },
     screenTitle: { fontSize: 24, fontFamily: fontFamily.bold, color: c.ink },
     branchSub: { fontSize: 12, color: c.muted, fontFamily: fontFamily.regular },
+    devStrip: {
+      backgroundColor: c.amberSoft,
+      paddingVertical: 6,
+      paddingHorizontal: 16,
+      alignItems: "center",
+    },
+    devStripText: {
+      color: c.amber,
+      fontSize: 12,
+      fontFamily: fontFamily.semi,
+    },
   });

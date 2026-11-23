@@ -1,3 +1,4 @@
+import { VN_OFFSET_MS } from "../stock/ledger";
 export type AuditEntry = {
   table_name: string; // items | item_groups | branch_settings | members | stock_movements
   action: string; // insert | update | delete, hoặc loại biến động kho (use, count, ...)
@@ -61,15 +62,36 @@ const STOCK_LABEL: Record<string, string> = {
   void: "Hủy Ghi dùng",
 };
 
+function formatVnDateTime(iso: unknown): string {
+  const ms = typeof iso === "string" ? Date.parse(iso) : Number.NaN;
+  if (Number.isNaN(ms)) return show(iso);
+  const s = new Date(ms + VN_OFFSET_MS).toISOString();
+  return `${s.slice(8, 10)}/${s.slice(5, 7)} ${s.slice(11, 16)}`;
+}
+
 // Mô tả một dòng Nhật ký thành các câu "Nhãn: cũ → mới"; trường không đổi thì bỏ.
 export function describeChange(e: AuditEntry): string[] {
   if (e.table_name === "stock_movements") {
+    if (e.action === "void" && e.new_data?.note === "rollback") {
+      return ["Quay lại sổ kho: hủy 1 dòng"];
+    }
     const qty = e.new_data?.qty;
     const label = STOCK_LABEL[e.action] ?? e.action;
     const expected = e.new_data?.expected_qty;
     const tail =
       expected !== undefined && expected !== null ? ` (sổ ${expected})` : "";
     return [`${label}: ${show(qty)}${tail}`];
+  }
+  if (e.table_name === "stock_rollback") {
+    if (e.action === "delete") {
+      return [`Khôi phục lần quay lại: ${show(e.old_data?.count)} dòng`];
+    }
+    return [
+      `Quay lại sổ kho từ ${formatVnDateTime(e.new_data?.since)}: ${show(e.new_data?.count)} dòng`,
+    ];
+  }
+  if (e.table_name === "branch_reset") {
+    return ["Xóa dữ liệu phát sinh của Chi nhánh"];
   }
   const name = String((e.new_data ?? e.old_data)?.name ?? "");
   const subject = name || SUBJECT[e.table_name] || e.table_name;

@@ -15,6 +15,7 @@ export type Movement = Pick<
   | "id"
   | "voids_id"
   | "created_by"
+  | "note"
 >;
 
 // Lô có Ngày sản xuất: mfgDate. Phần chưa có Ngày sản xuất tách theo ngày vào kho (enteredOn)
@@ -34,7 +35,7 @@ export type CountDiff = {
 
 // shortcut: múi giờ cố định giờ Việt Nam (UTC+7) để mọi máy ra cùng "ngày vào kho";
 // khi có Chi nhánh ở múi giờ khác thì lưu múi giờ theo Chi nhánh.
-const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
+export const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
 
 // Ngày (giờ Việt Nam) của một thời điểm ISO, dạng yyyy-mm-dd.
 export function localDate(iso: string): string {
@@ -66,7 +67,7 @@ function takeOldestFirst(map: Map<string, number>, amount: number): number {
 const sum = (map: Map<string, number>) =>
   [...map.values()].reduce((s, q) => s + q, 0);
 
-const voidedIds = (movements: Movement[]) =>
+export const voidedIds = (movements: Movement[]) =>
   new Set(movements.flatMap((m) => (m.voids_id ? [m.voids_id] : [])));
 
 // Ghi dùng trong ngày hôm nay (giờ Việt Nam) chưa bị hủy, theo thứ tự ghi.
@@ -103,6 +104,7 @@ export function stockLots(movements: Movement[]): Lot[] {
   const undated = new Map<string, number>(); // ngày vào kho → số lượng chưa có Ngày sản xuất
 
   for (const m of sorted) {
+    if (voided.has(m.id)) continue;
     if (m.kind === "count" || m.kind === "adjust") {
       // Đặt tổng = qty nhưng giữ Ngày sản xuất: tăng → phần chưa có ngày, vào kho hôm nay;
       // giảm → trừ Lô Ngày sản xuất sớm nhất trước, rồi phần chưa có ngày vào kho sớm nhất.
@@ -113,8 +115,7 @@ export function stockLots(movements: Movement[]): Lot[] {
     } else if (m.kind === "use") {
       // shortcut: Ghi dùng bị hủy thì bỏ qua khi tính lại; nếu giữa chừng có Kiểm kho/Điều chỉnh
       // thì tổng đã đặt lại nên không lệch. Vượt tồn thì về 0, cảnh báo ở màn hình.
-      if (!voided.has(m.id))
-        takeOldestFirst(undated, takeOldestFirst(dated, m.qty));
+      takeOldestFirst(undated, takeOldestFirst(dated, m.qty));
     } else if (m.kind === "receive" && m.qty > 0) {
       // Nhận hàng: cộng vào Lô đúng Ngày sản xuất; không có ngày thì vào phần chưa có ngày (ngày vào kho).
       if (m.mfg_date) add(dated, m.mfg_date, m.qty);
@@ -198,9 +199,15 @@ export function checkedSince(
   nowIso: string
 ): Set<string> {
   const since = Date.parse(checkResetAt(nowIso));
+  const voided = voidedIds(movements);
   return new Set(
     movements
-      .filter((m) => m.kind === "count" && Date.parse(m.created_at) >= since)
+      .filter(
+        (m) =>
+          m.kind === "count" &&
+          !voided.has(m.id) &&
+          Date.parse(m.created_at) >= since
+      )
       .map((m) => m.item_id)
   );
 }
@@ -210,11 +217,13 @@ export function countDiffs(
   batchId: string
 ): CountDiff[] {
   const sorted = [...movements].sort((a, b) => a.seq - b.seq);
+  const voided = voidedIds(sorted);
   const diffs: CountDiff[] = [];
 
   for (const m of sorted) {
     if (
       m.kind === "count" &&
+      !voided.has(m.id) &&
       m.batch_id === batchId &&
       m.expected_qty !== null
     ) {
@@ -231,4 +240,61 @@ export function countDiffs(
   }
 
   return diffs;
+}
+
+// Thời điểm các dòng Kiểm kho chưa bị hủy, dùng tính "Ngày của đơn".
+export function countTimes(movements: Movement[]): string[] {
+  const voided = voidedIds(movements);
+  return movements
+    .filter((m) => m.kind === "count" && !voided.has(m.id))
+    .map((m) => m.created_at);
+}
+
+// Các đợt quay lui (dòng void do rollback_stock tạo), đợt mới nhất trước.
+export function rollbackBatches(
+  movements: Movement[]
+): { batchId: string; at: string; count: number }[] {
+  const byBatch = new Map<string, { at: string; count: number }>();
+  for (const m of movements) {
+    if (m.kind !== "void" || m.note !== "rollback" || !m.batch_id) continue;
+    const cur = byBatch.get(m.batch_id);
+    if (!cur) {
+      byBatch.set(m.batch_id, { at: m.created_at, count: 1 });
+    } else {
+      cur.count += 1;
+      if (Date.parse(m.created_at) > Date.parse(cur.at)) cur.at = m.created_at;
+    }
+  }
+  return [...byBatch.entries()]
+    .map(([batchId, v]) => ({ batchId, at: v.at, count: v.count }))
+    .sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+}
+
+const ROLLBACK_KINDS = new Set<Movement["kind"]>([
+  "count",
+  "adjust",
+  "assign_mfg",
+  "use",
+]);
+
+// Số dòng sổ kho sẽ bị hủy nếu chạy rollback_stock với cùng mốc thời gian và người tạo.
+export function rollbackPreview(
+  movements: Movement[],
+  sinceIso: string,
+  actorId: string | null
+): number {
+  const voided = voidedIds(movements);
+  const sinceMs = Date.parse(sinceIso);
+  let n = 0;
+  for (const m of movements) {
+    if (
+      ROLLBACK_KINDS.has(m.kind) &&
+      !voided.has(m.id) &&
+      Date.parse(m.created_at) >= sinceMs &&
+      (actorId === null || m.created_by === actorId)
+    ) {
+      n += 1;
+    }
+  }
+  return n;
 }

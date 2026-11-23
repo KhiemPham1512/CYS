@@ -131,4 +131,54 @@ describe("describeChange", () => {
       )
     ).toEqual([]);
   });
+
+  it("hủy dòng do quay lại sổ kho khác với hủy Ghi dùng thường", () => {
+    expect(
+      describeChange(
+        entry({
+          table_name: "stock_movements",
+          action: "void",
+          new_data: { qty: 0, note: "rollback" },
+        })
+      )
+    ).toEqual(["Quay lại sổ kho: hủy 1 dòng"]);
+    expect(
+      describeChange(
+        entry({
+          table_name: "stock_movements",
+          action: "void",
+          new_data: { qty: 2 },
+        })
+      )
+    ).toEqual(["Hủy Ghi dùng: 2"]);
+  });
+
+  it("sự kiện quay lại sổ kho, khôi phục và xóa dữ liệu phát sinh", () => {
+    expect(
+      describeChange(
+        entry({
+          table_name: "stock_rollback",
+          action: "insert",
+          new_data: { since: "2026-11-20T07:05:00Z", count: 4 },
+        })
+      )
+    ).toEqual(["Quay lại sổ kho từ 20/11 14:05: 4 dòng"]);
+    expect(
+      describeChange(
+        entry({
+          table_name: "stock_rollback",
+          action: "delete",
+          old_data: { count: 4 },
+        })
+      )
+    ).toEqual(["Khôi phục lần quay lại: 4 dòng"]);
+    expect(
+      describeChange(
+        entry({
+          table_name: "branch_reset",
+          action: "delete",
+        })
+      )
+    ).toEqual(["Xóa dữ liệu phát sinh của Chi nhánh"]);
+  });
 });
