@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { cleanDisplayName, initialsOf } from "../profile/name";
+import { cleanDisplayName, initialsOf, MAX_NAME } from "../profile/name";
 import { loadProfile, pickAvatar, saveProfile } from "../profile/api";
 import { useTheme } from "../theme/ThemeContext";
 import { PALETTES, type ThemeName } from "../theme/themes";
@@ -34,6 +34,7 @@ export function MenuScreen({
   const { theme, palette, setTheme } = useTheme();
   const [name, setName] = useState<string | null>(null);
   const [avatar, setAvatar] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false); // chưa tải được hồ sơ thì không cho sửa, tránh ghi đè ảnh/tên cũ
   const [editing, setEditing] = useState(false);
   const [draftName, setDraftName] = useState("");
   const [draftAvatar, setDraftAvatar] = useState<string | null>(null);
@@ -44,6 +45,7 @@ export function MenuScreen({
       (p) => {
         setName(p.display_name);
         setAvatar(p.avatar);
+        setLoaded(true);
       },
       () => {}
     );
@@ -143,7 +145,7 @@ export function MenuScreen({
             value={draftName}
             onChangeText={setDraftName}
             placeholder="Tên hiển thị (để trống thì hiện email)"
-            maxLength={40}
+            maxLength={MAX_NAME}
             accessibilityLabel="Tên hiển thị"
           />
           {error && <Text style={{ color: palette.red }}>{error}</Text>}
@@ -167,7 +169,7 @@ export function MenuScreen({
               onPress={save}
               disabled={busy}
               accessibilityRole="button"
-              accessibilityLabel="Lưu tài khoản"
+              accessibilityLabel="Lưu hồ sơ"
             >
               <Text style={{ color: "#fff", fontFamily: fontFamily.semi }}>
                 {busy ? "Đang lưu…" : "Lưu"}
@@ -175,17 +177,17 @@ export function MenuScreen({
             </Pressable>
           </View>
         </View>
-      ) : (
+      ) : loaded ? (
         <Pressable
           onPress={startEdit}
           accessibilityRole="button"
-          accessibilityLabel="Sửa tài khoản"
+          accessibilityLabel="Sửa hồ sơ"
         >
           <Text style={[styles.link, { color: palette.accent }]}>
             Sửa tên và ảnh đại diện
           </Text>
         </Pressable>
-      )}
+      ) : null}
 
       <Text style={[styles.group, { color: palette.muted }]}>CHI NHÁNH</Text>
       <View style={card}>

@@ -28,7 +28,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Cho phÃ©p chá»n áº£nh Ä‘Æ¡n nhÃ  cung cáº¥p Ä‘á»ƒ Ä‘á»c."
+          "photosPermission": "Cho phép chọn ảnh đơn nhà cung cấp để đọc hoặc ảnh đại diện."
         }
       ]
     ],

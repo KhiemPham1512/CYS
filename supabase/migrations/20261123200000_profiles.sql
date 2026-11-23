@@ -1,4 +1,4 @@
--- Tài khoản cá nhân: tên hiển thị và ảnh đại diện (ảnh nhỏ 128px lưu thẳng dạng data URL, không cần Storage).
+-- Hồ sơ cá nhân: tên hiển thị và ảnh đại diện (ảnh nhỏ 128px lưu thẳng dạng data URL, không cần Storage).
 -- Mỗi người chỉ ghi dòng của mình; đọc được dòng của người cùng Chi nhánh (để hiện tên thay email).
 
 create table public.profiles (
