@@ -26,7 +26,7 @@ import {
   voidedIds,
   type CountDiff,
 } from "./ledger";
-import { formatQty, parseQty, round4 } from "./qty";
+import { formatQty, formatStockQty, parseQty, round4 } from "./qty";
 
 type Props = {
   branchId: string;
@@ -297,12 +297,7 @@ export function CountScreen({ branchId, onDone }: Props) {
     : null;
   const editingPreview =
     editingItem && editingQty !== undefined && !editingError
-      ? `= ${formatQty(editingQty, {
-          caseSize: editingItem.case_size,
-          unit: editingItem.unit,
-          byPercent: editingItem.record_by_percent,
-          splitCases: false,
-        })}`
+      ? `= ${formatStockQty(editingItem, editingQty, inputs[editingItem.id])}`
       : null;
 
   return (
@@ -367,13 +362,7 @@ export function CountScreen({ branchId, onDone }: Props) {
               </Text>
               {parsedQty !== undefined && (
                 <Text style={styles.summaryText}>
-                  Đã đếm:{" "}
-                  {formatQty(parsedQty, {
-                    caseSize: item.case_size,
-                    unit: item.unit,
-                    byPercent: item.record_by_percent,
-                    splitCases: false,
-                  })}
+                  Đã đếm: {formatStockQty(item, parsedQty, inputs[item.id])}
                 </Text>
               )}
               {fieldError && (
