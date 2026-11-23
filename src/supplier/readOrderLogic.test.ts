@@ -218,3 +218,56 @@ describe("readWithFallback", () => {
     expect(r.parsed.ok).toBe(false);
   });
 });
+
+describe("readWithFallback ghi lỗi từng model (để chẩn đoán)", () => {
+  const models = [
+    ["chinh", 12_000],
+    ["du-phong", 40_000],
+  ] as const;
+
+  it("ghi mã HTTP, mã lỗi và thông báo (cắt 200 ký tự) của từng model lỗi", async () => {
+    const long = "x".repeat(500);
+    const call = vi.fn(async (m: string) => ({
+      status: m === "chinh" ? 500 : 503,
+      body: async () => ({
+        error: { code: 500, status: "INTERNAL", message: long },
+      }),
+    }));
+    const r = await readWithFallback(call, models);
+    expect(r.errors).toHaveLength(2);
+    expect(r.errors[0]).toContain("chinh");
+    expect(r.errors[0]).toContain("HTTP 500");
+    expect(r.errors[0]).toContain("INTERNAL");
+    expect(r.errors[0].length).toBeLessThan(260);
+    expect(r.errors[1]).toContain("du-phong");
+  });
+
+  it("hết giờ hoặc lỗi mạng ghi tên lỗi, không ghi nội dung yêu cầu", async () => {
+    const call = vi.fn(async () => {
+      const e = new Error("secret payload");
+      e.name = "TimeoutError";
+      throw e;
+    });
+    const r = await readWithFallback(call, models);
+    expect(r.errors).toEqual(["chinh: TimeoutError", "du-phong: TimeoutError"]);
+  });
+
+  it("trả 200 nhưng không có chữ thì ghi lý do dừng (finishReason)", async () => {
+    const call = vi.fn(async () => ({
+      status: 200,
+      body: async () => ({ candidates: [{ finishReason: "SAFETY" }] }),
+    }));
+    const r = await readWithFallback(call, models);
+    expect(r.errors[0]).toContain("SAFETY");
+  });
+
+  it("đọc được thì không có lỗi nào", async () => {
+    const call = vi.fn(async () => ({
+      status: 200,
+      body: async () =>
+        gemini(JSON.stringify({ lines: [{ name: "A", qty: 1, unit: "x" }] })),
+    }));
+    const r = await readWithFallback(call, models);
+    expect(r.errors).toEqual([]);
+  });
+});
