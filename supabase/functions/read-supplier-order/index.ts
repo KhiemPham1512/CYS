@@ -4,7 +4,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   buildGeminiRequest,
-  parseGeminiResponse,
+  readWithFallback,
   validateImages,
   type ImageInput,
 } from "./logic.ts";
@@ -91,13 +91,8 @@ Deno.serve(async (req) => {
 
   // Model chính hay quá tải (503) hoặc đứng hình: chờ 20s rồi thử model nhẹ hơn (chờ tới 40s).
   const payload = JSON.stringify(buildGeminiRequest(body.images));
-  let parsed = parseGeminiResponse(null);
-  let reached = false;
-  for (const [m, timeoutMs] of [
-    [model, 20_000],
-    [FALLBACK_MODEL, 40_000],
-  ] as const) {
-    try {
+  const { reached, parsed } = await readWithFallback(
+    async (m, timeoutMs) => {
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`,
         {
@@ -110,13 +105,13 @@ Deno.serve(async (req) => {
           signal: AbortSignal.timeout(timeoutMs),
         }
       );
-      reached = true;
-      parsed = parseGeminiResponse(await res.json());
-      if (parsed.ok || res.status !== 503) break;
-    } catch {
-      // hết giờ hoặc lỗi mạng: thử model kế
-    }
-  }
+      return { status: res.status, body: () => res.json() };
+    },
+    [
+      [model, 20_000],
+      [FALLBACK_MODEL, 40_000],
+    ]
+  );
   if (!reached)
     return fail(502, "Không kết nối được dịch vụ đọc ảnh. Thử lại sau.");
   if (!parsed.ok) return fail(502, parsed.error);

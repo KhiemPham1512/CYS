@@ -1,7 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
+  buildGeminiRequest,
   buildPrompt,
   parseGeminiResponse,
+  readWithFallback,
   validateImages,
 } from "../../supabase/functions/read-supplier-order/logic.ts";
 
@@ -111,5 +113,92 @@ describe("buildPrompt", () => {
     const p = buildPrompt();
     expect(p).toContain("số điện thoại");
     expect(p).toContain("order_code");
+  });
+});
+
+describe("buildGeminiRequest", () => {
+  it("gửi lời dặn rồi từng ảnh, đòi JSON theo schema, nhiệt độ 0", () => {
+    const req = buildGeminiRequest([
+      { mime: "image/png", data: "AAA" },
+      { mime: "image/jpeg", data: "BBB" },
+    ]);
+    const parts = req.contents[0].parts;
+    expect(parts).toHaveLength(3);
+    expect(parts[0]).toEqual({ text: buildPrompt() });
+    expect(parts[1]).toEqual({
+      inline_data: { mime_type: "image/png", data: "AAA" },
+    });
+    expect(req.generationConfig.response_mime_type).toBe("application/json");
+    expect(req.generationConfig.temperature).toBe(0);
+  });
+});
+
+describe("readWithFallback", () => {
+  const ok = gemini(
+    JSON.stringify({ lines: [{ name: "A", qty: 1, unit: "x" }] })
+  );
+  const reply = (status: number, body: unknown) => ({
+    status,
+    body: async () => body,
+  });
+  const models = [
+    ["chinh", 20_000],
+    ["du-phong", 40_000],
+  ] as const;
+
+  it("model chính đọc được thì không gọi model dự phòng", async () => {
+    const call = vi.fn(async () => reply(200, ok));
+    const r = await readWithFallback(call, models);
+    expect(r.reached).toBe(true);
+    expect(r.parsed.ok).toBe(true);
+    expect(call).toHaveBeenCalledTimes(1);
+    expect(call).toHaveBeenCalledWith("chinh", 20_000);
+  });
+
+  it("model chính quá tải 503 thì thử model dự phòng", async () => {
+    const call = vi.fn(async (m: string) =>
+      m === "chinh" ? reply(503, { error: { code: 503 } }) : reply(200, ok)
+    );
+    const r = await readWithFallback(call, models);
+    expect(r.parsed.ok).toBe(true);
+    expect(call).toHaveBeenCalledTimes(2);
+    expect(call).toHaveBeenLastCalledWith("du-phong", 40_000);
+  });
+
+  it("model chính hết giờ hoặc lỗi mạng thì thử model dự phòng", async () => {
+    const call = vi.fn(async (m: string) => {
+      if (m === "chinh") throw new Error("timeout");
+      return reply(200, ok);
+    });
+    const r = await readWithFallback(call, models);
+    expect(r.reached).toBe(true);
+    expect(r.parsed.ok).toBe(true);
+  });
+
+  it("lỗi khác 503 (hết hạn mức 429) thì dừng, không đốt thêm lượt model dự phòng", async () => {
+    const call = vi.fn(async () =>
+      reply(429, { error: { code: 429, status: "RESOURCE_EXHAUSTED" } })
+    );
+    const r = await readWithFallback(call, models);
+    expect(call).toHaveBeenCalledTimes(1);
+    expect(r.reached).toBe(true);
+    expect(r.parsed.ok).toBe(false);
+  });
+
+  it("không model nào trả lời được thì reached=false (báo không kết nối)", async () => {
+    const call = vi.fn(async () => {
+      throw new Error("mạng");
+    });
+    const r = await readWithFallback(call, models);
+    expect(r.reached).toBe(false);
+    expect(r.parsed.ok).toBe(false);
+    expect(call).toHaveBeenCalledTimes(2);
+  });
+
+  it("cả hai model đều 503 thì báo lỗi đọc, vẫn là đã kết nối", async () => {
+    const call = vi.fn(async () => reply(503, { error: { code: 503 } }));
+    const r = await readWithFallback(call, models);
+    expect(r.reached).toBe(true);
+    expect(r.parsed.ok).toBe(false);
   });
 });

@@ -134,3 +134,30 @@ export function parseGeminiResponse(
   }
   return { ok: true, lines };
 }
+
+export type ParsedRead = ReturnType<typeof parseGeminiResponse>;
+export type GeminiCall = (
+  model: string,
+  timeoutMs: number
+) => Promise<{ status: number; body: () => Promise<unknown> }>;
+
+// Model chính hay quá tải (503) hoặc đứng hình: thử lần lượt các model; chỉ 503/lỗi mạng mới sang model kế.
+// reached=false khi không model nào trả lời được (để báo 502 "không kết nối").
+export async function readWithFallback(
+  call: GeminiCall,
+  models: readonly (readonly [string, number])[]
+): Promise<{ reached: boolean; parsed: ParsedRead }> {
+  let parsed = parseGeminiResponse(null);
+  let reached = false;
+  for (const [model, timeoutMs] of models) {
+    try {
+      const res = await call(model, timeoutMs);
+      reached = true;
+      parsed = parseGeminiResponse(await res.body());
+      if (parsed.ok || res.status !== 503) break;
+    } catch {
+      // hết giờ hoặc lỗi mạng: thử model kế
+    }
+  }
+  return { reached, parsed };
+}
