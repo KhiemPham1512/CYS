@@ -201,7 +201,7 @@ export function AuditScreen({ branchId }: Props) {
               <LogRow
                 key={`${r.logged_at}-${idx}`}
                 row={r}
-                who={(r.actor && names.get(r.actor)) || r.actor_email}
+                whoName={(r.actor && names.get(r.actor)) || r.actor_email}
                 wide={wide}
               />
             ))}
@@ -238,11 +238,11 @@ function Chip({
 
 function LogRow({
   row,
-  who: whoName,
+  whoName,
   wide,
 }: {
   row: AuditRow;
-  who: string | null;
+  whoName: string | null;
   wide: boolean;
 }) {
   const entry: AuditEntry = {
