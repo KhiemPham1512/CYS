@@ -173,7 +173,7 @@ export async function editUse(
   };
 }
 
-export async function loadMemberEmails(
+export async function loadMemberNames(
   branchId: string
 ): Promise<Map<string, string>> {
   const { data, error } = await supabase.rpc("branch_member_emails", {

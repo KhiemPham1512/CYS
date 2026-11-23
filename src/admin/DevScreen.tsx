@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import type { Tables } from "../lib/database.types";
 import { useOnline } from "../lib/useOnline";
-import { loadMemberEmails, loadMovements } from "../stock/api";
+import { loadMemberNames, loadMovements } from "../stock/api";
 import {
   localDate,
   localTime,
@@ -68,7 +68,7 @@ export function DevScreen({
     try {
       const [movs, emailMap] = await Promise.all([
         loadMovements(branchId),
-        loadMemberEmails(branchId),
+        loadMemberNames(branchId),
       ]);
       setMovements(movs);
       setMembers([...emailMap.entries()].map(([id, email]) => ({ id, email })));

@@ -16,7 +16,7 @@ import { useOnline } from "../lib/useOnline";
 import {
   editUse,
   type WriteResult,
-  loadMemberEmails,
+  loadMemberNames,
   loadMovements,
   saveUses,
   subscribeMovements,
@@ -65,7 +65,7 @@ export function UseScreen({ branchId, userId }: Props) {
       setMovements(movs);
       setOrder((prev) => prev ?? usageCounts(movs, userId));
       // Email chỉ để hiện "ai ghi"; lỗi thì hiện không tên, không chặn màn hình.
-      loadMemberEmails(branchId).then(setEmails, () => {});
+      loadMemberNames(branchId).then(setEmails, () => {});
     } catch {
       setError(true);
     } finally {
