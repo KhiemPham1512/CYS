@@ -43,6 +43,7 @@ import {
   stockSheetCell,
 } from "./exportSheet";
 import { PaperSheet } from "./PaperSheet";
+import { renderSheetDataUri } from "./sheetCanvas";
 import { businessDay, incomingBefore, orderedOnDay } from "./orders";
 import { dataUriToFile, imageFileName, shareOrDownload } from "./webImage";
 import { loadReceivingData } from "./receivingApi";
@@ -199,9 +200,21 @@ export function ExportScreen({ branchId, branchName }: Props) {
   );
 
   const isWeb = Platform.OS === "web";
+  // Vòng "lưu tất cả" đổi Nhóm giữa chừng nên đọc mẫu mới nhất qua ref, không dùng giá trị của lần vẽ cũ.
+  const modelRef = useRef(model);
+  modelRef.current = model;
 
   // Chụp bảng đang mở trong khung (web trả data URI, app trả file tạm).
   const capture = async () => {
+    // Web: vẽ thẳng bằng canvas (chụp DOM bằng html2canvas làm cột lệch hàng trên iPhone Safari).
+    if (isWeb) {
+      if (!modelRef.current) throw new Error("no sheet");
+      return renderSheetDataUri(
+        modelRef.current,
+        date,
+        kind === "order" ? orderer.trim() : ""
+      );
+    }
     if (!shot.current) throw new Error("no sheet");
     return captureRef(shot, {
       format: "png",
