@@ -87,6 +87,7 @@ export function ReceiveScreen({ branchId }: Props) {
   );
   const [mfgInputs, setMfgInputs] = useState<Record<string, string>>({});
   const [countTimes, setCountTimes] = useState<string[]>([]);
+  const [pickedDay, setPickedDay] = useState<string | null>(null);
   const [groupErrors, setGroupErrors] = useState<Record<string, string[]>>({});
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
 
@@ -172,6 +173,14 @@ export function ReceiveScreen({ branchId }: Props) {
     list.sort((a, b) => a.day.localeCompare(b.day) || a.order - b.order);
     return { merged, list };
   }, [groups, orders, lines, receivedLineIds, countTimes, itemsById]);
+
+  // Tab theo Ngày của đơn (cũ trước): mặc định ngày cũ nhất; ngày đã chọn hết hàng thì về ngày cũ nhất còn lại.
+  const days = useMemo(
+    () => [...new Set(groupedLines.list.map((e) => e.day))].sort(),
+    [groupedLines]
+  );
+  const activeDay = pickedDay && days.includes(pickedDay) ? pickedDay : days[0];
+  const dayList = groupedLines.list.filter((e) => e.day === activeDay);
 
   const editingLine = editingLineId
     ? (groupedLines.merged.get(editingLineId) ?? null)
@@ -413,16 +422,33 @@ export function ReceiveScreen({ branchId }: Props) {
 
       <ScrollView keyboardShouldPersistTaps="handled">
         <Text style={styles.section}>Hàng đang về</Text>
+        {days.length > 0 && (
+          <View style={styles.tabRow}>
+            {days.map((d) => (
+              <Pressable
+                key={d}
+                style={[styles.tab, d === activeDay && styles.tabOn]}
+                onPress={() => setPickedDay(d)}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: d === activeDay }}
+              >
+                <Text
+                  style={[styles.tabText, d === activeDay && styles.tabTextOn]}
+                >
+                  Đơn ngày {formatDayMonth(d)}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
         {groupedLines.list.length === 0 && (
           <Text style={styles.meta}>Không có hàng đang về.</Text>
         )}
-        {groupedLines.list.map(({ key: blockKey, day, group, groupLines }) => {
+        {dayList.map(({ key: blockKey, day, group, groupLines }) => {
           const errs = groupErrors[blockKey] ?? [];
           return (
             <View key={blockKey} style={styles.groupBlock}>
-              <Text style={styles.groupHeader}>
-                {group.name} · Đơn ngày {formatDayMonth(day)}
-              </Text>
+              <Text style={styles.groupHeader}>{group.name}</Text>
               {groupLines.map((line) => {
                 const item = itemsById.get(line.item_id);
                 const summary = formatEditedSummary(line, item);
@@ -583,6 +609,21 @@ const styles = themedStyles((c: Palette) => ({
     padding: 16,
     backgroundColor: c.accentSoft,
   },
+  tabRow: { flexDirection: "row", gap: 8, padding: 16, paddingBottom: 8 },
+  tab: {
+    flex: 1,
+    minHeight: 44,
+    borderWidth: 1,
+    borderColor: c.line,
+    backgroundColor: c.surface,
+    borderRadius: 14,
+    padding: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tabOn: { backgroundColor: c.accentDeep, borderColor: c.accentDeep },
+  tabText: { fontSize: 15, fontWeight: "600", color: c.ink },
+  tabTextOn: { color: c.onAccent },
   groupBlock: {
     borderBottomWidth: 1,
     borderBottomColor: c.line,
