@@ -46,6 +46,7 @@ import {
   formatQty,
   formatSheetQty,
   formatStockQty,
+  OPEN_CASE_SIZE,
   parseAdjust,
   parseQty,
 } from "./qty";
@@ -575,7 +576,9 @@ export function StockScreen({ branchId }: Props) {
                   <Text style={styles.metaText}>
                     Đơn vị tính: {selectedItem.unit}
                     {selectedItem.case_size !== null
-                      ? ` · Quy cách thùng: ${selectedItem.case_size}`
+                      ? selectedItem.case_size === OPEN_CASE_SIZE
+                        ? " · Thùng và bịch đếm riêng"
+                        : ` · Quy cách thùng: ${selectedItem.case_size}`
                       : ""}
                     {selectedItem.record_by_percent ? " · Ghi theo %" : ""}
                   </Text>

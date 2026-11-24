@@ -4,6 +4,7 @@ import {
   formatQty,
   formatSheetQty,
   formatStockQty,
+  OPEN_CASE_SIZE,
   parseAdjust,
   parseQty,
 } from "./qty";
@@ -328,5 +329,76 @@ describe("formatStockQty", () => {
     const pctItem = { case_size: null, unit: "Hộp", record_by_percent: true };
     expect(formatStockQty(pctItem, 0.9, "1(90%)")).toBe("1(90%)");
     expect(formatStockQty(undefined, 3, "3")).toBe("3 ");
+  });
+});
+
+describe("thùng chưa rõ quy cách (OPEN_CASE_SIZE): thùng và bịch đếm riêng", () => {
+  const bag = {
+    case_size: OPEN_CASE_SIZE,
+    unit: "Bịch",
+    record_by_percent: false,
+  };
+  const opts = { caseSize: OPEN_CASE_SIZE, unit: "Bịch", byPercent: false };
+
+  it("nhập 1T, 28 hoặc 1T+28 đều đọc được", () => {
+    expect(parseQty("1T", opts)).toEqual({ ok: true, value: OPEN_CASE_SIZE });
+    expect(parseQty("28", opts)).toEqual({ ok: true, value: 28 });
+    expect(parseQty("1T+28", opts)).toEqual({
+      ok: true,
+      value: OPEN_CASE_SIZE + 28,
+    });
+  });
+
+  it("số bịch từ 1000 trở lên bị chặn (dùng T cho thùng), món thường không bị", () => {
+    expect(parseQty("1500", opts).ok).toBe(false);
+    expect(parseQty("999", opts)).toEqual({ ok: true, value: 999 });
+    expect(parseQty("1T+1500", opts).ok).toBe(false);
+    expect(parseQty("1500", { caseSize: 12, byPercent: false })).toEqual({
+      ok: true,
+      value: 1500,
+    });
+  });
+
+  it("hiện thùng và bịch riêng, kể cả ở màn kho tắt gộp thùng", () => {
+    expect(formatQty(OPEN_CASE_SIZE, { ...opts, splitCases: false })).toBe(
+      "1 thùng"
+    );
+    expect(formatQty(OPEN_CASE_SIZE + 28, { ...opts, splitCases: false })).toBe(
+      "1 thùng 28 bịch"
+    );
+    expect(
+      formatQty(2 * OPEN_CASE_SIZE + 5, { ...opts, splitCases: false })
+    ).toBe("2 thùng 5 bịch");
+    expect(formatQty(28, { ...opts, splitCases: false })).toBe("28 bịch");
+    expect(formatItemQty(bag, OPEN_CASE_SIZE + 28)).toBe("1 thùng 28 bịch");
+  });
+
+  it("tồn kho: số đã đổi do Ghi dùng vẫn tách thùng và bịch", () => {
+    expect(formatStockQty(bag, OPEN_CASE_SIZE + 23, "1T+28")).toBe(
+      "1 thùng 23 bịch"
+    );
+    expect(formatStockQty(bag, OPEN_CASE_SIZE + 28, "1T+28")).toBe(
+      "1 thùng 28 bịch"
+    );
+  });
+
+  it("tờ giấy viết như mẫu: 1T+28", () => {
+    expect(
+      formatSheetQty(OPEN_CASE_SIZE + 28, {
+        caseSize: OPEN_CASE_SIZE,
+        byPercent: false,
+      })
+    ).toBe("1T+28");
+  });
+
+  it("món thường vẫn không gộp thùng ở màn kho", () => {
+    expect(
+      formatQty(6, {
+        caseSize: 6,
+        unit: "Bình",
+        byPercent: false,
+        splitCases: false,
+      })
+    ).toBe("6 bình");
   });
 });
