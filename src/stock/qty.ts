@@ -82,6 +82,10 @@ export function parseQty(input: string, opts: ParseQtyOptions): ParseQtyResult {
       }
       total += num / 100;
     } else {
+      // Thùng chưa rõ quy cách: số lẻ từ OPEN_CASE_SIZE trở lên sẽ lẫn với thùng, bắt người dùng gõ T.
+      if (opts.caseSize === OPEN_CASE_SIZE && num >= OPEN_CASE_SIZE) {
+        return { ok: false, error: "Số bịch quá lớn, thùng thì gõ T (vd 1T)" };
+      }
       total += num;
     }
   }

@@ -349,6 +349,16 @@ describe("thùng chưa rõ quy cách (OPEN_CASE_SIZE): thùng và bịch đếm 
     });
   });
 
+  it("số bịch từ 1000 trở lên bị chặn (dùng T cho thùng), món thường không bị", () => {
+    expect(parseQty("1500", opts).ok).toBe(false);
+    expect(parseQty("999", opts)).toEqual({ ok: true, value: 999 });
+    expect(parseQty("1T+1500", opts).ok).toBe(false);
+    expect(parseQty("1500", { caseSize: 12, byPercent: false })).toEqual({
+      ok: true,
+      value: 1500,
+    });
+  });
+
   it("hiện thùng và bịch riêng, kể cả ở màn kho tắt gộp thùng", () => {
     expect(formatQty(OPEN_CASE_SIZE, { ...opts, splitCases: false })).toBe(
       "1 thùng"
