@@ -1,3 +1,8 @@
+// Món có thùng nhưng chưa biết 1 thùng bao nhiêu (ống hút, túi): khai quy cách thùng QUY ƯỚC bằng số này, đủ lớn để số bịch
+// không bao giờ chạm tới, nên "1T+28" luôn là 1 thùng và 28 bịch đếm riêng (không phải số thật bịch/thùng).
+// Khi biết quy cách thật thì sửa case_size trong Danh mục và đổi lại số tồn cũ.
+export const OPEN_CASE_SIZE = 1000;
+
 export type ParseQtyOptions = {
   caseSize: number | null;
   byPercent: boolean;
@@ -116,8 +121,9 @@ export function formatQty(qty: number, opts: FormatQtyOptions): string {
   }
 
   // Quy cách 1 hoặc đơn vị chính là "thùng": tách "N thùng" + phần dư sẽ lặp chữ (1 thùng 0,5 thùng), in số thẳng.
+  // Thùng chưa rõ quy cách luôn tách thùng và lẻ, kể cả ở màn kho tắt gộp thùng (lẻ không bao giờ tự thành thùng).
   const splitCases =
-    (opts.splitCases ?? true) &&
+    ((opts.splitCases ?? true) || opts.caseSize === OPEN_CASE_SIZE) &&
     opts.caseSize !== null &&
     opts.caseSize > 1 &&
     unitLower !== "thùng";

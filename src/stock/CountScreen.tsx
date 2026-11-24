@@ -26,7 +26,13 @@ import {
   voidedIds,
   type CountDiff,
 } from "./ledger";
-import { formatQty, formatStockQty, parseQty, round4 } from "./qty";
+import {
+  formatQty,
+  formatStockQty,
+  OPEN_CASE_SIZE,
+  parseQty,
+  round4,
+} from "./qty";
 
 type Props = {
   branchId: string;
@@ -356,7 +362,9 @@ export function CountScreen({ branchId, onDone }: Props) {
               <Text style={styles.itemMeta}>
                 Đơn vị tính: {item.unit}
                 {item.case_size !== null
-                  ? ` · Quy cách thùng: ${item.case_size} (ví dụ: 1T+3)`
+                  ? item.case_size === OPEN_CASE_SIZE
+                    ? " · Thùng và bịch đếm riêng (ví dụ: 1T+28)"
+                    : ` · Quy cách thùng: ${item.case_size} (ví dụ: 1T+3)`
                   : ""}
                 {item.record_by_percent ? " · Ghi theo %" : ""}
               </Text>
