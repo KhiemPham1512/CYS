@@ -27,6 +27,7 @@ import {
 } from "./api";
 import { formatDate, parseShortDate } from "./date";
 import { loadOrders, subscribeOrders } from "../orders/api";
+import { DayTabs, activeDayOf } from "../ui/DayTabs";
 import { incomingByDay, incomingByItem, projectedQty } from "../orders/orders";
 import { loadReceivingData, subscribeReceiving } from "../orders/receivingApi";
 import {
@@ -169,11 +170,7 @@ export function StockScreen({ branchId }: Props) {
     [incomingDays]
   );
   const activeDay =
-    flag === "incoming"
-      ? pickedDay && comingDays.includes(pickedDay)
-        ? pickedDay
-        : comingDays[0]
-      : undefined;
+    flag === "incoming" ? activeDayOf(comingDays, pickedDay) : undefined;
   const dayIncoming = activeDay ? incomingDays.get(activeDay) : undefined;
 
   const sections = useMemo<SectionData[]>(() => {
@@ -421,26 +418,7 @@ export function StockScreen({ branchId }: Props) {
           })}
         </View>
         {flag === "incoming" && comingDays.length > 0 && (
-          <View style={styles.dayTabs}>
-            {comingDays.map((d) => (
-              <Pressable
-                key={d}
-                style={[styles.dayTab, d === activeDay && styles.dayTabOn]}
-                onPress={() => setPickedDay(d)}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: d === activeDay }}
-              >
-                <Text
-                  style={[
-                    styles.dayTabText,
-                    d === activeDay && styles.dayTabTextOn,
-                  ]}
-                >
-                  Đơn ngày {formatDayMonth(d)}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+          <DayTabs days={comingDays} active={activeDay} onPick={setPickedDay} />
         )}
       </View>
 
@@ -866,21 +844,6 @@ const styles = themedStyles((c: Palette) => ({
     letterSpacing: 1.2,
     color: c.muted,
   },
-  dayTabs: { flexDirection: "row", gap: 8, paddingTop: 10 },
-  dayTab: {
-    flex: 1,
-    minHeight: 40,
-    borderWidth: 1,
-    borderColor: c.line,
-    backgroundColor: c.surface,
-    borderRadius: 12,
-    padding: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  dayTabOn: { backgroundColor: c.accentDeep, borderColor: c.accentDeep },
-  dayTabText: { fontSize: 14, fontWeight: "600", color: c.ink },
-  dayTabTextOn: { color: c.onAccent },
   sumRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingTop: 10 },
   sumChip: {
     flexDirection: "row",

@@ -28,15 +28,15 @@ export type Ctx = {
 
 export function drawSheet(
   ctx: Ctx,
-  W: number, // chiều rộng ảnh (px); mọi kích thước tính theo đó như bản xem trước
+  width: number, // chiều rộng ảnh (px); mọi kích thước tính theo đó như bản xem trước
   model: SheetModel,
   date: string,
   orderer: string
 ): void {
   // Độ dày nét theo tỉ lệ so với bản xem trước ~366 px.
-  const g = sheetGeometry(model, W);
+  const g = sheetGeometry(model, width);
   const { u, cols, tableW, rowH, headH } = g;
-  const px = W / 366;
+  const px = width / 366;
   const left = 5 * u;
   const bold = (fs: number) => `700 ${fs}px ${FONT}`;
 
@@ -78,7 +78,7 @@ export function drawSheet(
   };
 
   ctx.fillStyle = "#FFFFFF";
-  ctx.fillRect(0, 0, W, Math.ceil(g.height));
+  ctx.fillRect(0, 0, width, Math.ceil(g.height));
 
   // Tiêu đề và hàng Ngày / Người đặt hàng.
   let y = 4.5 * u;

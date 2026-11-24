@@ -14,7 +14,8 @@ import { compareGroups, compareItems } from "../catalog/sections";
 import type { Tables } from "../lib/database.types";
 import { useOnline } from "../lib/useOnline";
 import { formatDate, parseShortDate } from "../stock/date";
-import { loadMovements } from "../stock/api";
+import { loadMovements, subscribeMovements } from "../stock/api";
+import { DayTabs, activeDayOf } from "../ui/DayTabs";
 import { countTimes as getCountTimes } from "../stock/ledger";
 import { pendingBlocks } from "./orders";
 import { useSaveGuard } from "../lib/useSaveGuard";
@@ -124,10 +125,12 @@ export function ReceiveScreen({ branchId }: Props) {
     const reload = debounce(() => void fetchData());
     const unsubOrders = subscribeOrders(branchId, reload);
     const unsubReceiving = subscribeReceiving(branchId, reload);
+    const unsubMovements = subscribeMovements(branchId, reload); // Kiểm kho ở máy khác đổi ranh giới Ngày của đơn
     return () => {
       reload.cancel();
       unsubOrders();
       unsubReceiving();
+      unsubMovements();
     };
   }, [branchId, fetchData]);
 
@@ -180,7 +183,7 @@ export function ReceiveScreen({ branchId }: Props) {
     () => [...new Set(groupedLines.list.map((e) => e.day))].sort(),
     [groupedLines]
   );
-  const activeDay = pickedDay && days.includes(pickedDay) ? pickedDay : days[0];
+  const activeDay = activeDayOf(days, pickedDay);
   const dayList = groupedLines.list.filter((e) => e.day === activeDay);
 
   const editingLine = editingLineId
@@ -458,23 +461,7 @@ export function ReceiveScreen({ branchId }: Props) {
       <ScrollView keyboardShouldPersistTaps="handled">
         <Text style={styles.section}>Hàng đang về</Text>
         {days.length > 0 && (
-          <View style={styles.tabRow}>
-            {days.map((d) => (
-              <Pressable
-                key={d}
-                style={[styles.tab, d === activeDay && styles.tabOn]}
-                onPress={() => setPickedDay(d)}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: d === activeDay }}
-              >
-                <Text
-                  style={[styles.tabText, d === activeDay && styles.tabTextOn]}
-                >
-                  Đơn ngày {formatDayMonth(d)}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+          <DayTabs days={days} active={activeDay} onPick={setPickedDay} />
         )}
         {groupedLines.list.length === 0 && (
           <Text style={styles.meta}>Không có hàng đang về.</Text>
@@ -663,21 +650,6 @@ const styles = themedStyles((c: Palette) => ({
     padding: 16,
     backgroundColor: c.accentSoft,
   },
-  tabRow: { flexDirection: "row", gap: 8, padding: 16, paddingBottom: 8 },
-  tab: {
-    flex: 1,
-    minHeight: 44,
-    borderWidth: 1,
-    borderColor: c.line,
-    backgroundColor: c.surface,
-    borderRadius: 14,
-    padding: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  tabOn: { backgroundColor: c.accentDeep, borderColor: c.accentDeep },
-  tabText: { fontSize: 15, fontWeight: "600", color: c.ink },
-  tabTextOn: { color: c.onAccent },
   groupBlock: {
     borderBottomWidth: 1,
     borderBottomColor: c.line,

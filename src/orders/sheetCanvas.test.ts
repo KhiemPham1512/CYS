@@ -59,7 +59,7 @@ describe("drawSheet: mọi ô cùng hàng thẳng hàng với nhau", () => {
       const m = model(n);
       const W = 1240;
       const { ctx, texts } = fakeCtx();
-      drawSheet(ctx, W, m, "24/11", "");
+      drawSheet(ctx, 1240, m, "24/11", "");
       const g = sheetGeometry(m, W);
       const rowsY = m.rows.map((r) => {
         const stt = texts.find((t) => t.s === String(r.stt) && t.x < 200)!;
