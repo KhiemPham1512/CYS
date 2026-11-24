@@ -181,4 +181,16 @@ describe("describeChange", () => {
       )
     ).toEqual(["Xóa dữ liệu phát sinh của Chi nhánh"]);
   });
+
+  it("xóa món khỏi đơn đã đặt ghi số lượng đã xóa", () => {
+    expect(
+      describeChange(
+        entry({
+          table_name: "purchase_order_lines",
+          action: "delete",
+          old_data: { qty: 4 },
+        })
+      )
+    ).toEqual(["Xóa khỏi đơn đã đặt: 4"]);
+  });
 });

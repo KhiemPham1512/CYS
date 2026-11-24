@@ -14,10 +14,15 @@ import { compareGroups, compareItems } from "../catalog/sections";
 import type { Tables } from "../lib/database.types";
 import { useOnline } from "../lib/useOnline";
 import { formatDate, parseShortDate } from "../stock/date";
+import { loadMovements, subscribeMovements } from "../stock/api";
+import { DayTabs, activeDayOf } from "../ui/DayTabs";
+import { countTimes as getCountTimes } from "../stock/ledger";
+import { pendingBlocks } from "./orders";
 import { useSaveGuard } from "../lib/useSaveGuard";
 import { omitKeys } from "../lib/omitKeys";
 import { formatItemQty, parseQty } from "../stock/qty";
 import {
+  deleteOrderLine,
   loadOrders,
   subscribeOrders,
   type OrderLineRow,
@@ -36,9 +41,9 @@ import {
 
 type Props = { branchId: string };
 
-// Món cùng Nhóm đặt ở nhiều đơn gộp thành một dòng khi nhận; `parts` là các dòng đơn gốc, đơn cũ nhất trước.
+// Món cùng Nhóm đặt ở nhiều đơn CÙNG ngày gộp thành một dòng khi nhận (đơn khác ngày không gộp); `parts` là các dòng đơn gốc, đơn cũ nhất trước.
 type MergedLine = {
-  id: string; // `${nhóm}|${món}`, khóa cho các ô nhập
+  id: string; // `${ngày}|${nhóm}|${món}`, khóa cho các ô nhập
   item_id: string;
   qty: number; // tổng đã đặt
   parts: { id: string; qty: number }[];
@@ -83,6 +88,8 @@ export function ReceiveScreen({ branchId }: Props) {
     {}
   );
   const [mfgInputs, setMfgInputs] = useState<Record<string, string>>({});
+  const [countTimes, setCountTimes] = useState<string[]>([]);
+  const [pickedDay, setPickedDay] = useState<string | null>(null);
   const [groupErrors, setGroupErrors] = useState<Record<string, string[]>>({});
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
 
@@ -92,10 +99,11 @@ export function ReceiveScreen({ branchId }: Props) {
     const request = ++latestRequest.current;
     setError(false);
     try {
-      const [catalog, ord, rec] = await Promise.all([
+      const [catalog, ord, rec, movs] = await Promise.all([
         loadCatalog(branchId),
         loadOrders(branchId),
         loadReceivingData(branchId),
+        loadMovements(branchId),
       ]);
       if (request !== latestRequest.current) return;
       setGroups([...catalog.groups].sort(compareGroups));
@@ -103,6 +111,7 @@ export function ReceiveScreen({ branchId }: Props) {
       setOrders(ord.orders);
       setLines(ord.lines);
       setReceivedLineIds(rec.receivedLineIds);
+      setCountTimes(getCountTimes(movs));
     } catch {
       if (request === latestRequest.current) setError(true);
     } finally {
@@ -116,10 +125,12 @@ export function ReceiveScreen({ branchId }: Props) {
     const reload = debounce(() => void fetchData());
     const unsubOrders = subscribeOrders(branchId, reload);
     const unsubReceiving = subscribeReceiving(branchId, reload);
+    const unsubMovements = subscribeMovements(branchId, reload); // Kiểm kho ở máy khác đổi ranh giới Ngày của đơn
     return () => {
       reload.cancel();
       unsubOrders();
       unsubReceiving();
+      unsubMovements();
     };
   }, [branchId, fetchData]);
 
@@ -129,56 +140,51 @@ export function ReceiveScreen({ branchId }: Props) {
   );
 
   const groupedLines = useMemo(() => {
-    const placedOrder = new Map<string, OrderRow>();
-    for (const order of orders) {
-      if (order.placed_at !== null) placedOrder.set(order.id, order);
-    }
-    // Dòng chưa nhận, đơn cũ nhất trước, gộp theo (Nhóm, món).
-    const pending = lines
-      .filter((l) => !receivedLineIds.has(l.id) && placedOrder.has(l.order_id))
-      .sort((a, b) =>
-        (placedOrder.get(a.order_id)?.placed_at ?? "").localeCompare(
-          placedOrder.get(b.order_id)?.placed_at ?? ""
-        )
-      );
+    // Tách theo Ngày của đơn rồi theo Nhóm (không gộp đơn khác ngày): nhận đúng hàng của đơn ngày nào.
+    const blocks = pendingBlocks(orders, lines, receivedLineIds, countTimes);
     const merged = new Map<string, MergedLine>();
-    const byGroup = new Map<string, MergedLine[]>();
-    for (const line of pending) {
-      const groupId = placedOrder.get(line.order_id)?.group_id ?? "";
-      const key = `${groupId}|${line.item_id}`;
-      const part = { id: line.id, qty: line.qty };
-      const existing = merged.get(key);
-      if (existing) {
-        existing.parts.push(part);
-        existing.qty += line.qty;
-        continue;
-      }
-      const entry: MergedLine = {
-        id: key,
-        item_id: line.item_id,
-        qty: line.qty,
-        parts: [part],
-      };
-      merged.set(key, entry);
-      const list = byGroup.get(groupId);
-      if (list) list.push(entry);
-      else byGroup.set(groupId, [entry]);
-    }
     const itemOf = (m: MergedLine) => itemsById.get(m.item_id);
-    return {
-      merged,
-      list: groups
-        .map((group) => ({
-          group,
-          groupLines: (byGroup.get(group.id) ?? []).sort((a, b) => {
-            const ia = itemOf(a);
-            const ib = itemOf(b);
-            return ia && ib ? compareItems(ia, ib) : 0;
-          }),
-        }))
-        .filter((entry) => entry.groupLines.length > 0),
-    };
-  }, [groups, orders, lines, receivedLineIds, itemsById]);
+    const groupById = new Map(groups.map((g, i) => [g.id, { group: g, i }]));
+    const list = blocks.flatMap((block) => {
+      const found = groupById.get(block.groupId);
+      if (!found) return [];
+      const groupLines = block.lines.map((l): MergedLine => {
+        const entry = {
+          id: l.key,
+          item_id: l.item_id,
+          qty: l.qty,
+          parts: l.parts,
+        };
+        merged.set(l.key, entry);
+        return entry;
+      });
+      groupLines.sort((a, b) => {
+        const ia = itemOf(a);
+        const ib = itemOf(b);
+        return ia && ib ? compareItems(ia, ib) : 0;
+      });
+      return [
+        {
+          key: block.key,
+          day: block.day,
+          group: found.group,
+          order: found.i,
+          groupLines,
+        },
+      ];
+    });
+    // Ngày cũ trước, trong cùng ngày theo thứ tự Nhóm.
+    list.sort((a, b) => a.day.localeCompare(b.day) || a.order - b.order);
+    return { merged, list };
+  }, [groups, orders, lines, receivedLineIds, countTimes, itemsById]);
+
+  // Tab theo Ngày của đơn (cũ trước): mặc định ngày cũ nhất; ngày đã chọn hết hàng thì về ngày cũ nhất còn lại.
+  const days = useMemo(
+    () => [...new Set(groupedLines.list.map((e) => e.day))].sort(),
+    [groupedLines]
+  );
+  const activeDay = activeDayOf(days, pickedDay);
+  const dayList = groupedLines.list.filter((e) => e.day === activeDay);
 
   const editingLine = editingLineId
     ? (groupedLines.merged.get(editingLineId) ?? null)
@@ -230,7 +236,7 @@ export function ReceiveScreen({ branchId }: Props) {
   }
 
   async function commitGroupReceive(
-    groupId: string,
+    blockKey: string,
     planLines: LinePlan[],
     lineItems: (Tables<"items"> | undefined)[]
   ) {
@@ -279,7 +285,7 @@ export function ReceiveScreen({ branchId }: Props) {
       setShortInputs((p) => omitKeys(p, allKeys));
       setDamagedInputs((p) => omitKeys(p, allKeys));
       setMfgInputs((p) => omitKeys(p, allKeys));
-      setGroupErrors((p) => omitKeys(p, [groupId]));
+      setGroupErrors((p) => omitKeys(p, [blockKey]));
 
       if (sameUnitKind(lineItems)) {
         const refItem = lineItems[0];
@@ -300,13 +306,49 @@ export function ReceiveScreen({ branchId }: Props) {
     });
   }
 
+  // Xóa món khỏi đơn đã đặt (chưa nhận): mọi người được xóa từng món; Nhật ký ghi lại ở hàm DB.
+  function handleDeleteLine(
+    line: MergedLine,
+    item: Tables<"items"> | undefined,
+    day: string
+  ) {
+    if (!online || busy.current) return;
+    confirmAction({
+      title: `Xóa ${item?.name ?? "món này"} khỏi đơn ngày ${formatDayMonth(day)}?`,
+      message:
+        "Món bị xóa khỏi đơn đã đặt và khỏi Hàng đang về, không hoàn lại được. Chưa nhận hàng thì mới xóa được.",
+      confirmText: "Xóa món",
+      destructive: true,
+      onConfirm: () =>
+        void runSave(async () => {
+          for (const part of line.parts) {
+            const res = await deleteOrderLine(part.id);
+            if (res.error) {
+              setMessage(res.error);
+              await fetchData();
+              return;
+            }
+          }
+          setEditingLineId(null);
+          const id = line.id;
+          setShortInputs((p) => omitKeys(p, [id]));
+          setDamagedInputs((p) => omitKeys(p, [id]));
+          setMfgInputs((p) => omitKeys(p, [id]));
+          setMessage(`Đã xóa ${item?.name ?? "món"} khỏi đơn.`);
+          await fetchData();
+        }),
+    });
+  }
+
   function handleGroupReceive(
+    blockKey: string,
+    day: string,
     group: Tables<"item_groups">,
     groupLines: MergedLine[]
   ) {
     if (!online || busy.current) return;
     setMessage(null);
-    setGroupErrors((p) => omitKeys(p, [group.id]));
+    setGroupErrors((p) => omitKeys(p, [blockKey]));
 
     const today = new Date();
     const parseErrors: string[] = [];
@@ -371,15 +413,15 @@ export function ReceiveScreen({ branchId }: Props) {
         : plan.errors.map((e) => `${e.name}: ${e.error}`);
       setGroupErrors((p) => ({
         ...p,
-        [group.id]: [...parseErrors, ...planErrs],
+        [blockKey]: [...parseErrors, ...planErrs],
       }));
       return;
     }
 
     confirmAction({
-      title: `Nhận ${plan.lines.length} món của ${group.name}?`,
+      title: `Nhận ${plan.lines.length} món của ${group.name} (đơn ngày ${formatDayMonth(day)})?`,
       confirmText: "Đã nhận hàng",
-      onConfirm: () => void commitGroupReceive(group.id, plan.lines, lineItems),
+      onConfirm: () => void commitGroupReceive(blockKey, plan.lines, lineItems),
     });
   }
 
@@ -418,13 +460,16 @@ export function ReceiveScreen({ branchId }: Props) {
 
       <ScrollView keyboardShouldPersistTaps="handled">
         <Text style={styles.section}>Hàng đang về</Text>
+        {days.length > 0 && (
+          <DayTabs days={days} active={activeDay} onPick={setPickedDay} />
+        )}
         {groupedLines.list.length === 0 && (
           <Text style={styles.meta}>Không có hàng đang về.</Text>
         )}
-        {groupedLines.list.map(({ group, groupLines }) => {
-          const errs = groupErrors[group.id] ?? [];
+        {dayList.map(({ key: blockKey, day, group, groupLines }) => {
+          const errs = groupErrors[blockKey] ?? [];
           return (
-            <View key={group.id} style={styles.groupBlock}>
+            <View key={blockKey} style={styles.groupBlock}>
               <Text style={styles.groupHeader}>{group.name}</Text>
               {groupLines.map((line) => {
                 const item = itemsById.get(line.item_id);
@@ -443,7 +488,7 @@ export function ReceiveScreen({ branchId }: Props) {
                     <Text style={styles.metaInline}>
                       Đã đặt: {formatItemQty(item, line.qty)}
                       {line.parts.length > 1
-                        ? ` (gộp ${line.parts.length} đơn)`
+                        ? ` (gộp ${line.parts.length} đơn cùng ngày)`
                         : ""}
                     </Text>
                     {summary && (
@@ -465,7 +510,9 @@ export function ReceiveScreen({ branchId }: Props) {
                 <Pressable
                   style={[styles.primary, actionDisabled && styles.disabled]}
                   disabled={actionDisabled}
-                  onPress={() => handleGroupReceive(group, groupLines)}
+                  onPress={() =>
+                    handleGroupReceive(blockKey, day, group, groupLines)
+                  }
                   accessibilityRole="button"
                 >
                   <Text style={styles.primaryText}>Đã nhận hàng</Text>
@@ -558,6 +605,23 @@ export function ReceiveScreen({ branchId }: Props) {
                       <Text style={styles.primaryText}>Xong</Text>
                     </Pressable>
                   </View>
+                  <Pressable
+                    style={[
+                      styles.deleteBtn,
+                      actionDisabled && styles.disabled,
+                    ]}
+                    disabled={actionDisabled}
+                    onPress={() =>
+                      handleDeleteLine(
+                        editingLine,
+                        editingItem,
+                        editingLine.id.split("|")[0]
+                      )
+                    }
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.deleteText}>Xóa món khỏi đơn</Text>
+                  </Pressable>
                 </View>
               )}
             </ScrollView>
@@ -570,6 +634,8 @@ export function ReceiveScreen({ branchId }: Props) {
 
 const styles = themedStyles((c: Palette) => ({
   container: { flex: 1, width: "100%" },
+  deleteBtn: { marginTop: 8, padding: 12, alignItems: "center" },
+  deleteText: { color: c.red, fontWeight: "700", fontSize: 15 },
   center: {
     flex: 1,
     alignItems: "center",

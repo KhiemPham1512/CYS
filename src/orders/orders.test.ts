@@ -5,6 +5,8 @@ import {
   incomingBefore,
   isEditable,
   orderedOnDay,
+  incomingByDay,
+  pendingBlocks,
   projectedQty,
   type Order,
   type OrderLine,
@@ -112,5 +114,116 @@ describe("đơn theo ngày: không cộng dồn đơn ngày mai vào hôm nay", 
     expect(
       incomingBefore(all, lines, new Set(["a"]), "2026-11-22", counts).size
     ).toBe(0);
+  });
+});
+
+describe("pendingBlocks (Nhận hàng tách theo ngày của đơn)", () => {
+  // 21:00 giờ VN ngày 22 và ngày 23/11/2026
+  const d22 = "2026-11-22T14:00:00Z";
+  const d23 = "2026-11-23T14:00:00Z";
+  const orders = [
+    { id: "o22", group_id: "g1", placed_at: d22 },
+    { id: "o23", group_id: "g1", placed_at: d23 },
+    { id: "nhap", group_id: "g1", placed_at: null },
+  ];
+  const line = (
+    id: string,
+    order_id: string,
+    item_id: string,
+    qty: number
+  ) => ({
+    id,
+    order_id,
+    item_id,
+    qty,
+  });
+
+  it("cùng món ở hai đơn khác ngày thì ra hai khối, không gộp", () => {
+    const blocks = pendingBlocks(
+      orders,
+      [line("a", "o22", "i1", 2), line("b", "o23", "i1", 3)],
+      new Set(),
+      []
+    );
+    expect(blocks.map((b) => [b.day, b.groupId])).toEqual([
+      ["2026-11-22", "g1"],
+      ["2026-11-23", "g1"],
+    ]);
+    expect(blocks.map((b) => b.lines.map((l) => l.qty))).toEqual([[2], [3]]);
+    expect(blocks[0].lines[0].key).not.toBe(blocks[1].lines[0].key);
+  });
+
+  it("hai đơn cùng ngày, cùng Nhóm, cùng món thì gộp, đơn cũ nhất trước", () => {
+    const blocks = pendingBlocks(
+      [
+        { id: "x2", group_id: "g1", placed_at: "2026-11-22T14:30:00Z" },
+        { id: "x1", group_id: "g1", placed_at: d22 },
+      ],
+      [line("b", "x2", "i1", 3), line("a", "x1", "i1", 2)],
+      new Set(),
+      []
+    );
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].lines[0].qty).toBe(5);
+    expect(blocks[0].lines[0].parts.map((p) => p.id)).toEqual(["a", "b"]);
+  });
+
+  it("bỏ dòng đã nhận và đơn nháp", () => {
+    const blocks = pendingBlocks(
+      orders,
+      [
+        line("a", "o22", "i1", 2),
+        line("b", "o23", "i1", 3),
+        line("c", "nhap", "i1", 9),
+      ],
+      new Set(["a"]),
+      []
+    );
+    expect(blocks.map((b) => b.day)).toEqual(["2026-11-23"]);
+  });
+
+  it("đơn đặt sau Kiểm kho trong ngày là đơn ngày mai", () => {
+    const blocks = pendingBlocks(
+      orders,
+      [line("a", "o22", "i1", 2)],
+      new Set(),
+      ["2026-11-22T13:30:00Z"] // Kiểm kho 20:30 giờ VN, trước khi đặt 21:00
+    );
+    expect(blocks[0].day).toBe("2026-11-23");
+  });
+});
+
+describe("incomingByDay (Hàng đang về theo ngày của đơn)", () => {
+  const orders = [
+    { id: "o22", group_id: "g1", placed_at: "2026-11-22T14:00:00Z" },
+    { id: "o23", group_id: "g2", placed_at: "2026-11-23T14:00:00Z" },
+  ];
+  const lines = [
+    { id: "a", order_id: "o22", item_id: "i1", qty: 2 },
+    { id: "b", order_id: "o23", item_id: "i1", qty: 3 },
+    { id: "c", order_id: "o23", item_id: "i2", qty: 1 },
+    { id: "d", order_id: "o22", item_id: "i2", qty: 4 },
+  ];
+
+  it("tách số lượng đang về của từng món theo ngày", () => {
+    const m = incomingByDay(orders, lines, new Set(["d"]), []);
+    expect([...m.keys()]).toEqual(["2026-11-22", "2026-11-23"]);
+    expect(m.get("2026-11-22")?.get("i1")).toBe(2);
+    expect(m.get("2026-11-23")?.get("i1")).toBe(3);
+    expect(m.get("2026-11-22")?.has("i2")).toBe(false); // dòng d đã nhận
+    expect(m.get("2026-11-23")?.get("i2")).toBe(1);
+  });
+
+  it("cộng các ngày lại bằng đúng incomingByItem", () => {
+    const received = new Set(["d"]);
+    const byDay = incomingByDay(orders, lines, received, []);
+    const total = incomingByItem(orders, lines, received);
+    for (const [item, qty] of total) {
+      const sum = [...byDay.values()].reduce(
+        (n, d) => n + (d.get(item) ?? 0),
+        0
+      );
+      expect(sum).toBe(qty);
+    }
   });
 });

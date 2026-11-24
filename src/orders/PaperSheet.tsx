@@ -1,6 +1,7 @@
 import { useMemo, type ComponentRef, type Ref } from "react";
 import { Platform, Text, View, type ViewStyle } from "react-native";
 import type { SheetModel } from "./exportSheet";
+import { nameLines, sheetGeometry } from "./sheetGeometry";
 
 // Tờ giấy Đặt hàng / Tồn kho vẽ theo mẫu in của quán (khổ dọc 1 : 1,414). Màu cố định, không theo chủ đề:
 // tờ được lưu thành ảnh để gửi đi nên luôn đen trắng như bản in, số điền tay bằng mực xanh.
@@ -8,16 +9,6 @@ const INK = "#111111";
 const BLUE = "#1F3FAE";
 const GREY = "#D9D9D9";
 const SERIF = Platform.select({ ios: "Times New Roman", default: "serif" });
-
-// Phân chia cột theo mẫu: STT, LOẠI, TÊN, ĐƠN VỊ, SỐ LƯỢNG (tỷ lệ chiều rộng bảng).
-const FIXED = { stt: 0.06, unit: 0.12, qty: 0.17 };
-
-// Ước lượng độ rộng chữ theo em: chữ Trung rộng 1 em, chữ Latin in đậm khoảng 0,55 em.
-const textEm = (str: string) =>
-  [...str].reduce(
-    (w, ch) => w + ((ch.codePointAt(0) ?? 0) > 0x2e80 ? 1 : 0.55),
-    0
-  );
 
 type Props = {
   model: SheetModel;
@@ -28,27 +19,18 @@ type Props = {
 };
 
 export function PaperSheet({ model, date, orderer, width, shotRef }: Props) {
-  const u = width / 100;
-  const cat = model.categories.some((c) => c.label.length > 8) ? 0.14 : 0.12;
-  const COLS = {
-    ...FIXED,
-    cat,
-    name: 1 - FIXED.stt - FIXED.unit - FIXED.qty - cat,
-  };
-  const height = width * 1.414;
-  const tableW = width - 10 * u;
-  const n = Math.max(model.rows.length, 1);
-  // Các dòng chia đều chiều cao bảng: ít dòng thì dòng cao, nhiều dòng thì thấp (như mẫu), có trần.
-  const rowH = Math.min(0.108 * width, (height * 0.68) / n);
-  const nameColW = tableW * COLS.name - 2.4 * u;
-  const longest = Math.max(...model.rows.map((r) => textEm(r.name)), 1);
-  const baseFs =
-    (model.rows.length > 16 ? 1.95 : model.rows.length > 12 ? 2.4 : 2.5) * u;
-  const nameFs = Math.min(baseFs, nameColW / longest);
-  const unitFs = (model.rows.length > 16 ? 1.8 : 2.1) * u;
-  // Tiêu đề (kèm chữ Trung) thu nhỏ vừa khổ giấy; adjustsFontSizeToFit không chạy trên web nên tính tay.
-  const titleText = `${model.title}${model.titleZh ? `   ${model.titleZh}` : ""}`;
-  const titleFs = Math.min(4.4 * u, (tableW * 0.95) / textEm(titleText));
+  const {
+    u,
+    cols: COLS,
+    height,
+    tableW,
+    rowH,
+    nameColW,
+    nameFs,
+    unitFs,
+    titleText,
+    titleFs,
+  } = sheetGeometry(model, width);
   const cell = useMemo(
     (): ViewStyle => ({
       borderRightWidth: 1,
@@ -356,7 +338,7 @@ function Head({
   );
 }
 
-// Tên + chữ Trung (+ ghi chú) cùng một dòng như mẫu; ước lượng không vừa một dòng thì cả khối chữ Trung xuống dòng dưới.
+// Tên + chữ Trung (+ ghi chú): cách xuống dòng tính ở nameLines (dùng chung với ảnh vẽ canvas).
 function NameCell({
   name,
   zh,
@@ -377,21 +359,15 @@ function NameCell({
     lineHeight: fs * 1.2,
     color: INK,
   };
-  // Ngoặc toàn chiều rộng tự có khoảng trống; còn lại cách một dấu cách.
-  const glue = zh && !zh.startsWith("（") ? " " : "";
-  const tail = [zh ? `${glue}${zh}` : "", note].filter(Boolean).join(" ");
-  if (!tail) return <Text style={style}>{name}</Text>;
-  if (textEm(name + tail) * fs > avail)
-    return (
-      <View>
-        <Text style={style}>{name}</Text>
-        <Text style={style}>{tail.trimStart()}</Text>
-      </View>
-    );
+  const lines = nameLines(name, zh, note, fs, avail);
+  if (lines.length === 1) return <Text style={style}>{lines[0]}</Text>;
   return (
-    <Text style={style}>
-      {name}
-      {tail}
-    </Text>
+    <View>
+      {lines.map((line, i) => (
+        <Text key={i} style={style}>
+          {line}
+        </Text>
+      ))}
+    </View>
   );
 }
