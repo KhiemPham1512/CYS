@@ -98,6 +98,21 @@ export async function deleteDraft(
   return { error: error ? NET_ERROR : null };
 }
 
+// Xóa một dòng của đơn ĐÃ ĐẶT khi chưa nhận (mọi thành viên); hàm DB kiểm điều kiện và ghi Nhật ký.
+export async function deleteOrderLine(
+  lineId: string
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc("delete_order_line", {
+    p_line: lineId,
+  });
+  if (!error) return { error: null };
+  return {
+    error: error.code
+      ? "Không xóa được (món có thể đã nhận hàng hoặc đã bị xóa)."
+      : NET_ERROR,
+  };
+}
+
 export function subscribeOrders(
   branchId: string,
   onChange: () => void

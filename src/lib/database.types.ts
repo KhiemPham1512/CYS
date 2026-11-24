@@ -332,6 +332,10 @@ export type Database = {
     };
     Views: { [_ in never]: never };
     Functions: {
+      delete_order_line: {
+        Args: { p_line: string };
+        Returns: undefined;
+      };
       audit_feed: {
         Args: {
           p_branch: string;

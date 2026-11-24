@@ -21,6 +21,7 @@ import { useSaveGuard } from "../lib/useSaveGuard";
 import { omitKeys } from "../lib/omitKeys";
 import { formatItemQty, parseQty } from "../stock/qty";
 import {
+  deleteOrderLine,
   loadOrders,
   subscribeOrders,
   type OrderLineRow,
@@ -299,6 +300,40 @@ export function ReceiveScreen({ branchId }: Props) {
         );
       }
       await fetchData();
+    });
+  }
+
+  // Xóa món khỏi đơn đã đặt (chưa nhận): mọi người được xóa từng món; Nhật ký ghi lại ở hàm DB.
+  function handleDeleteLine(
+    line: MergedLine,
+    item: Tables<"items"> | undefined,
+    day: string
+  ) {
+    if (!online || busy.current) return;
+    confirmAction({
+      title: `Xóa ${item?.name ?? "món này"} khỏi đơn ngày ${formatDayMonth(day)}?`,
+      message:
+        "Món bị xóa khỏi đơn đã đặt và khỏi Hàng đang về, không hoàn lại được. Chưa nhận hàng thì mới xóa được.",
+      confirmText: "Xóa món",
+      destructive: true,
+      onConfirm: () =>
+        void runSave(async () => {
+          for (const part of line.parts) {
+            const res = await deleteOrderLine(part.id);
+            if (res.error) {
+              setMessage(res.error);
+              await fetchData();
+              return;
+            }
+          }
+          setEditingLineId(null);
+          const id = line.id;
+          setShortInputs((p) => omitKeys(p, [id]));
+          setDamagedInputs((p) => omitKeys(p, [id]));
+          setMfgInputs((p) => omitKeys(p, [id]));
+          setMessage(`Đã xóa ${item?.name ?? "món"} khỏi đơn.`);
+          await fetchData();
+        }),
     });
   }
 
@@ -583,6 +618,23 @@ export function ReceiveScreen({ branchId }: Props) {
                       <Text style={styles.primaryText}>Xong</Text>
                     </Pressable>
                   </View>
+                  <Pressable
+                    style={[
+                      styles.deleteBtn,
+                      actionDisabled && styles.disabled,
+                    ]}
+                    disabled={actionDisabled}
+                    onPress={() =>
+                      handleDeleteLine(
+                        editingLine,
+                        editingItem,
+                        editingLine.id.split("|")[0]
+                      )
+                    }
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.deleteText}>Xóa món khỏi đơn</Text>
+                  </Pressable>
                 </View>
               )}
             </ScrollView>
@@ -595,6 +647,8 @@ export function ReceiveScreen({ branchId }: Props) {
 
 const styles = themedStyles((c: Palette) => ({
   container: { flex: 1, width: "100%" },
+  deleteBtn: { marginTop: 8, padding: 12, alignItems: "center" },
+  deleteText: { color: c.red, fontWeight: "700", fontSize: 15 },
   center: {
     flex: 1,
     alignItems: "center",
