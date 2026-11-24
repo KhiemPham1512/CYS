@@ -143,3 +143,20 @@ export function pendingBlocks(
   }
   return [...blocks.values()].sort((a, b) => a.day.localeCompare(b.day));
 }
+
+// Hàng đang về của từng món theo Ngày của đơn: ngày (cũ trước) -> món -> số lượng. Cộng các ngày lại = incomingByItem.
+export function incomingByDay(
+  orders: { id: string; group_id: string; placed_at: string | null }[],
+  lines: { id: string; order_id: string; item_id: string; qty: number }[],
+  received: Set<string>,
+  countTimes: string[]
+): Map<string, Map<string, number>> {
+  const out = new Map<string, Map<string, number>>();
+  for (const block of pendingBlocks(orders, lines, received, countTimes)) {
+    const day = out.get(block.day) ?? new Map<string, number>();
+    for (const l of block.lines)
+      day.set(l.item_id, round4((day.get(l.item_id) ?? 0) + l.qty));
+    out.set(block.day, day);
+  }
+  return out;
+}

@@ -5,6 +5,7 @@ import {
   incomingBefore,
   isEditable,
   orderedOnDay,
+  incomingByDay,
   pendingBlocks,
   projectedQty,
   type Order,
@@ -189,5 +190,40 @@ describe("pendingBlocks (Nhận hàng tách theo ngày của đơn)", () => {
       ["2026-11-22T13:30:00Z"] // Kiểm kho 20:30 giờ VN, trước khi đặt 21:00
     );
     expect(blocks[0].day).toBe("2026-11-23");
+  });
+});
+
+describe("incomingByDay (Hàng đang về theo ngày của đơn)", () => {
+  const orders = [
+    { id: "o22", group_id: "g1", placed_at: "2026-11-22T14:00:00Z" },
+    { id: "o23", group_id: "g2", placed_at: "2026-11-23T14:00:00Z" },
+  ];
+  const lines = [
+    { id: "a", order_id: "o22", item_id: "i1", qty: 2 },
+    { id: "b", order_id: "o23", item_id: "i1", qty: 3 },
+    { id: "c", order_id: "o23", item_id: "i2", qty: 1 },
+    { id: "d", order_id: "o22", item_id: "i2", qty: 4 },
+  ];
+
+  it("tách số lượng đang về của từng món theo ngày", () => {
+    const m = incomingByDay(orders, lines, new Set(["d"]), []);
+    expect([...m.keys()]).toEqual(["2026-11-22", "2026-11-23"]);
+    expect(m.get("2026-11-22")?.get("i1")).toBe(2);
+    expect(m.get("2026-11-23")?.get("i1")).toBe(3);
+    expect(m.get("2026-11-22")?.has("i2")).toBe(false); // dòng d đã nhận
+    expect(m.get("2026-11-23")?.get("i2")).toBe(1);
+  });
+
+  it("cộng các ngày lại bằng đúng incomingByItem", () => {
+    const received = new Set(["d"]);
+    const byDay = incomingByDay(orders, lines, received, []);
+    const total = incomingByItem(orders, lines, received);
+    for (const [item, qty] of total) {
+      const sum = [...byDay.values()].reduce(
+        (n, d) => n + (d.get(item) ?? 0),
+        0
+      );
+      expect(sum).toBe(qty);
+    }
   });
 });

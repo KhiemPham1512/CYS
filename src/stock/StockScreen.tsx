@@ -27,10 +27,11 @@ import {
 } from "./api";
 import { formatDate, parseShortDate } from "./date";
 import { loadOrders, subscribeOrders } from "../orders/api";
-import { incomingByItem, projectedQty } from "../orders/orders";
+import { incomingByDay, incomingByItem, projectedQty } from "../orders/orders";
 import { loadReceivingData, subscribeReceiving } from "../orders/receivingApi";
 import {
   checkedSince,
+  countTimes,
   latestQtyText,
   localDate,
   stockByItem,
@@ -66,6 +67,10 @@ export function StockScreen({ branchId }: Props) {
   const [items, setItems] = useState<Tables<"items">[]>([]);
   const [movements, setMovements] = useState<Tables<"stock_movements">[]>([]);
   const [incoming, setIncoming] = useState<Map<string, number>>(new Map());
+  const [incomingDays, setIncomingDays] = useState<
+    Map<string, Map<string, number>>
+  >(new Map());
+  const [pickedDay, setPickedDay] = useState<string | null>(null); // tab ngày của chip Đang về
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [query, setQuery] = useState("");
@@ -102,6 +107,14 @@ export function StockScreen({ branchId }: Props) {
       ]);
       if (request !== latestRequest.current) return;
       setIncoming(incomingByItem(ord.orders, ord.lines, rec.receivedLineIds));
+      setIncomingDays(
+        incomingByDay(
+          ord.orders,
+          ord.lines,
+          rec.receivedLineIds,
+          countTimes(movs)
+        )
+      );
       setGroups(catalog.groups);
       setItems(catalog.items);
       setMovements(movs);
@@ -150,14 +163,29 @@ export function StockScreen({ branchId }: Props) {
     });
   }, [groups, items, lotsByItem, checked, incoming, today]);
 
+  // Chip Đang về chia tab theo Ngày của đơn (cũ trước): mỗi tab chỉ các món về từ đơn ngày đó, với số của riêng ngày đó.
+  const comingDays = useMemo(
+    () => [...incomingDays.keys()].sort(),
+    [incomingDays]
+  );
+  const activeDay =
+    flag === "incoming"
+      ? pickedDay && comingDays.includes(pickedDay)
+        ? pickedDay
+        : comingDays[0]
+      : undefined;
+  const dayIncoming = activeDay ? incomingDays.get(activeDay) : undefined;
+
   const sections = useMemo<SectionData[]>(() => {
     return buildSections(groups, items, { query, showHidden: false })
       .map((s) => ({
         group: s.group,
-        data: filterByFlag(s.items, summary, flag),
+        data: filterByFlag(s.items, summary, flag).filter(
+          (i) => !dayIncoming || (dayIncoming.get(i.id) ?? 0) > 0
+        ),
       }))
       .filter((s) => s.data.length > 0);
-  }, [groups, items, query, summary, flag]);
+  }, [groups, items, query, summary, flag, dayIncoming]);
 
   const selectedLots: Lot[] = useMemo(() => {
     if (!selectedItem) return [];
@@ -392,6 +420,28 @@ export function StockScreen({ branchId }: Props) {
             );
           })}
         </View>
+        {flag === "incoming" && comingDays.length > 0 && (
+          <View style={styles.dayTabs}>
+            {comingDays.map((d) => (
+              <Pressable
+                key={d}
+                style={[styles.dayTab, d === activeDay && styles.dayTabOn]}
+                onPress={() => setPickedDay(d)}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: d === activeDay }}
+              >
+                <Text
+                  style={[
+                    styles.dayTabText,
+                    d === activeDay && styles.dayTabTextOn,
+                  ]}
+                >
+                  Đơn ngày {formatDayMonth(d)}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
       </View>
 
       <SectionList<Tables<"items">, SectionData>
@@ -417,7 +467,7 @@ export function StockScreen({ branchId }: Props) {
           };
           const total = lots ? totalQty(lots) : 0;
           const totalText = formatStockQty(item, total, texts.get(item.id));
-          const coming = incoming.get(item.id) ?? 0;
+          const coming = (dayIncoming ?? incoming).get(item.id) ?? 0;
           const expired = expiredLots(lots ?? [], item, today);
           const unchecked = summary.ids.unchecked.has(item.id);
           const stripe =
@@ -816,6 +866,21 @@ const styles = themedStyles((c: Palette) => ({
     letterSpacing: 1.2,
     color: c.muted,
   },
+  dayTabs: { flexDirection: "row", gap: 8, paddingTop: 10 },
+  dayTab: {
+    flex: 1,
+    minHeight: 40,
+    borderWidth: 1,
+    borderColor: c.line,
+    backgroundColor: c.surface,
+    borderRadius: 12,
+    padding: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dayTabOn: { backgroundColor: c.accentDeep, borderColor: c.accentDeep },
+  dayTabText: { fontSize: 14, fontWeight: "600", color: c.ink },
+  dayTabTextOn: { color: c.onAccent },
   sumRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingTop: 10 },
   sumChip: {
     flexDirection: "row",
