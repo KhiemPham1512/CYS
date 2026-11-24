@@ -82,3 +82,64 @@ export const incomingBefore = (
     lines,
     receivedLineIds
   );
+
+export type PendingBlock = {
+  key: string; // `${ngày}|${nhóm}`
+  day: string; // Ngày của đơn (yyyy-mm-dd)
+  groupId: string;
+  lines: {
+    key: string; // `${ngày}|${nhóm}|${món}`, khóa cho các ô nhập
+    item_id: string;
+    qty: number; // tổng đã đặt
+    parts: { id: string; qty: number }[]; // các dòng đơn gốc, đơn cũ nhất trước
+  }[];
+};
+
+// Hàng đang về chưa nhận, tách theo Ngày của đơn rồi theo Nhóm: biết hàng này thuộc đơn ngày nào để nhận đúng.
+// Chỉ các đơn CÙNG ngày, cùng Nhóm mới gộp dòng cùng món. Khối xếp theo ngày tăng dần.
+export function pendingBlocks(
+  orders: { id: string; group_id: string; placed_at: string | null }[],
+  lines: { id: string; order_id: string; item_id: string; qty: number }[],
+  received: Set<string>,
+  countTimes: string[]
+): PendingBlock[] {
+  const placed = new Map(
+    orders.flatMap((o) =>
+      o.placed_at === null ? [] : [[o.id, { ...o, placed_at: o.placed_at }]]
+    )
+  );
+  const pending = lines
+    .filter((l) => !received.has(l.id) && placed.has(l.order_id))
+    .sort((a, b) =>
+      (placed.get(a.order_id)?.placed_at ?? "").localeCompare(
+        placed.get(b.order_id)?.placed_at ?? ""
+      )
+    );
+  const blocks = new Map<string, PendingBlock>();
+  for (const line of pending) {
+    const order = placed.get(line.order_id);
+    if (!order) continue;
+    const day = businessDay(order.placed_at, countTimes);
+    const blockKey = `${day}|${order.group_id}`;
+    let block = blocks.get(blockKey);
+    if (!block) {
+      block = { key: blockKey, day, groupId: order.group_id, lines: [] };
+      blocks.set(blockKey, block);
+    }
+    const lineKey = `${blockKey}|${line.item_id}`;
+    const part = { id: line.id, qty: line.qty };
+    const existing = block.lines.find((l) => l.key === lineKey);
+    if (existing) {
+      existing.parts.push(part);
+      existing.qty = round4(existing.qty + line.qty);
+    } else {
+      block.lines.push({
+        key: lineKey,
+        item_id: line.item_id,
+        qty: line.qty,
+        parts: [part],
+      });
+    }
+  }
+  return [...blocks.values()].sort((a, b) => a.day.localeCompare(b.day));
+}

@@ -73,6 +73,7 @@ _Tránh_: đổi hàng, hoàn hàng, return
 
 **Nhận hàng**:
 Lần một Người dùng ghi nhận hàng của một dòng Đơn đặt hàng đã về: phần nhận tốt vào Tồn kho thực tế thành Lô theo Ngày sản xuất, phần Hàng thiếu và Trả hàng hư vào Chờ nhà cung cấp. Mỗi dòng nhận một lần và hết Hàng đang về.
+Màn Nhận hàng chia theo **Ngày của đơn** rồi theo Nhóm ("Nhóm · Đơn ngày 24/11"): hàng của đơn ngày nào nhận ở khối ngày đó, không gộp đơn khác ngày; chỉ đơn cùng ngày, cùng Nhóm mới gộp dòng cùng món.
 _Tránh_: nhập kho, nhập hàng
 
 **Đối chiếu đơn nhà cung cấp**:
