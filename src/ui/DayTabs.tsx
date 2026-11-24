@@ -13,13 +13,15 @@ export function DayTabs({
   days,
   active,
   onPick,
+  flush,
 }: {
   days: string[];
   active: string | undefined;
   onPick: (day: string) => void;
+  flush?: boolean; // sát lề khi đặt trong khối đã có lề (thanh công cụ Tồn kho)
 }) {
   return (
-    <View style={styles.row}>
+    <View style={[styles.row, flush && styles.flush]}>
       {days.map((d) => (
         <Pressable
           key={d}
@@ -39,6 +41,7 @@ export function DayTabs({
 
 const styles = themedStyles((c: Palette) => ({
   row: { flexDirection: "row", gap: 8, padding: 16, paddingBottom: 8 },
+  flush: { paddingHorizontal: 0, paddingTop: 10, paddingBottom: 0 },
   tab: {
     flex: 1,
     minHeight: 44,

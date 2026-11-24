@@ -418,7 +418,12 @@ export function StockScreen({ branchId }: Props) {
           })}
         </View>
         {flag === "incoming" && comingDays.length > 0 && (
-          <DayTabs days={comingDays} active={activeDay} onPick={setPickedDay} />
+          <DayTabs
+            days={comingDays}
+            active={activeDay}
+            onPick={setPickedDay}
+            flush
+          />
         )}
       </View>
 
