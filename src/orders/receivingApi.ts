@@ -129,6 +129,7 @@ export function subscribeReceiving(
 }
 
 // Các lần nhận từ mốc sinceIso (Quản trị xem để gỡ nhận nhầm).
+// shortcut: cửa sổ cố định 3 ngày ở app (hàm DB cũng chặn), nhận nhầm cũ hơn thì nhờ chạy SQL; khi cần nới thì đổi cả hằng RECENT_MS và hàm undo_receipts.
 export async function loadRecentReceipts(
   branchId: string,
   sinceIso: string

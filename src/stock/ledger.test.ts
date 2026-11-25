@@ -4,6 +4,7 @@ import {
   checkResetAt,
   countDiffs,
   countTimes,
+  latestCheckTimes,
   latestQtyText,
   localDate,
   rollbackBatches,
@@ -907,5 +908,64 @@ describe("latestQtyText", () => {
     expect(map.get("item-a")).toBe("1T+3");
     expect(map.get("item-b")).toBeNull();
     expect(map.has("item-c")).toBe(false);
+  });
+});
+
+describe("latestCheckTimes", () => {
+  it("lần Kiểm kho/Điều chỉnh mới nhất của từng món, bỏ use/receive và dòng bị hủy", () => {
+    const map = latestCheckTimes([
+      mv({
+        seq: 1,
+        item_id: "item-a",
+        kind: "count",
+        id: "c1",
+        created_at: "2026-11-24T10:00:00Z",
+      }),
+      mv({
+        seq: 2,
+        item_id: "item-a",
+        kind: "adjust",
+        id: "a1",
+        created_at: "2026-11-25T09:00:00Z",
+      }),
+      mv({
+        seq: 3,
+        item_id: "item-a",
+        kind: "use",
+        id: "u1",
+        created_at: "2026-11-25T11:00:00Z",
+      }),
+      mv({
+        seq: 4,
+        item_id: "item-a",
+        kind: "receive",
+        id: "r1",
+        created_at: "2026-11-25T12:00:00Z",
+      }),
+      mv({
+        seq: 5,
+        item_id: "item-b",
+        kind: "count",
+        id: "c2",
+        created_at: "2026-11-25T08:00:00Z",
+      }),
+      mv({
+        seq: 6,
+        item_id: "item-b",
+        kind: "adjust",
+        id: "a2",
+        created_at: "2026-11-25T13:00:00Z",
+      }),
+      mv({
+        seq: 7,
+        item_id: "item-b",
+        kind: "void",
+        id: "v1",
+        voids_id: "a2",
+        created_at: "2026-11-25T14:00:00Z",
+      }),
+    ]);
+    expect(map.get("item-a")).toBe("2026-11-25T09:00:00Z");
+    expect(map.get("item-b")).toBe("2026-11-25T08:00:00Z");
   });
 });

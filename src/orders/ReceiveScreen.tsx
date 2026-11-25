@@ -14,11 +14,20 @@ import { compareGroups, compareItems } from "../catalog/sections";
 import type { Tables } from "../lib/database.types";
 import { useOnline } from "../lib/useOnline";
 import { formatDate, parseShortDate } from "../stock/date";
-import { localDate, localTime } from "../stock/ledger";
+import {
+  countTimes as getCountTimes,
+  latestCheckTimes,
+  localDate,
+  localTime,
+} from "../stock/ledger";
 import { loadMovements, subscribeMovements } from "../stock/api";
 import { DayTabs, activeDayOf } from "../ui/DayTabs";
-import { countTimes as getCountTimes } from "../stock/ledger";
-import { pendingBlocks, receivedBlocks, type ReceiptRow } from "./orders";
+import {
+  pendingBlocks,
+  receivedBlocks,
+  type ReceivedBlock,
+  type ReceiptRow,
+} from "./orders";
 import { useSaveGuard } from "../lib/useSaveGuard";
 import { omitKeys } from "../lib/omitKeys";
 import { formatItemQty, parseQty } from "../stock/qty";
@@ -95,6 +104,7 @@ export function ReceiveScreen({ branchId, isAdmin }: Props) {
   const [mfgInputs, setMfgInputs] = useState<Record<string, string>>({});
   const [countTimes, setCountTimes] = useState<string[]>([]);
   const [recent, setRecent] = useState<ReceiptRow[]>([]);
+  const [checkedAt, setCheckedAt] = useState<Map<string, string>>(new Map());
   const [pickedDay, setPickedDay] = useState<string | null>(null);
   const [groupErrors, setGroupErrors] = useState<Record<string, string[]>>({});
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
@@ -124,6 +134,7 @@ export function ReceiveScreen({ branchId, isAdmin }: Props) {
       setLines(ord.lines);
       setReceivedLineIds(rec.receivedLineIds);
       setCountTimes(getCountTimes(movs));
+      setCheckedAt(latestCheckTimes(movs));
       setRecent(recentReceipts);
     } catch {
       if (request === latestRequest.current) setError(true);
@@ -321,11 +332,14 @@ export function ReceiveScreen({ branchId, isAdmin }: Props) {
 
   // Quản trị gỡ lần nhận nhầm: hàng quay lại "Hàng đang về", tồn kho giảm đúng số đã nhận; Nhật ký ghi lại.
   const receivedList = useMemo(
-    () => (isAdmin ? receivedBlocks(orders, lines, recent, countTimes) : []),
-    [isAdmin, orders, lines, recent, countTimes]
+    () =>
+      isAdmin
+        ? receivedBlocks(orders, lines, recent, countTimes, checkedAt)
+        : [],
+    [isAdmin, orders, lines, recent, countTimes, checkedAt]
   );
 
-  function handleUndo(block: ReturnType<typeof receivedBlocks>[number]) {
+  function handleUndo(block: ReceivedBlock) {
     if (!online || busy.current || block.blocked) return;
     const groupName = groups.find((g) => g.id === block.groupId)?.name ?? "";
     confirmAction({
@@ -587,7 +601,9 @@ export function ReceiveScreen({ branchId, isAdmin }: Props) {
                   </Text>
                   {block.blocked ? (
                     <Text style={styles.recentLine}>
-                      Có hàng thiếu/hư đã vào Chờ nhà cung cấp, không gỡ ở đây.
+                      {block.blocked === "short"
+                        ? "Có hàng thiếu/hư đã vào Chờ nhà cung cấp, không gỡ ở đây."
+                        : "Đã Kiểm kho/Điều chỉnh sau lần nhận này, không gỡ được (gỡ sẽ làm tồn lệch)."}
                     </Text>
                   ) : (
                     <View style={styles.groupFooter}>

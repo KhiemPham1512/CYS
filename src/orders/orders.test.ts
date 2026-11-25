@@ -279,7 +279,7 @@ describe("receivedBlocks (Nhận hàng gần đây, để gỡ nhận nhầm)", 
       { item_id: "i2", qty: 1 },
     ]);
     expect(blocks[0].receivedAt).toBe("2026-11-25T10:05:01Z");
-    expect(blocks[0].blocked).toBe(false);
+    expect(blocks[0].blocked).toBe(null);
   });
 
   it("lần nhận có hàng thiếu hoặc hư thì khối bị khóa (không gỡ được)", () => {
@@ -292,8 +292,23 @@ describe("receivedBlocks (Nhận hàng gần đây, để gỡ nhận nhầm)", 
       ],
       []
     );
-    expect(blocks.find((b) => b.day === "2026-11-22")?.blocked).toBe(true);
-    expect(blocks.find((b) => b.day === "2026-11-23")?.blocked).toBe(false);
+    expect(blocks.find((b) => b.day === "2026-11-22")?.blocked).toBe("short");
+    expect(blocks.find((b) => b.day === "2026-11-23")?.blocked).toBe(null);
+  });
+
+  it("đã Kiểm kho/Điều chỉnh món sau lần nhận thì khối bị khóa (checked)", () => {
+    const blocks = receivedBlocks(
+      orders,
+      lines,
+      [
+        rec("r1", "a", "2026-11-25T10:00:00Z", 2), // i1, kiểm kho sau lần nhận
+        rec("r2", "c", "2026-11-25T10:00:00Z", 1), // i2, chưa kiểm kho sau đó
+      ],
+      [],
+      new Map([["i1", "2026-11-25T12:00:00Z"]])
+    );
+    expect(blocks.find((b) => b.day === "2026-11-22")?.blocked).toBe("checked");
+    expect(blocks.find((b) => b.day === "2026-11-23")?.blocked).toBe(null);
   });
 
   it("bỏ lần nhận của dòng đơn không còn (đã xóa)", () => {

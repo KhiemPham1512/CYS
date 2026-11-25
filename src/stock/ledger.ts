@@ -154,6 +154,19 @@ export function stockLots(movements: Movement[]): Lot[] {
   return lots;
 }
 
+// Lần Kiểm kho/Điều chỉnh mới nhất (chưa bị hủy) của từng món: số đếm tuyệt đối sau đó làm các lần nhận trước đó không gỡ được nữa.
+export function latestCheckTimes(movements: Movement[]): Map<string, string> {
+  const voided = voidedIds(movements);
+  const latest = new Map<string, string>();
+  for (const m of movements) {
+    if ((m.kind !== "count" && m.kind !== "adjust") || voided.has(m.id))
+      continue;
+    const cur = latest.get(m.item_id);
+    if (!cur || m.created_at > cur) latest.set(m.item_id, m.created_at);
+  }
+  return latest;
+}
+
 export function totalQty(lots: Lot[]): number {
   let sum = 0;
   for (const lot of lots) {

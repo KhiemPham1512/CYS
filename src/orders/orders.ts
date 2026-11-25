@@ -175,7 +175,8 @@ export type ReceivedBlock = {
   groupId: string;
   receivedAt: string; // lần nhận mới nhất trong khối
   receiptIds: string[];
-  blocked: boolean; // có Hàng thiếu/hư đã vào Chờ nhà cung cấp: không gỡ được ở app
+  // Không gỡ được ở app: "short" = có Hàng thiếu/hư đã vào Chờ nhà cung cấp; "checked" = sau lần nhận đã Kiểm kho/Điều chỉnh món đó.
+  blocked: "short" | "checked" | null;
   lines: { item_id: string; qty: number }[]; // số nhận tốt theo món
 };
 
@@ -184,7 +185,8 @@ export function receivedBlocks(
   orders: { id: string; group_id: string; placed_at: string | null }[],
   lines: { id: string; order_id: string; item_id: string; qty: number }[],
   receipts: ReceiptRow[],
-  countTimes: string[]
+  countTimes: string[],
+  checkedAt: Map<string, string> = new Map() // món -> lần Kiểm kho/Điều chỉnh mới nhất
 ): ReceivedBlock[] {
   const orderById = new Map(orders.map((o) => [o.id, o]));
   const lineById = new Map(lines.map((l) => [l.id, l]));
@@ -203,14 +205,19 @@ export function receivedBlocks(
         groupId: order.group_id,
         receivedAt: r.created_at,
         receiptIds: [],
-        blocked: false,
+        blocked: null,
         lines: [],
       };
       blocks.set(key, block);
     }
     block.receiptIds.push(r.id);
     if (r.created_at > block.receivedAt) block.receivedAt = r.created_at;
-    if (r.short_qty > 0 || r.damaged_qty > 0) block.blocked = true;
+    if (r.short_qty > 0 || r.damaged_qty > 0) block.blocked = "short";
+    else if (
+      !block.blocked &&
+      (checkedAt.get(line.item_id) ?? "") > r.created_at
+    )
+      block.blocked = "checked";
     const item = block.lines.find((l) => l.item_id === line.item_id);
     if (item) item.qty = round4(item.qty + r.good_qty);
     else block.lines.push({ item_id: line.item_id, qty: r.good_qty });
