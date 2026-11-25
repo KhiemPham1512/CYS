@@ -577,7 +577,7 @@ export function StockScreen({ branchId }: Props) {
                     Đơn vị tính: {selectedItem.unit}
                     {selectedItem.case_size !== null
                       ? selectedItem.case_size === OPEN_CASE_SIZE
-                        ? " · Thùng và bịch đếm riêng"
+                        ? ` · Thùng và ${selectedItem.unit.toLowerCase()} đếm riêng`
                         : ` · Quy cách thùng: ${selectedItem.case_size}`
                       : ""}
                     {selectedItem.record_by_percent ? " · Ghi theo %" : ""}

@@ -45,7 +45,7 @@ Nhãn trên một Nguyên vật liệu chưa được Kiểm kho kể từ 7h s�
 _Tránh_: chưa đếm
 
 **Thùng chưa rõ quy cách**:
-Món có thùng nhưng chưa ai biết 1 thùng bao nhiêu đơn vị lẻ (hiện là Ống hút lớn/nhỏ và Túi đựng 1/2/4 ly, đơn vị tính Bịch). Nhập "1T" hoặc số bịch; thùng và bịch đếm riêng, hiện "1 thùng 28 bịch", không đổi qua lại. Cách làm: quy cách thùng khai quy ước 1000 (`OPEN_CASE_SIZE`) chỉ để tách số thùng khỏi số bịch, không phải số thật; số bịch từ 1000 trở lên bị chặn. Giới hạn: tồn là một số, nên Ghi dùng quá số bịch lẻ (1T+3 dùng 5 bịch) thành "998 bịch" mất thùng; khi đó Kiểm kho lại. Khi biết quy cách thật thì sửa quy cách thùng trong Danh mục và đổi lại số tồn cũ.
+Món có thùng nhưng chưa ai biết 1 thùng bao nhiêu đơn vị lẻ (hiện là Ống hút lớn/nhỏ và Túi đựng 1/2/4 ly, đơn vị tính Bịch; Hủ đựng Topping, đơn vị tính Cây). Nhập "1T" hoặc số bịch (số cây); thùng và bịch đếm riêng, hiện "1 thùng 28 bịch", không đổi qua lại. Cách làm: quy cách thùng khai quy ước 1000 (`OPEN_CASE_SIZE`) chỉ để tách số thùng khỏi số bịch, không phải số thật; số bịch từ 1000 trở lên bị chặn. Muỗng nhựa không thuộc nhóm này: nhập theo Bịch (1 bịch = 50 cái), quy cách thùng thật 40 bịch. Ảnh Xuất/Đặt hàng giữ đơn vị "Thùng" của tờ giấy (`sheet.unit`). Giới hạn: tồn là một số, nên Ghi dùng quá số bịch lẻ (1T+3 dùng 5 bịch) thành "998 bịch" mất thùng; khi đó Kiểm kho lại. Khi biết quy cách thật thì sửa quy cách thùng trong Danh mục và đổi lại số tồn cũ.
 _Tránh_: quy cách 1000
 
 **Số lượng hiện như đã nhập**:

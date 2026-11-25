@@ -418,7 +418,7 @@ export function CountScreen({ branchId, onDone }: Props) {
                 Đơn vị tính: {item.unit}
                 {item.case_size !== null
                   ? item.case_size === OPEN_CASE_SIZE
-                    ? " · Thùng và bịch đếm riêng (ví dụ: 1T+28)"
+                    ? ` · Thùng và ${item.unit.toLowerCase()} đếm riêng (ví dụ: 1T+28)`
                     : ` · Quy cách thùng: ${item.case_size} (ví dụ: 1T+3)`
                   : ""}
                 {item.record_by_percent ? " · Ghi theo %" : ""}
