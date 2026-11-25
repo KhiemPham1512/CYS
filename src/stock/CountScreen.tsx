@@ -83,7 +83,9 @@ export function CountScreen({ branchId, onDone }: Props) {
   }, [branchId]);
   useEffect(() => {
     if (!draftReady.current) return;
-    const t = setTimeout(() => void storeCountDraft(branchId, inputs), 400);
+    const t = setTimeout(() => {
+      if (draftReady.current) void storeCountDraft(branchId, inputs); // đã lưu vào sổ thì không ghi lại
+    }, 400);
     return () => clearTimeout(t);
   }, [inputs, branchId]);
 
