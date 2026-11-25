@@ -15,6 +15,7 @@ import { loadCatalog } from "../catalog/api";
 import { buildSections } from "../catalog/sections";
 import { ItemQtyModal } from "../components/ItemQtyModal";
 import type { Tables } from "../lib/database.types";
+import { confirmAction } from "../ui/confirm";
 import { useNow } from "../lib/useNow";
 import { useOnline } from "../lib/useOnline";
 import { loadMovements, saveCount } from "./api";
@@ -71,7 +72,7 @@ export function CountScreen({ branchId, onDone }: Props) {
     void loadCountDraft(branchId).then((d) => {
       if (!alive) return;
       if (d) {
-        setInputs((cur) => (Object.keys(cur).length > 0 ? cur : d));
+        setInputs((cur) => ({ ...d, ...cur })); // số vừa gõ thắng nháp cũ
         setRestored(true);
       }
       draftReady.current = true;
@@ -360,10 +361,19 @@ export function CountScreen({ branchId, onDone }: Props) {
         {restored && (
           <Pressable
             style={styles.linkButton}
-            onPress={() => {
-              setInputs({});
-              setRestored(false);
-            }}
+            onPress={() =>
+              confirmAction({
+                title: "Xóa số đang gõ dở?",
+                message: "Các số chưa lưu trên màn này sẽ mất.",
+                confirmText: "Xóa",
+                destructive: true,
+                onConfirm: () => {
+                  setInputs({});
+                  setRestored(false);
+                  void storeCountDraft(branchId, {});
+                },
+              })
+            }
             accessibilityRole="button"
           >
             <Text style={styles.link}>
