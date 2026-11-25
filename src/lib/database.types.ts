@@ -332,6 +332,10 @@ export type Database = {
     };
     Views: { [_ in never]: never };
     Functions: {
+      undo_receipts: {
+        Args: { p_receipts: string[] };
+        Returns: undefined;
+      };
       delete_order_line: {
         Args: { p_line: string };
         Returns: undefined;

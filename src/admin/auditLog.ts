@@ -92,6 +92,9 @@ export function describeChange(e: AuditEntry): string[] {
       `Quay lại sổ kho từ ${formatVnDateTime(e.new_data?.since)}: ${show(e.new_data?.count)} dòng`,
     ];
   }
+  if (e.table_name === "purchase_receipts" && e.action === "delete") {
+    return [`Gỡ nhận hàng: ${show(e.old_data?.good_qty)}`];
+  }
   if (e.table_name === "purchase_order_lines" && e.action === "delete") {
     return [`Xóa khỏi đơn đã đặt: ${show(e.old_data?.qty)}`];
   }

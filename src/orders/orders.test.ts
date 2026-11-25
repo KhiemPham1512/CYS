@@ -7,6 +7,7 @@ import {
   orderedOnDay,
   incomingByDay,
   pendingBlocks,
+  receivedBlocks,
   projectedQty,
   type Order,
   type OrderLine,
@@ -225,5 +226,84 @@ describe("incomingByDay (Hàng đang về theo ngày của đơn)", () => {
       );
       expect(sum).toBe(qty);
     }
+  });
+});
+
+describe("receivedBlocks (Nhận hàng gần đây, để gỡ nhận nhầm)", () => {
+  const orders = [
+    { id: "o22", group_id: "g1", placed_at: "2026-11-22T14:00:00Z" },
+    { id: "o23", group_id: "g1", placed_at: "2026-11-23T14:00:00Z" },
+    { id: "o23b", group_id: "g2", placed_at: "2026-11-23T14:00:00Z" },
+  ];
+  const lines = [
+    { id: "a", order_id: "o22", item_id: "i1", qty: 2 },
+    { id: "b", order_id: "o23", item_id: "i1", qty: 3 },
+    { id: "c", order_id: "o23", item_id: "i2", qty: 1 },
+    { id: "d", order_id: "o23b", item_id: "i3", qty: 5 },
+  ];
+  const rec = (
+    id: string,
+    line: string,
+    at: string,
+    good: number,
+    short = 0,
+    damaged = 0
+  ) => ({
+    id,
+    order_line_id: line,
+    created_at: at,
+    good_qty: good,
+    short_qty: short,
+    damaged_qty: damaged,
+  });
+
+  it("gom theo ngày của đơn rồi Nhóm, mới nhận trước", () => {
+    const blocks = receivedBlocks(
+      orders,
+      lines,
+      [
+        rec("r1", "a", "2026-11-25T10:00:00Z", 2),
+        rec("r2", "b", "2026-11-25T10:05:00Z", 3),
+        rec("r3", "c", "2026-11-25T10:05:01Z", 1),
+        rec("r4", "d", "2026-11-25T10:01:00Z", 5),
+      ],
+      []
+    );
+    expect(blocks.map((b) => [b.day, b.groupId, b.receiptIds.length])).toEqual([
+      ["2026-11-23", "g1", 2],
+      ["2026-11-23", "g2", 1],
+      ["2026-11-22", "g1", 1],
+    ]);
+    expect(blocks[0].lines).toEqual([
+      { item_id: "i1", qty: 3 },
+      { item_id: "i2", qty: 1 },
+    ]);
+    expect(blocks[0].receivedAt).toBe("2026-11-25T10:05:01Z");
+    expect(blocks[0].blocked).toBe(false);
+  });
+
+  it("lần nhận có hàng thiếu hoặc hư thì khối bị khóa (không gỡ được)", () => {
+    const blocks = receivedBlocks(
+      orders,
+      lines,
+      [
+        rec("r1", "a", "2026-11-25T10:00:00Z", 1, 1),
+        rec("r2", "b", "2026-11-25T10:00:00Z", 3),
+      ],
+      []
+    );
+    expect(blocks.find((b) => b.day === "2026-11-22")?.blocked).toBe(true);
+    expect(blocks.find((b) => b.day === "2026-11-23")?.blocked).toBe(false);
+  });
+
+  it("bỏ lần nhận của dòng đơn không còn (đã xóa)", () => {
+    expect(
+      receivedBlocks(
+        orders,
+        lines,
+        [rec("r1", "khong-co", "2026-11-25T10:00:00Z", 1)],
+        []
+      )
+    ).toEqual([]);
   });
 });

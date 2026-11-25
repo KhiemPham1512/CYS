@@ -14,10 +14,11 @@ import { compareGroups, compareItems } from "../catalog/sections";
 import type { Tables } from "../lib/database.types";
 import { useOnline } from "../lib/useOnline";
 import { formatDate, parseShortDate } from "../stock/date";
+import { localDate, localTime } from "../stock/ledger";
 import { loadMovements, subscribeMovements } from "../stock/api";
 import { DayTabs, activeDayOf } from "../ui/DayTabs";
 import { countTimes as getCountTimes } from "../stock/ledger";
-import { pendingBlocks } from "./orders";
+import { pendingBlocks, receivedBlocks, type ReceiptRow } from "./orders";
 import { useSaveGuard } from "../lib/useSaveGuard";
 import { omitKeys } from "../lib/omitKeys";
 import { formatItemQty, parseQty } from "../stock/qty";
@@ -35,11 +36,15 @@ import {
 } from "./receiving";
 import {
   loadReceivingData,
+  loadRecentReceipts,
   receiveLines,
   subscribeReceiving,
+  undoReceipts,
 } from "./receivingApi";
 
-type Props = { branchId: string };
+type Props = { branchId: string; isAdmin: boolean };
+
+const RECENT_MS = 3 * 24 * 60 * 60 * 1000; // Quản trị gỡ được các lần nhận trong 3 ngày gần đây
 
 // Món cùng Nhóm đặt ở nhiều đơn CÙNG ngày gộp thành một dòng khi nhận (đơn khác ngày không gộp); `parts` là các dòng đơn gốc, đơn cũ nhất trước.
 type MergedLine = {
@@ -69,7 +74,7 @@ function sameUnitKind(items: (Tables<"items"> | undefined)[]): boolean {
   );
 }
 
-export function ReceiveScreen({ branchId }: Props) {
+export function ReceiveScreen({ branchId, isAdmin }: Props) {
   const online = useOnline();
   const [groups, setGroups] = useState<Tables<"item_groups">[]>([]);
   const [items, setItems] = useState<Tables<"items">[]>([]);
@@ -89,6 +94,7 @@ export function ReceiveScreen({ branchId }: Props) {
   );
   const [mfgInputs, setMfgInputs] = useState<Record<string, string>>({});
   const [countTimes, setCountTimes] = useState<string[]>([]);
+  const [recent, setRecent] = useState<ReceiptRow[]>([]);
   const [pickedDay, setPickedDay] = useState<string | null>(null);
   const [groupErrors, setGroupErrors] = useState<Record<string, string[]>>({});
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
@@ -99,11 +105,17 @@ export function ReceiveScreen({ branchId }: Props) {
     const request = ++latestRequest.current;
     setError(false);
     try {
-      const [catalog, ord, rec, movs] = await Promise.all([
+      const [catalog, ord, rec, movs, recentReceipts] = await Promise.all([
         loadCatalog(branchId),
         loadOrders(branchId),
         loadReceivingData(branchId),
         loadMovements(branchId),
+        isAdmin
+          ? loadRecentReceipts(
+              branchId,
+              new Date(Date.now() - RECENT_MS).toISOString()
+            )
+          : Promise.resolve([] as ReceiptRow[]),
       ]);
       if (request !== latestRequest.current) return;
       setGroups([...catalog.groups].sort(compareGroups));
@@ -112,12 +124,13 @@ export function ReceiveScreen({ branchId }: Props) {
       setLines(ord.lines);
       setReceivedLineIds(rec.receivedLineIds);
       setCountTimes(getCountTimes(movs));
+      setRecent(recentReceipts);
     } catch {
       if (request === latestRequest.current) setError(true);
     } finally {
       if (request === latestRequest.current) setLoading(false);
     }
-  }, [branchId]);
+  }, [branchId, isAdmin]);
 
   useEffect(() => {
     setLoading(true);
@@ -303,6 +316,32 @@ export function ReceiveScreen({ branchId }: Props) {
         );
       }
       await fetchData();
+    });
+  }
+
+  // Quản trị gỡ lần nhận nhầm: hàng quay lại "Hàng đang về", tồn kho giảm đúng số đã nhận; Nhật ký ghi lại.
+  const receivedList = useMemo(
+    () => (isAdmin ? receivedBlocks(orders, lines, recent, countTimes) : []),
+    [isAdmin, orders, lines, recent, countTimes]
+  );
+
+  function handleUndo(block: ReturnType<typeof receivedBlocks>[number]) {
+    if (!online || busy.current || block.blocked) return;
+    const groupName = groups.find((g) => g.id === block.groupId)?.name ?? "";
+    confirmAction({
+      title: `Gỡ nhận hàng ${groupName} (đơn ngày ${formatDayMonth(block.day)})?`,
+      message: `Gỡ ${block.receiptIds.length} lần nhận: tồn kho giảm đúng số đã nhận, hàng quay lại Hàng đang về để nhận lại.`,
+      confirmText: "Gỡ nhận hàng",
+      destructive: true,
+      onConfirm: () =>
+        void runSave(async () => {
+          const res = await undoReceipts(block.receiptIds);
+          setMessage(
+            res.error ??
+              `Đã gỡ nhận hàng ${groupName} (${block.receiptIds.length} món).`
+          );
+          await fetchData();
+        }),
     });
   }
 
@@ -521,6 +560,55 @@ export function ReceiveScreen({ branchId }: Props) {
             </View>
           );
         })}
+        {receivedList.length > 0 && (
+          <>
+            <Text style={styles.section}>
+              Đã nhận gần đây (gỡ nếu nhận nhầm)
+            </Text>
+            {receivedList.map((block) => {
+              const group = groups.find((g) => g.id === block.groupId);
+              return (
+                <View key={block.key} style={styles.groupBlock}>
+                  <Text style={styles.groupHeader}>
+                    {group?.name ?? "?"} · Đơn ngày {formatDayMonth(block.day)}
+                  </Text>
+                  <Text style={styles.recentLine}>
+                    Nhận lúc {localTime(block.receivedAt)} ngày{" "}
+                    {formatDayMonth(localDate(block.receivedAt))} ·{" "}
+                    {block.receiptIds.length} món
+                  </Text>
+                  <Text style={styles.recentLine}>
+                    {block.lines
+                      .map(
+                        (l) =>
+                          `${itemsById.get(l.item_id)?.name ?? "?"} ${formatItemQty(itemsById.get(l.item_id), l.qty)}`
+                      )
+                      .join(" · ")}
+                  </Text>
+                  {block.blocked ? (
+                    <Text style={styles.recentLine}>
+                      Có hàng thiếu/hư đã vào Chờ nhà cung cấp, không gỡ ở đây.
+                    </Text>
+                  ) : (
+                    <View style={styles.groupFooter}>
+                      <Pressable
+                        style={[
+                          styles.secondary,
+                          actionDisabled && styles.disabled,
+                        ]}
+                        disabled={actionDisabled}
+                        onPress={() => handleUndo(block)}
+                        accessibilityRole="button"
+                      >
+                        <Text style={styles.deleteText}>Gỡ nhận hàng</Text>
+                      </Pressable>
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+          </>
+        )}
       </ScrollView>
 
       <Modal
@@ -677,6 +765,12 @@ const styles = themedStyles((c: Palette) => ({
   name: { fontSize: 16, fontWeight: "600", color: c.ink },
   meta: { fontSize: 13, color: c.muted, padding: 16 },
   metaInline: { fontSize: 13, color: c.muted },
+  recentLine: {
+    fontSize: 13,
+    color: c.muted,
+    paddingHorizontal: 16,
+    paddingBottom: 6,
+  },
   summaryText: { fontSize: 13, color: c.accentDeep, fontWeight: "600" },
   errorBox: { paddingHorizontal: 16, paddingTop: 10, gap: 4 },
   groupFooter: { padding: 16 },

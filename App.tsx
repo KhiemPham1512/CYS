@@ -475,7 +475,7 @@ function HomeScreen({
       case "order":
         return <OrderScreen branchId={id} branchName={branch.branch_name} />;
       case "receive":
-        return <ReceiveScreen branchId={id} />;
+        return <ReceiveScreen branchId={id} isAdmin={isAdmin} />;
       case "owed":
         return <OwedScreen branchId={id} />;
       case "expiry":

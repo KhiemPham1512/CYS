@@ -160,3 +160,62 @@ export function incomingByDay(
   }
   return out;
 }
+
+export type ReceiptRow = {
+  id: string;
+  order_line_id: string;
+  created_at: string;
+  good_qty: number;
+  short_qty: number;
+  damaged_qty: number;
+};
+export type ReceivedBlock = {
+  key: string; // `${ngày}|${nhóm}`
+  day: string; // Ngày của đơn (yyyy-mm-dd)
+  groupId: string;
+  receivedAt: string; // lần nhận mới nhất trong khối
+  receiptIds: string[];
+  blocked: boolean; // có Hàng thiếu/hư đã vào Chờ nhà cung cấp: không gỡ được ở app
+  lines: { item_id: string; qty: number }[]; // số nhận tốt theo món
+};
+
+// Các lần Nhận hàng gần đây gom theo Ngày của đơn rồi Nhóm (mới nhận trước), để Quản trị gỡ lần nhận nhầm.
+export function receivedBlocks(
+  orders: { id: string; group_id: string; placed_at: string | null }[],
+  lines: { id: string; order_id: string; item_id: string; qty: number }[],
+  receipts: ReceiptRow[],
+  countTimes: string[]
+): ReceivedBlock[] {
+  const orderById = new Map(orders.map((o) => [o.id, o]));
+  const lineById = new Map(lines.map((l) => [l.id, l]));
+  const blocks = new Map<string, ReceivedBlock>();
+  for (const r of receipts) {
+    const line = lineById.get(r.order_line_id);
+    const order = line && orderById.get(line.order_id);
+    if (!line || !order || order.placed_at === null) continue;
+    const day = businessDay(order.placed_at, countTimes);
+    const key = `${day}|${order.group_id}`;
+    let block = blocks.get(key);
+    if (!block) {
+      block = {
+        key,
+        day,
+        groupId: order.group_id,
+        receivedAt: r.created_at,
+        receiptIds: [],
+        blocked: false,
+        lines: [],
+      };
+      blocks.set(key, block);
+    }
+    block.receiptIds.push(r.id);
+    if (r.created_at > block.receivedAt) block.receivedAt = r.created_at;
+    if (r.short_qty > 0 || r.damaged_qty > 0) block.blocked = true;
+    const item = block.lines.find((l) => l.item_id === line.item_id);
+    if (item) item.qty = round4(item.qty + r.good_qty);
+    else block.lines.push({ item_id: line.item_id, qty: r.good_qty });
+  }
+  return [...blocks.values()].sort((a, b) =>
+    b.receivedAt.localeCompare(a.receivedAt)
+  );
+}
