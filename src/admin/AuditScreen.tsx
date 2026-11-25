@@ -29,6 +29,7 @@ const TABLE_LABEL: Record<string, string> = {
   members: "Tài khoản",
   stock_movements: "Kho",
   purchase_order_lines: "Đơn đặt hàng",
+  purchase_receipts: "Nhận hàng",
 };
 
 const dateOrNull = (raw: string) => {

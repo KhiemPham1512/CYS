@@ -193,4 +193,16 @@ describe("describeChange", () => {
       )
     ).toEqual(["Xóa khỏi đơn đã đặt: 4"]);
   });
+
+  it("gỡ nhận hàng ghi số đã nhận bị gỡ", () => {
+    expect(
+      describeChange(
+        entry({
+          table_name: "purchase_receipts",
+          action: "delete",
+          old_data: { good_qty: 6 },
+        })
+      )
+    ).toEqual(["Gỡ nhận hàng: 6"]);
+  });
 });

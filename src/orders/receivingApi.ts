@@ -1,6 +1,7 @@
 import { subscribeTables } from "../lib/subscribeTables";
 import { supabase } from "../lib/supabase";
 import type { OwedRow } from "./receiving";
+import type { ReceiptRow } from "./orders";
 
 const NET_ERROR = "Không lưu được. Kiểm tra mạng.";
 
@@ -125,4 +126,39 @@ export function subscribeReceiving(
     ["purchase_receipts", "supplier_owed"],
     onChange
   );
+}
+
+// Các lần nhận từ mốc sinceIso (Quản trị xem để gỡ nhận nhầm).
+// shortcut: cửa sổ cố định 3 ngày ở app (hàm DB cũng chặn), nhận nhầm cũ hơn thì nhờ chạy SQL; khi cần nới thì đổi cả hằng RECENT_MS và hàm undo_receipts.
+export async function loadRecentReceipts(
+  branchId: string,
+  sinceIso: string
+): Promise<ReceiptRow[]> {
+  const { data, error } = await supabase
+    .from("purchase_receipts")
+    .select("id, order_line_id, created_at, good_qty, short_qty, damaged_qty")
+    .eq("branch_id", branchId)
+    .gte("created_at", sinceIso);
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    ...r,
+    good_qty: Number(r.good_qty),
+    short_qty: Number(r.short_qty),
+    damaged_qty: Number(r.damaged_qty),
+  }));
+}
+
+// Gỡ các lần nhận (chỉ Quản trị): hàm DB xóa dòng sổ kho và bản ghi nhận, ghi Nhật ký.
+export async function undoReceipts(
+  receiptIds: string[]
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc("undo_receipts", {
+    p_receipts: receiptIds,
+  });
+  if (!error) return { error: null };
+  return {
+    error: error.code
+      ? "Không gỡ được (lần nhận có hàng thiếu/hư, đã gỡ rồi hoặc bạn không phải Quản trị)."
+      : NET_ERROR,
+  };
 }
