@@ -15,9 +15,11 @@ import { loadCatalog } from "../catalog/api";
 import { buildSections } from "../catalog/sections";
 import { ItemQtyModal } from "../components/ItemQtyModal";
 import type { Tables } from "../lib/database.types";
+import { confirmAction } from "../ui/confirm";
 import { useNow } from "../lib/useNow";
 import { useOnline } from "../lib/useOnline";
 import { loadMovements, saveCount } from "./api";
+import { loadCountDraft, storeCountDraft } from "./countDraft";
 import {
   checkedSince,
   countDiffs,
@@ -59,6 +61,34 @@ export function CountScreen({ branchId, onDone }: Props) {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [diffs, setDiffs] = useState<CountDiff[] | null>(null);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
+
+  // Nháp trên máy: số đang gõ sống sót khi app bị đứng/tắt. Chỉ ghi sau khi đã thử khôi phục.
+  const draftReady = useRef(false);
+  const [restored, setRestored] = useState(false);
+  const inputsRef = useRef(inputs);
+  inputsRef.current = inputs;
+  useEffect(() => {
+    let alive = true;
+    void loadCountDraft(branchId).then((d) => {
+      if (!alive) return;
+      if (d) {
+        setInputs((cur) => ({ ...d, ...cur })); // số vừa gõ thắng nháp cũ
+        setRestored(true);
+      }
+      draftReady.current = true;
+    });
+    return () => {
+      alive = false;
+      if (draftReady.current) void storeCountDraft(branchId, inputsRef.current);
+    };
+  }, [branchId]);
+  useEffect(() => {
+    if (!draftReady.current) return;
+    const t = setTimeout(() => {
+      if (draftReady.current) void storeCountDraft(branchId, inputs); // đã lưu vào sổ thì không ghi lại
+    }, 400);
+    return () => clearTimeout(t);
+  }, [inputs, branchId]);
 
   const fetchData = useCallback(async () => {
     setError(false);
@@ -181,6 +211,8 @@ export function CountScreen({ branchId, onDone }: Props) {
       return;
     }
 
+    void storeCountDraft(branchId, {}); // đã vào sổ: bỏ nháp
+    draftReady.current = false; // chặn cleanup/timer ghi lại nháp cũ
     try {
       const fresh = await loadMovements(branchId);
       setMovements(fresh); // nhãn Chưa kiểm cập nhật ngay sau khi lưu
@@ -323,6 +355,29 @@ export function CountScreen({ branchId, onDone }: Props) {
           >
             <Text style={styles.link}>
               Xem món lệch của lần Kiểm kho gần nhất
+            </Text>
+          </Pressable>
+        )}
+        {restored && (
+          <Pressable
+            style={styles.linkButton}
+            onPress={() =>
+              confirmAction({
+                title: "Xóa số đang gõ dở?",
+                message: "Các số chưa lưu trên màn này sẽ mất.",
+                confirmText: "Xóa",
+                destructive: true,
+                onConfirm: () => {
+                  setInputs({});
+                  setRestored(false);
+                  void storeCountDraft(branchId, {});
+                },
+              })
+            }
+            accessibilityRole="button"
+          >
+            <Text style={styles.link}>
+              Đã khôi phục số đang gõ dở (chưa lưu). Bấm để xóa hết.
             </Text>
           </Pressable>
         )}
