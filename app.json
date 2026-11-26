@@ -2,7 +2,7 @@
   "expo": {
     "name": "CYS",
     "slug": "cys",
-    "version": "1.0.10",
+    "version": "1.0.11",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -33,9 +33,7 @@
       ]
     ],
     "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#FFF5F8"
+      "backgroundColor": "#F8F7FA"
     }
   }
 }
