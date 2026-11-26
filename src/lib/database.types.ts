@@ -365,6 +365,15 @@ export type Database = {
         Args: { p_branch_id: string };
         Returns: { user_id: string; email: string }[];
       };
+      is_owner: { Args: never; Returns: boolean };
+      create_branch: {
+        Args: { p_name: string; p_template: string };
+        Returns: string;
+      };
+      move_member: {
+        Args: { p_user: string; p_to: string };
+        Returns: undefined;
+      };
       receive_order_line: {
         Args: {
           p_line_id: string;

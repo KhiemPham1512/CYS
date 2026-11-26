@@ -5,7 +5,7 @@ Theo dõi nguyên vật liệu của quán đồ uống: còn bao nhiêu, đã d
 ## Ngôn ngữ
 
 **Chi nhánh**:
-Một quán có kho riêng. Hiện chỉ có một chi nhánh; mọi số liệu kho thuộc về đúng một chi nhánh.
+Một quán có kho riêng; mọi số liệu kho thuộc về đúng một Chi nhánh. Chi nhánh mới do Quản trị cấp cao tạo bằng cách chép từ một Chi nhánh mẫu: chép Nhóm, Danh mục, dữ liệu in và Tên nhà cung cấp; không chép tồn kho, Đơn đặt hàng, Nhận hàng hay Nhật ký thay đổi.
 _Tránh_: cửa hàng, store, điểm bán
 
 **Nguyên vật liệu**:
@@ -125,15 +125,27 @@ Người ngoài app nhận Đơn đặt hàng, đặt với nhà cung cấp rồ
 _Tránh_: người mua, purchaser
 
 **Người dùng**:
-Người đăng nhập app, là thành viên của một Chi nhánh; mọi Người dùng có cùng quyền với dữ liệu kho. Người dùng bị khóa không đọc/ghi được gì.
-_Tránh_: nhân viên, tài khoản, role
+Người đăng nhập app, là thành viên của đúng một Chi nhánh và không đọc/ghi được Chi nhánh khác; mọi Người dùng cùng Chi nhánh có cùng quyền với dữ liệu kho. Người dùng bị khóa không đọc/ghi được gì. Có ba vai trò: Nhân viên, Quản trị quán, Quản trị cấp cao.
+_Tránh_: tài khoản, role
 
-**Quản trị**:
-Người dùng (chủ quán) có thêm quyền tạo/khóa Người dùng, sửa Cài đặt và xem Nhật ký thay đổi.
+**Nhân viên**:
+Người dùng không có quyền quản trị: đọc/ghi dữ liệu kho của Chi nhánh mình.
+_Tránh_: staff, user thường
+
+**Quản trị quán**:
+Người dùng có thêm quyền trong Chi nhánh mình: tạo/khóa/mở khóa/đặt lại mật khẩu Nhân viên, sửa Danh mục và Cài đặt, xem Nhật ký thay đổi, Gỡ nhận hàng, Chế độ phát triển. Không bổ nhiệm hay bỏ Quản trị quán, không Chuyển quán, không tạo Chi nhánh. Mỗi Chi nhánh luôn còn ít nhất một Quản trị quán. Khi nói "Quản trị" không kèm gì thì là Quản trị quán.
 _Tránh_: admin, chủ, quản lý
 
+**Quản trị cấp cao**:
+Vai trò cao nhất: mọi quyền của Quản trị quán ở mọi Chi nhánh, cộng tạo Chi nhánh, bổ nhiệm/bỏ Quản trị quán, Chuyển quán và tạo Người dùng ở Chi nhánh bất kỳ. Quản lý nhiều Chi nhánh trên web admin; trên app điện thoại vẫn làm việc ở một Chi nhánh như mọi Người dùng.
+_Tránh_: super admin, owner, chủ chuỗi
+
+**Chuyển quán**:
+Quản trị cấp cao đưa một Người dùng sang Chi nhánh khác: người đó thành Nhân viên ở Chi nhánh mới, lịch sử cũ ở lại Chi nhánh cũ, phiên đang mở bị đăng xuất để đăng nhập lại. Không chuyển Quản trị quán cuối cùng của một Chi nhánh.
+_Tránh_: điều chuyển, đổi chi nhánh
+
 **Cài đặt**:
-Thông tin chung của một Chi nhánh do Quản trị đặt, ví dụ tên Chi nhánh in lên ảnh xuất.
+Thông tin chung của một Chi nhánh do Quản trị quán đặt, ví dụ tên Chi nhánh in lên ảnh xuất.
 _Tránh_: config, settings
 
 **Nhật ký thay đổi**:
