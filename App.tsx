@@ -187,6 +187,7 @@ function LoginScreen({
         <TextInput
           style={styles.fieldInput}
           placeholder="nhanvien@quan.vn"
+          accessibilityLabel="Email"
           placeholderTextColor={palette.muted}
           autoCapitalize="none"
           autoComplete="email"
@@ -208,6 +209,7 @@ function LoginScreen({
         <TextInput
           style={styles.fieldInput}
           placeholder="••••••••"
+          accessibilityLabel="Mật khẩu"
           placeholderTextColor={palette.muted}
           secureTextEntry={!showPassword}
           autoComplete="current-password"

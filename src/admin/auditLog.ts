@@ -101,6 +101,13 @@ export function describeChange(e: AuditEntry): string[] {
   if (e.table_name === "branch_reset") {
     return ["Xóa dữ liệu phát sinh của Chi nhánh"];
   }
+  if (e.table_name === "branches" && e.action === "insert") {
+    return [`Tạo Chi nhánh: ${show(e.new_data?.branch_name)}`];
+  }
+  // move_member ghi dòng này vào quán cũ (quán mới thấy dòng update đổi branch_id).
+  if (e.table_name === "members" && e.old_data?.moved_to) {
+    return ["Chuyển tài khoản sang Chi nhánh khác"];
+  }
   const name = String((e.new_data ?? e.old_data)?.name ?? "");
   const subject = name || SUBJECT[e.table_name] || e.table_name;
   if (e.action === "insert") return [`Thêm: ${subject}`];
@@ -112,6 +119,8 @@ export function describeChange(e: AuditEntry): string[] {
   const labels = FIELDS[e.table_name] ?? {};
   const same = (k: string) => oldD[k] === newD[k];
 
+  if (e.table_name === "members" && !same("branch_id"))
+    lines.push("Chuyển tài khoản đến Chi nhánh này");
   for (const [key, label] of Object.entries(labels)) {
     if (same(key)) continue;
     const f = (d: Record<string, unknown>) =>

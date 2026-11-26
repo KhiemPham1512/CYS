@@ -85,12 +85,24 @@ Deno.serve(async (req) => {
     return users.sort((a, b) => a.email.localeCompare(b.email));
   }
 
+  // Web cần biết ai là cấp cao để ẩn nút (private.owners không đọc thẳng được).
+  async function withOwnerFlag<T extends { user_id: string }>(members: T[]) {
+    return await Promise.all(
+      members.map(async (m) => {
+        const { data } = await admin.rpc("user_is_owner", {
+          p_user: m.user_id,
+        });
+        return { ...m, is_owner: data === true };
+      })
+    );
+  }
+
   if (request.action === "list_all") {
     const { data: members, error } = await admin
       .from("members")
       .select("user_id, branch_id, is_admin, is_locked, created_at");
     if (error) return fail(500, messageForDbError(error));
-    return json(200, { data: await withEmails(members) });
+    return json(200, { data: await withEmails(await withOwnerFlag(members)) });
   }
 
   // Quán của list/create: cấp cao chọn (mặc định quán của mình), Quản trị quán luôn là quán mình.
@@ -106,7 +118,7 @@ Deno.serve(async (req) => {
       .select("user_id, is_admin, is_locked, created_at")
       .eq("branch_id", branchId);
     if (error) return fail(500, messageForDbError(error));
-    return json(200, { data: await withEmails(members) });
+    return json(200, { data: await withEmails(await withOwnerFlag(members)) });
   }
 
   if (request.action === "create") {

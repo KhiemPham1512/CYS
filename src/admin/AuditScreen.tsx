@@ -81,7 +81,7 @@ export function AuditScreen({ branchId }: Props) {
   }, [fetchData]);
 
   useEffect(() => {
-    listUsers().then((r) => setUsers(r.data ?? []));
+    listUsers(branchId).then((r) => setUsers(r.data ?? []));
     loadMemberNames(branchId).then(setNames, () => {});
   }, [branchId]);
 

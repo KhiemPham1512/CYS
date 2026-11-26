@@ -206,3 +206,45 @@ describe("describeChange", () => {
     ).toEqual(["Gỡ nhận hàng: 6"]);
   });
 });
+
+describe("describeChange: nhiều Chi nhánh", () => {
+  it("tạo Chi nhánh ghi tên quán mới", () => {
+    expect(
+      describeChange(
+        entry({
+          table_name: "branches",
+          action: "insert",
+          new_data: { branch_name: "Quán Mẫu 2", template: "x" },
+        })
+      )
+    ).toEqual(["Tạo Chi nhánh: Quán Mẫu 2"]);
+  });
+
+  it("quán cũ thấy người rời đi khi Chuyển quán", () => {
+    expect(
+      describeChange(
+        entry({
+          table_name: "members",
+          action: "delete",
+          old_data: { user_id: "u", branch_id: "a", moved_to: "b" },
+        })
+      )
+    ).toEqual(["Chuyển tài khoản sang Chi nhánh khác"]);
+  });
+
+  it("quán mới thấy người chuyển đến (và mất quyền Quản trị nếu có)", () => {
+    expect(
+      describeChange(
+        entry({
+          table_name: "members",
+          action: "update",
+          old_data: { branch_id: "a", is_admin: true, is_locked: false },
+          new_data: { branch_id: "b", is_admin: false, is_locked: false },
+        })
+      )
+    ).toEqual([
+      "Chuyển tài khoản đến Chi nhánh này",
+      "Quyền Quản trị: Có → Không",
+    ]);
+  });
+});
