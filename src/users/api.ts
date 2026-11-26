@@ -20,14 +20,22 @@ async function call<T>(
   return { data: null, error: await functionErrorMessage(error) };
 }
 
-export const listUsers = () => call<ManagedUser[]>({ action: "list" });
+// branchId: chỉ Quản trị cấp cao dùng để chọn quán; bỏ trống = quán của mình.
+export const listUsers = (branchId?: string) =>
+  call<ManagedUser[]>({ action: "list", branch_id: branchId });
 
-export const createUser = (email: string, password: string, isAdmin: boolean) =>
+export const createUser = (
+  email: string,
+  password: string,
+  isAdmin: boolean,
+  branchId?: string
+) =>
   call<{ user_id: string }>({
     action: "create",
     email,
     password,
     is_admin: isAdmin,
+    branch_id: branchId,
   });
 
 export const setLocked = (userId: string, locked: boolean) =>
