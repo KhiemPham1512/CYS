@@ -110,6 +110,7 @@ function Root() {
           <Loading />
         ) : session ? (
           <HomeScreen
+            key={session.user.id} // đổi người: dựng lại, không sót quán/lựa chọn của người trước
             userId={session.user.id}
             email={session.user.email ?? ""}
             online={online}
