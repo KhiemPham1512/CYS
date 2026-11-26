@@ -87,7 +87,6 @@ export type PendingBlock = {
   key: string; // `${ngày}|${nhóm}`
   day: string; // Ngày của đơn (yyyy-mm-dd)
   groupId: string;
-  orders: { id: string; placedAt: string; lines: number }[]; // các đơn đã đặt tạo nên khối, cũ trước (để xóa đơn đặt trùng)
   lines: {
     key: string; // `${ngày}|${nhóm}|${món}`, khóa cho các ô nhập
     item_id: string;
@@ -124,19 +123,9 @@ export function pendingBlocks(
     const blockKey = `${day}|${order.group_id}`;
     let block = blocks.get(blockKey);
     if (!block) {
-      block = {
-        key: blockKey,
-        day,
-        groupId: order.group_id,
-        orders: [],
-        lines: [],
-      };
+      block = { key: blockKey, day, groupId: order.group_id, lines: [] };
       blocks.set(blockKey, block);
     }
-    const ord = block.orders.find((o) => o.id === order.id);
-    if (ord) ord.lines += 1;
-    else
-      block.orders.push({ id: order.id, placedAt: order.placed_at, lines: 1 });
     const lineKey = `${blockKey}|${line.item_id}`;
     const part = { id: line.id, qty: line.qty };
     const existing = block.lines.find((l) => l.key === lineKey);
