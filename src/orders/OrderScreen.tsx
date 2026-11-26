@@ -24,7 +24,12 @@ import {
   type OrderLineRow,
   type OrderRow,
 } from "./api";
-import { businessDay, incomingByItem, projectedQty } from "./orders";
+import {
+  businessDay,
+  draftGoneElsewhere,
+  incomingByItem,
+  projectedQty,
+} from "./orders";
 import { DraftSheet } from "./DraftSheet";
 import { orderSheetRows, sheetModelFor } from "./exportSheet";
 import { formatDate } from "../stock/date";
@@ -141,6 +146,20 @@ export function OrderScreen({ branchId, branchName }: Props) {
     setInitFor(groupId);
   }, [loading, groupId, initFor, draftLines]);
 
+  // Máy khác vừa đặt/xóa đơn nháp đang mở: bỏ số cũ trên màn để không đặt lại thành đơn trùng.
+  const shownDraft = useRef<string | null>(null);
+  const changedHere = useRef(false); // máy này vừa đặt/xóa: vẫn dọn số nhưng không báo "máy khác"
+  useEffect(() => {
+    const prev = shownDraft.current;
+    shownDraft.current = draft?.id ?? null;
+    if (!draftGoneElsewhere(prev, draft, orders, groupId)) return;
+    dirty.current = false;
+    setInputs({});
+    if (!changedHere.current)
+      setMessage("Đơn nháp này vừa được đặt hoặc xóa trên máy khác.");
+    changedHere.current = false;
+  }, [draft, orders, groupId]);
+
   const parsed = useMemo(() => {
     const errors: Record<string, string> = {};
     const values: Record<string, number> = {};
@@ -201,6 +220,7 @@ export function OrderScreen({ branchId, branchName }: Props) {
   async function run(action: () => Promise<string | null>) {
     if (!online || busy.current) return;
     busy.current = true;
+    changedHere.current = false;
     setSaving(true);
     setMessage(null);
     try {
@@ -272,14 +292,21 @@ export function OrderScreen({ branchId, branchName }: Props) {
       setMessage("Đơn chưa có món nào");
       return;
     }
+    const openedFor = draft?.id ?? null;
     confirmAction({
       title: "Đã đặt đúng như đơn?",
       message: "Đơn sẽ khóa, không sửa được nữa và các món thành Hàng đang về.",
       confirmText: "Đã đặt",
       onConfirm: () =>
         void run(async () => {
-          dirty.current = false;
           const cur = latest.current;
+          // Hộp xác nhận mở lâu/chồng nhau: đơn đã đặt hoặc đổi trong lúc đó thì không đặt nữa.
+          if (
+            (openedFor && cur.draft?.id !== openedFor) ||
+            cur.wanted.size === 0
+          )
+            return "Đơn đã thay đổi. Xem lại rồi bấm đặt lại.";
+          dirty.current = false;
           const saved = await saveDraft(
             branchId,
             groupId,
@@ -289,7 +316,10 @@ export function OrderScreen({ branchId, branchName }: Props) {
           );
           if (saved.error || !saved.orderId) return saved.error;
           const placed = await placeOrder(saved.orderId);
-          if (!placed.error) setInitFor(null); // nạp lại cho đơn nháp mới (rỗng)
+          if (!placed.error) {
+            changedHere.current = true;
+            setInitFor(null); // nạp lại cho đơn nháp mới (rỗng)
+          }
           return placed.error ?? "Đã đặt: các món thành Hàng đang về";
         }),
     });
@@ -306,6 +336,7 @@ export function OrderScreen({ branchId, branchName }: Props) {
         void run(async () => {
           const { error: err } = await deleteDraft(draft.id);
           if (!err) {
+            changedHere.current = true;
             dirty.current = false;
             setInputs({});
             setInitFor(groupId);

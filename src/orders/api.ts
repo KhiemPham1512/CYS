@@ -77,15 +77,18 @@ export async function saveDraft(
   return { orderId, error: null };
 }
 
-// "Đã đặt đúng như đơn": khóa đơn; thời điểm do máy chủ đặt (trigger).
+// "Đã đặt đúng như đơn": khóa đơn; thời điểm do máy chủ đặt (trigger). Chỉ khóa đơn còn nháp.
 export async function placeOrder(
   orderId: string
 ): Promise<{ error: string | null }> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("purchase_orders")
     .update({ placed_at: new Date().toISOString() })
-    .eq("id", orderId);
-  return { error: error ? NET_ERROR : null };
+    .eq("id", orderId)
+    .is("placed_at", null)
+    .select("id");
+  if (error) return { error: NET_ERROR };
+  return { error: data?.length ? null : "Đơn này đã được đặt hoặc xóa rồi." };
 }
 
 export async function deleteDraft(
