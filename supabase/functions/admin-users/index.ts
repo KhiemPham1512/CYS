@@ -155,11 +155,23 @@ Deno.serve(async (req) => {
     targetQuery = targetQuery.eq("branch_id", me!.branch_id);
   const { data: target } = await targetQuery.maybeSingle();
   if (!target) return fail(404, "Không tìm thấy Người dùng trong Chi nhánh");
+  // Cấp cao có thể mang is_admin=false nên hỏi thẳng private.owners; lỗi thì từ chối (an toàn).
+  let targetIsOwner = false;
+  if (role === "branch_admin") {
+    const { data, error } = await admin.rpc("user_is_owner", {
+      p_user: request.user_id,
+    });
+    if (error) {
+      console.error("user_is_owner", request.user_id, error.message);
+      return fail(500, "Không kiểm tra được quyền. Thử lại sau.");
+    }
+    targetIsOwner = data === true;
+  }
   // Chính mình không tính là "Quản trị khác" (tự đặt lại mật khẩu vẫn được).
   const targetDenied = deniedFor(
     role,
     request,
-    target.is_admin && request.user_id !== user.id
+    (target.is_admin || targetIsOwner) && request.user_id !== user.id
   );
   if (targetDenied) return fail(403, targetDenied);
   const targetBranch: string = target.branch_id;

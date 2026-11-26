@@ -142,8 +142,8 @@ export function canActOn(callerId: string, req: AdminRequest): string | null {
 
 export type CallerRole = "owner" | "branch_admin";
 
-// Quyền theo vai trò (ADR 0002). targetIsAdmin: người đích có là Quản trị quán không
-// (cấp cao cũng giữ is_admin ở quán mình nên Quản trị quán không đụng được cấp cao).
+// Quyền theo vai trò (ADR 0002). targetIsAdmin: người đích (không phải chính mình) là
+// Quản trị quán hoặc Quản trị cấp cao; Quản trị quán chỉ quản lý Nhân viên.
 export function deniedFor(
   role: CallerRole,
   req: AdminRequest,
