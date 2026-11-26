@@ -30,6 +30,7 @@ export function AdminConsole({
   userId,
   email,
   onSignOut,
+  onOpenApp,
 }: {
   branchId: string;
   branchName: string;
@@ -38,6 +39,7 @@ export function AdminConsole({
   userId: string;
   email: string;
   onSignOut: () => void;
+  onOpenApp: () => void;
 }) {
   const { theme } = useTheme();
   const { width } = useWindowDimensions();
@@ -94,6 +96,8 @@ export function AdminConsole({
   const systemNav = owner
     ? navItem("system", "Hệ thống", page === "system", () => setPage("system"))
     : null;
+  // Quay về app tồn kho (iPhone qua Safari không có app riêng).
+  const appNav = navItem("open-app", "Mở app tồn kho", false, onOpenApp);
 
   return (
     <View style={[styles.root, side && styles.rootSide]}>
@@ -120,6 +124,8 @@ export function AdminConsole({
             {pageNav}
             {owner && <View style={styles.divider} />}
             {systemNav}
+            <View style={styles.divider} />
+            {appNav}
           </ScrollView>
           <Account email={email} onSignOut={onSignOut} />
         </View>
@@ -137,12 +143,16 @@ export function AdminConsole({
               <View style={styles.navRow}>
                 {branchNav}
                 {systemNav}
+                {page === "system" && appNav}
               </View>
             </ScrollView>
           )}
           {page !== "system" && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.navRow}>{pageNav}</View>
+              <View style={styles.navRow}>
+                {pageNav}
+                {appNav}
+              </View>
             </ScrollView>
           )}
         </View>

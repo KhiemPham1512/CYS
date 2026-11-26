@@ -41,7 +41,8 @@ import { Splash } from "./src/ui/Splash";
 import { TabBar } from "./src/ui/TabBar";
 import { AdminWebGate } from "./src/admin/AdminWebGate";
 import { DevScreen } from "./src/admin/DevScreen";
-import { adminWebView } from "./src/navigation/adminWeb";
+import { ModeChooser } from "./src/admin/ModeChooser";
+import { adminWebView, type WebMode } from "./src/navigation/adminWeb";
 import { CatalogScreen } from "./src/catalog/CatalogScreen";
 import { CountScreen } from "./src/stock/CountScreen";
 import { StockScreen } from "./src/stock/StockScreen";
@@ -389,6 +390,7 @@ function HomeScreen({
   useLockWatch(userId, branch?.branch_id, onLocked);
   const [error, setError] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [webChoice, setWebChoice] = useState<WebMode | null>(null); // chỉ Quản trị trên web dùng
   const [view, setView] = useState<HomeView>("stock");
   const [hubOpen, setHubOpen] = useState(false);
   const [devMode, setDevMode] = useState(false);
@@ -494,6 +496,9 @@ function HomeScreen({
             branchName={branch.branch_name}
             online={online}
             onSignOut={() => supabase.auth.signOut()}
+            onOpenAdmin={
+              webChoice === "app" ? () => setWebChoice("console") : undefined
+            }
           />
         );
       case "readOrder":
@@ -514,10 +519,25 @@ function HomeScreen({
     }
   }
 
-  // Web: Quản trị vào bảng điều khiển; nhân viên và điện thoại dùng app.
-  const onWeb = Platform.OS === "web";
-  if (branch && onWeb && adminWebView(true, isAdmin) === "console")
-    return <AdminWebGate branch={branch} userId={userId} email={email} />;
+  // Web: Quản trị chọn bảng điều khiển hoặc app tồn kho; nhân viên và điện thoại dùng app.
+  const webView = adminWebView(Platform.OS === "web", isAdmin, webChoice);
+  if (branch && webView === "choose")
+    return (
+      <ModeChooser
+        branchName={branch.branch_name}
+        onPick={setWebChoice}
+        onSignOut={() => supabase.auth.signOut()}
+      />
+    );
+  if (branch && webView === "console")
+    return (
+      <AdminWebGate
+        branch={branch}
+        userId={userId}
+        email={email}
+        onOpenApp={() => setWebChoice("app")}
+      />
+    );
 
   if (branch) {
     return (
