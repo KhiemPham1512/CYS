@@ -3,13 +3,17 @@ import { Animated, Easing, StyleSheet, Text, View } from "react-native";
 import Svg, { Defs, LinearGradient, Path, Stop } from "react-native-svg";
 import { useTheme } from "../theme/ThemeContext";
 import { Bow } from "./icons";
+import { whenIdle } from "./loadingGate";
 import { fontFamily, useReduceMotion } from "./motion";
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const HEX = 330; // chiều dài nét viền lục giác
+// Nền chung của màn chờ hệ thống (app.json splash + android colors.xml) và màn chờ này: phải giống hệt để không thấy chỗ nối.
+export const SPLASH_BG = "#F8F7FA";
 
-// Màn chờ khi mở app: viền lục giác tự vẽ, mũi tên bật lên, chữ CYS hiện dần (~0,7 giây).
-// shortcut: chạy đủ một lượt dù app đã sẵn sàng; chưa nối với việc tải dữ liệu.
+// Màn chờ khi mở app: viền lục giác tự vẽ, mũi tên bật lên, chữ CYS hiện dần (~0,7 giây),
+// rồi đứng đợi màn đầu tải xong dữ liệu (tối đa MAX_WAIT_MS) mới mờ vào nội dung.
+const MAX_WAIT_MS = 5000;
 export function Splash({ onDone }: { onDone: () => void }) {
   const { theme, palette } = useTheme();
   const reduce = useReduceMotion();
@@ -51,15 +55,23 @@ export function Splash({ onDone }: { onDone: () => void }) {
           ]),
         ]);
     // Chỉ kết thúc khi chạy trọn; bị dừng giữa chừng (đổi Giảm chuyển động) thì chạy lại, không bỏ qua màn chờ.
+    let cancelWait = () => {};
     run.start(({ finished }) => {
-      if (finished)
-        Animated.timing(out, {
-          toValue: 0,
-          duration: 140,
-          useNativeDriver: true,
-        }).start(onDone);
+      if (!finished) return;
+      cancelWait = whenIdle(
+        () =>
+          Animated.timing(out, {
+            toValue: 0,
+            duration: 140,
+            useNativeDriver: true,
+          }).start(onDone),
+        MAX_WAIT_MS
+      );
     });
-    return () => run.stop();
+    return () => {
+      run.stop();
+      cancelWait();
+    };
   }, [reduce, draw, chev, word, out, onDone]);
 
   const a = palette.gradFrom;
@@ -83,7 +95,7 @@ export function Splash({ onDone }: { onDone: () => void }) {
 
   return (
     <Animated.View
-      style={[styles.root, { backgroundColor: palette.bg, opacity: out }]}
+      style={[styles.root, { opacity: out }]}
       accessibilityLabel="CYS đang mở"
     >
       <View>
@@ -95,7 +107,8 @@ export function Splash({ onDone }: { onDone: () => void }) {
             </LinearGradient>
           </Defs>
           <AnimatedPath
-            d="M64 10 L110 37 L110 91 L64 118 L18 91 L18 37 Z"
+            // Bắt đầu giữa cạnh (không phải đỉnh): hai đầu nét gặp nhau trên đoạn thẳng nên khép kín, không khuyết góc.
+            d="M87 23.5 L110 37 L110 91 L64 118 L18 91 L18 37 L64 10 Z"
             stroke="url(#splashG)"
             strokeWidth={8}
             strokeLinejoin="round"
@@ -142,6 +155,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 18,
     zIndex: 50,
+    elevation: 50, // Android vẽ view có elevation (nút giữa TabBar) đè lên zIndex
+    backgroundColor: SPLASH_BG,
   },
   word: {
     fontSize: 30,

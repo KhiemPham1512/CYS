@@ -37,7 +37,7 @@ import { HubSheet } from "./src/ui/HubSheet";
 import { ConfirmHost } from "./src/ui/ConfirmHost";
 import { MenuScreen } from "./src/ui/MenuScreen";
 import { fontFamily, useReduceMotion } from "./src/ui/motion";
-import { Splash } from "./src/ui/Splash";
+import { Splash, SPLASH_BG } from "./src/ui/Splash";
 import { TabBar } from "./src/ui/TabBar";
 import { AdminWebGate } from "./src/admin/AdminWebGate";
 import { DevScreen } from "./src/admin/DevScreen";
@@ -97,7 +97,7 @@ function Root() {
   const styles = useMemo(() => makeStyles(palette), [palette]);
   // Font lỗi thì dùng font hệ thống, không treo màn trắng.
   if (!themeReady || (!fontsLoaded && !fontError))
-    return <View style={styles.root} />;
+    return <View style={{ flex: 1, backgroundColor: SPLASH_BG }} />; // nối liền màn chờ hệ thống
   return (
     <View style={styles.root}>
       {!online && (

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 import { useTheme } from "../theme/ThemeContext";
+import { loadingStarted } from "./loadingGate";
 import { fontFamily, useReduceMotion } from "./motion";
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
@@ -14,6 +15,7 @@ const SHOW_AFTER_MS = 400;
 export function Loading() {
   const { theme } = useTheme();
   const [show, setShow] = useState(false);
+  useEffect(() => loadingStarted(), []);
   useEffect(() => {
     const timer = setTimeout(() => setShow(true), SHOW_AFTER_MS);
     return () => clearTimeout(timer);
