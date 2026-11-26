@@ -167,12 +167,11 @@ Deno.serve(async (req) => {
     }
     targetIsOwner = data === true;
   }
-  // Chính mình không tính là "Quản trị khác" (tự đặt lại mật khẩu vẫn được).
-  const targetDenied = deniedFor(
-    role,
-    request,
-    (target.is_admin || targetIsOwner) && request.user_id !== user.id
-  );
+  const targetDenied = deniedFor(role, request, {
+    is_admin: target.is_admin,
+    is_owner: targetIsOwner,
+    is_self: request.user_id === user.id,
+  });
   if (targetDenied) return fail(403, targetDenied);
   const targetBranch: string = target.branch_id;
 

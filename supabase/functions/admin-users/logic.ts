@@ -142,12 +142,14 @@ export function canActOn(callerId: string, req: AdminRequest): string | null {
 
 export type CallerRole = "owner" | "branch_admin";
 
-// Quyền theo vai trò (ADR 0002). targetIsAdmin: người đích (không phải chính mình) là
-// Quản trị quán hoặc Quản trị cấp cao; Quản trị quán chỉ quản lý Nhân viên.
+export type Target = { is_admin: boolean; is_owner: boolean; is_self: boolean };
+
+// Quyền theo vai trò (ADR 0002). Quản trị quán chỉ quản lý Nhân viên; is_owner hỏi riêng
+// vì cấp cao có thể mang is_admin=false. Chính mình không tính (tự đặt lại mật khẩu được).
 export function deniedFor(
   role: CallerRole,
   req: AdminRequest,
-  targetIsAdmin?: boolean
+  target?: Target
 ): string | null {
   if (role === "owner") return null;
   if (
@@ -157,7 +159,8 @@ export function deniedFor(
   ) {
     return "Chỉ Quản trị cấp cao làm được việc này";
   }
-  if (targetIsAdmin) return "Quản trị quán chỉ quản lý được Nhân viên";
+  if (target && !target.is_self && (target.is_admin || target.is_owner))
+    return "Quản trị quán chỉ quản lý được Nhân viên";
   return null;
 }
 
