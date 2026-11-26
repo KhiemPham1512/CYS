@@ -23,6 +23,7 @@ export function MenuScreen({
   branchName,
   online,
   onSignOut,
+  onOpenAdmin,
 }: {
   userId: string;
   email: string;
@@ -30,6 +31,7 @@ export function MenuScreen({
   branchName: string;
   online: boolean;
   onSignOut: () => void;
+  onOpenAdmin?: () => void; // Quản trị trên web đang dùng app tồn kho: quay lại trang Quản trị
 }) {
   const { theme, palette, setTheme } = useTheme();
   const [name, setName] = useState<string | null>(null);
@@ -107,7 +109,7 @@ export function MenuScreen({
             </Text>
           )}
           <Text style={[styles.sub, { color: palette.muted }]}>
-            {isAdmin ? "Quản trị" : "Nhân viên"}
+            {isAdmin ? "Quản trị quán" : "Nhân viên"}
           </Text>
         </View>
         <Logo theme={theme} size={34} />
@@ -199,6 +201,23 @@ export function MenuScreen({
           divider
         />
       </View>
+      {onOpenAdmin && (
+        <Pressable
+          style={({ pressed }) => [
+            card,
+            styles.switchMode,
+            pressed && { opacity: 0.7 },
+          ]}
+          onPress={onOpenAdmin}
+          accessibilityRole="button"
+          accessibilityLabel="Mở trang Quản trị"
+        >
+          <Glyph name="building" color={palette.accentDeep} size={20} />
+          <Text style={[styles.switchModeText, { color: palette.accentDeep }]}>
+            Mở trang Quản trị
+          </Text>
+        </Pressable>
+      )}
 
       <Text style={[styles.group, { color: palette.muted }]}>CHỦ ĐỀ</Text>
       <View style={styles.themes}>
@@ -393,6 +412,15 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   logoutText: { fontSize: 14, fontFamily: fontFamily.medium },
+  switchMode: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+    minHeight: 48,
+    marginTop: 12,
+  },
+  switchModeText: { fontSize: 14, fontFamily: fontFamily.semi },
   version: {
     textAlign: "center",
     fontSize: 12,

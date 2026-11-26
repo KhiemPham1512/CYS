@@ -15,10 +15,12 @@ export function AdminWebGate({
   branch,
   userId,
   email,
+  onOpenApp,
 }: {
   branch: Branch;
   userId: string;
   email: string;
+  onOpenApp: () => void;
 }) {
   // undefined = đang hỏi; null = Quản trị quán.
   const [branches, setBranches] = useState<Branch[] | null | undefined>();
@@ -61,6 +63,7 @@ export function AdminWebGate({
       userId={userId}
       email={email}
       onSignOut={() => supabase.auth.signOut()}
+      onOpenApp={onOpenApp}
     />
   );
 }
