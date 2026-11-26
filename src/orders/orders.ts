@@ -226,3 +226,15 @@ export function receivedBlocks(
     b.receivedAt.localeCompare(a.receivedAt)
   );
 }
+
+// Đơn nháp đang mở của Nhóm vừa biến mất hoặc bị thay bằng nháp mới (máy khác đã đặt/xóa): số trên màn đã cũ, đặt tiếp sẽ thành đơn trùng.
+export function draftGoneElsewhere(
+  shownDraftId: string | null,
+  draft: { id: string } | null,
+  orders: { id: string; group_id: string }[],
+  groupId: string | null
+): boolean {
+  if (!shownDraftId || draft?.id === shownDraftId) return false;
+  const old = orders.find((o) => o.id === shownDraftId);
+  return !old || old.group_id === groupId;
+}

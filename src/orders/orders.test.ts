@@ -9,6 +9,7 @@ import {
   pendingBlocks,
   receivedBlocks,
   projectedQty,
+  draftGoneElsewhere,
   type Order,
   type OrderLine,
 } from "./orders";
@@ -320,5 +321,30 @@ describe("receivedBlocks (Nhận hàng gần đây, để gỡ nhận nhầm)", 
         []
       )
     ).toEqual([]);
+  });
+});
+
+describe("draftGoneElsewhere", () => {
+  const g1 = { id: "d1", group_id: "g1", placed_at: null };
+  const g1Placed = { ...g1, placed_at: "2026-11-26T03:00:00Z" };
+  const g2 = { id: "d2", group_id: "g2", placed_at: null };
+
+  it("đơn nháp đang mở bị đặt ở máy khác", () => {
+    expect(draftGoneElsewhere("d1", null, [g1Placed], "g1")).toBe(true);
+  });
+  it("đơn nháp đang mở bị xóa ở máy khác", () => {
+    expect(draftGoneElsewhere("d1", null, [], "g1")).toBe(true);
+  });
+  it("máy khác đặt rồi tạo nháp mới cùng Nhóm", () => {
+    const next = { id: "d3", group_id: "g1", placed_at: null };
+    expect(draftGoneElsewhere("d1", next, [g1Placed, next], "g1")).toBe(true);
+  });
+  it("đổi sang Nhóm khác không tính", () => {
+    expect(draftGoneElsewhere("d1", null, [g1, g2], "g2")).toBe(false);
+    expect(draftGoneElsewhere("d1", g2, [g1, g2], "g2")).toBe(false);
+  });
+  it("chưa có nháp hoặc nháp vẫn còn thì không tính", () => {
+    expect(draftGoneElsewhere(null, null, [], "g1")).toBe(false);
+    expect(draftGoneElsewhere("d1", g1, [g1], "g1")).toBe(false);
   });
 });

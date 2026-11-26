@@ -129,3 +129,17 @@ export function inUseExpiry(openedOn: string, item: ExpiryItem): string | null {
       )
     : null;
 }
+
+// Kiểm kho đếm ít hơn sổ = đã dùng: món có hạn sau khui dài vào Đang dùng (như Ghi dùng, mỗi món một đơn vị).
+export function openedByCount(
+  rows: { item_id: string; qty: number; expected_qty: number }[],
+  items: Map<string, ExpiryItem>
+): string[] {
+  return rows
+    .filter((r) => r.qty < r.expected_qty)
+    .map((r) => r.item_id)
+    .filter((id) => {
+      const it = items.get(id);
+      return it ? tracksInUse(it) : false;
+    });
+}
