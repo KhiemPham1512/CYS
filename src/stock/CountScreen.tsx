@@ -20,6 +20,8 @@ import { useNow } from "../lib/useNow";
 import { useOnline } from "../lib/useOnline";
 import { loadMovements, saveCount } from "./api";
 import { loadCountDraft, storeCountDraft } from "./countDraft";
+import { openedByCount } from "./expiry";
+import { openInUse } from "./inUseApi";
 import {
   checkedSince,
   countDiffs,
@@ -60,6 +62,7 @@ export function CountScreen({ branchId, onDone }: Props) {
   const savingRef = useRef(false); // chống bấm đôi trước khi state kịp cập nhật
   const [saveError, setSaveError] = useState<string | null>(null);
   const [diffs, setDiffs] = useState<CountDiff[] | null>(null);
+  const [inUseNote, setInUseNote] = useState<string | null>(null);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
   // Nháp trên máy: số đang gõ sống sót khi app bị đứng/tắt. Chỉ ghi sau khi đã thử khôi phục.
@@ -212,6 +215,17 @@ export function CountScreen({ branchId, onDone }: Props) {
     }
 
     void storeCountDraft(branchId, {}); // đã vào sổ: bỏ nháp
+    // shortcut: Kiểm kho đã lưu mà Đang dùng lỗi thì chỉ báo, không hoàn tác (giống Ghi dùng).
+    const opened = openedByCount(rows, itemsById);
+    if (opened.length)
+      void openInUse(branchId, opened).then(({ error: e }) =>
+        setInUseNote(
+          e ??
+            `Đã thêm vào Đang dùng: ${opened
+              .map((id) => itemsById.get(id)?.name ?? id)
+              .join(", ")}`
+        )
+      );
     draftReady.current = false; // chặn cleanup/timer ghi lại nháp cũ
     try {
       const fresh = await loadMovements(branchId);
@@ -310,6 +324,7 @@ export function CountScreen({ branchId, onDone }: Props) {
             );
           })
         )}
+        {inUseNote && <Text style={styles.emptyText}>{inUseNote}</Text>}
         <Pressable
           style={styles.primaryButton}
           onPress={onDone}

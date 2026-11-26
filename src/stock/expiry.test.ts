@@ -9,6 +9,7 @@ import {
   inUseExpiry,
   lotExpiry,
   tracksInUse,
+  openedByCount,
   usesMfgDate,
   type ExpiryItem,
 } from "./expiry";
@@ -176,5 +177,39 @@ describe("formatMfg: Ngày sản xuất viết tắt, chỉ thêm năm khi hạn
     expect(
       formatMfg("2026-10-28", item({ shelf_life: 5, shelf_life_unit: "month" }))
     ).toBe("28/10/2026"); // hạn 28/03/2027
+  });
+});
+
+describe("openedByCount", () => {
+  const tracked = { id: "nho", ...item({ shelf_life_after_open: 30 }) };
+  const plain = { id: "da", ...item() };
+  const items = new Map([tracked, plain].map((i) => [i.id, i]));
+
+  it("Kiểm kho ít hơn sổ: món theo dõi vào Đang dùng", () => {
+    expect(
+      openedByCount(
+        [
+          { item_id: "nho", qty: 1, expected_qty: 2 },
+          { item_id: "da", qty: 0, expected_qty: 5 },
+        ],
+        items
+      )
+    ).toEqual(["nho"]);
+  });
+  it("đếm bằng hoặc nhiều hơn sổ thì không", () => {
+    expect(
+      openedByCount(
+        [
+          { item_id: "nho", qty: 2, expected_qty: 2 },
+          { item_id: "nho", qty: 3, expected_qty: 2 },
+        ],
+        items
+      )
+    ).toEqual([]);
+  });
+  it("món không còn trong Danh mục thì bỏ", () => {
+    expect(
+      openedByCount([{ item_id: "x", qty: 0, expected_qty: 1 }], items)
+    ).toEqual([]);
   });
 });
