@@ -102,8 +102,12 @@ export function UsersScreen({
   const disabled = !online || busyId !== null;
   const rows = users.map((u) => {
     const self = u.user_id === currentUserId;
-    // Hiện nút theo cùng luật máy chủ dùng (deniedFor); cấp cao chỉ lộ ra ở màn Hệ thống.
-    const target = { is_admin: u.is_admin, is_owner: false, is_self: self };
+    // Hiện nút theo cùng luật máy chủ dùng (deniedFor).
+    const target = {
+      is_admin: u.is_admin,
+      is_owner: u.is_owner,
+      is_self: self,
+    };
     const can = (req: AdminRequest) => !deniedFor(role, req, target);
     const canLock =
       !self && can({ action: "set_locked", user_id: u.user_id, locked: true });

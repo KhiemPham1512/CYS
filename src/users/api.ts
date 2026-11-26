@@ -7,6 +7,7 @@ export type ManagedUser = {
   email: string;
   is_admin: boolean;
   is_locked: boolean;
+  is_owner: boolean; // Quản trị cấp cao (có thể mang is_admin=false)
   created_at: string;
 };
 
@@ -21,7 +22,7 @@ async function call<T>(
 }
 
 // Mọi Người dùng mọi quán (chỉ Quản trị cấp cao).
-export type SystemUser = ManagedUser & { branch_id: string; is_owner: boolean };
+export type SystemUser = ManagedUser & { branch_id: string };
 export const listAllUsers = () => call<SystemUser[]>({ action: "list_all" });
 
 // branchId: chỉ Quản trị cấp cao dùng để chọn quán; bỏ trống = quán của mình.

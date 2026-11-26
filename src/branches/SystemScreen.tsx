@@ -300,17 +300,23 @@ function NewBranchForm({
         maxLength={100}
       />
       <Text style={styles.label}>Chép Danh mục từ</Text>
-      <View style={styles.actions}>
+      <View style={styles.actions} accessibilityRole="radiogroup">
         {branches.map((b) => (
           <Pressable
             key={b.branch_id}
             style={[
               styles.smallButton,
               template === b.branch_id && styles.smallButtonOn,
+              off && styles.disabled,
             ]}
+            disabled={off}
             onPress={() => setTemplate(b.branch_id)}
             accessibilityRole="radio"
-            accessibilityState={{ checked: template === b.branch_id }}
+            accessibilityLabel={`Chép Danh mục từ ${b.branch_name}`}
+            accessibilityState={{
+              checked: template === b.branch_id,
+              disabled: off,
+            }}
           >
             <Text style={styles.smallButtonText}>{b.branch_name}</Text>
           </Pressable>

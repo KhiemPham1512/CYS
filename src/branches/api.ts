@@ -15,9 +15,15 @@ export async function listBranches(): Promise<{
   return { data, error: error ? "Không tải được danh sách Chi nhánh." : null };
 }
 
-export async function isOwner(): Promise<boolean> {
-  const { data } = await supabase.rpc("is_owner");
-  return data === true;
+export async function isOwner(): Promise<{
+  owner: boolean;
+  error: string | null;
+}> {
+  const { data, error } = await supabase.rpc("is_owner");
+  return {
+    owner: data === true,
+    error: error ? "Không kiểm tra được quyền Quản trị cấp cao." : null,
+  };
 }
 
 export async function createBranch(name: string, templateId: string) {
