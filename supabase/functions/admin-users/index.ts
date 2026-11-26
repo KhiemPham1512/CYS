@@ -90,7 +90,16 @@ Deno.serve(async (req) => {
       .from("members")
       .select("user_id, branch_id, is_admin, is_locked, created_at");
     if (error) return fail(500, messageForDbError(error));
-    return json(200, { data: await withEmails(members) });
+    // Web Hệ thống cần biết ai là cấp cao (private.owners không đọc thẳng được).
+    const flagged = await Promise.all(
+      members.map(async (m) => {
+        const { data } = await admin.rpc("user_is_owner", {
+          p_user: m.user_id,
+        });
+        return { ...m, is_owner: data === true };
+      })
+    );
+    return json(200, { data: await withEmails(flagged) });
   }
 
   // Quán của list/create: cấp cao chọn (mặc định quán của mình), Quản trị quán luôn là quán mình.

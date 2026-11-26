@@ -20,6 +20,10 @@ async function call<T>(
   return { data: null, error: await functionErrorMessage(error) };
 }
 
+// Mọi Người dùng mọi quán (chỉ Quản trị cấp cao).
+export type SystemUser = ManagedUser & { branch_id: string; is_owner: boolean };
+export const listAllUsers = () => call<SystemUser[]>({ action: "list_all" });
+
 // branchId: chỉ Quản trị cấp cao dùng để chọn quán; bỏ trống = quán của mình.
 export const listUsers = (branchId?: string) =>
   call<ManagedUser[]>({ action: "list", branch_id: branchId });

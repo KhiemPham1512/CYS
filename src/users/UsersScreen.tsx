@@ -14,8 +14,11 @@ import { Text } from "../ui/Text";
 import { WIDE_LAYOUT } from "../navigation/adminWeb";
 import { Loading } from "../ui/Loading";
 import {
+  deniedFor,
   validateNewUser,
   validatePassword,
+  type AdminRequest,
+  type CallerRole,
 } from "../../supabase/functions/admin-users/logic.ts";
 import { useOnline } from "../lib/useOnline";
 import {
@@ -27,9 +30,22 @@ import {
   type ManagedUser,
 } from "./api";
 
-export function UsersScreen({ currentUserId }: { currentUserId: string }) {
+// Bảng và form "Thêm Người dùng" đứng cạnh nhau chỉ khi bảng còn đủ chỗ (trừ thanh bên + form).
+const SPLIT_LAYOUT = 1280;
+
+export function UsersScreen({
+  branchId,
+  currentUserId,
+  role,
+}: {
+  branchId: string;
+  currentUserId: string;
+  role: CallerRole;
+}) {
   const online = useOnline();
-  const wide = useWindowDimensions().width >= WIDE_LAYOUT;
+  const width = useWindowDimensions().width;
+  const wide = width >= WIDE_LAYOUT;
+  const split = width >= SPLIT_LAYOUT;
   const [users, setUsers] = useState<ManagedUser[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -40,10 +56,10 @@ export function UsersScreen({ currentUserId }: { currentUserId: string }) {
 
   const reload = useCallback(async () => {
     setLoadError(null);
-    const { data, error } = await listUsers();
+    const { data, error } = await listUsers(branchId);
     if (error) setLoadError(error);
     else setUsers(data ?? []);
-  }, []);
+  }, [branchId]);
 
   useEffect(() => {
     void reload();
@@ -86,55 +102,72 @@ export function UsersScreen({ currentUserId }: { currentUserId: string }) {
   const disabled = !online || busyId !== null;
   const rows = users.map((u) => {
     const self = u.user_id === currentUserId;
+    // Hiện nút theo cùng luật máy chủ dùng (deniedFor); cấp cao chỉ lộ ra ở màn Hệ thống.
+    const target = { is_admin: u.is_admin, is_owner: false, is_self: self };
+    const can = (req: AdminRequest) => !deniedFor(role, req, target);
+    const canLock =
+      !self && can({ action: "set_locked", user_id: u.user_id, locked: true });
+    const canAdmin =
+      !self &&
+      can({ action: "set_admin", user_id: u.user_id, is_admin: !u.is_admin });
+    const canReset = can({
+      action: "set_password",
+      user_id: u.user_id,
+      password: "",
+    });
     const actions = (
       <View style={styles.actions}>
-        {!self && (
-          <>
-            <Pressable
-              style={[styles.smallButton, disabled && styles.disabled]}
-              disabled={disabled}
-              onPress={() =>
-                act(u.user_id, () => setLocked(u.user_id, !u.is_locked))
-              }
-              accessibilityRole="button"
-              accessibilityLabel={`${u.is_locked ? "Mở khóa" : "Khóa"} ${u.email}`}
-              accessibilityState={{ disabled }}
-            >
-              <Text style={styles.smallButtonText}>
-                {u.is_locked ? "Mở khóa" : "Khóa"}
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[styles.smallButton, disabled && styles.disabled]}
-              disabled={disabled}
-              onPress={() =>
-                act(u.user_id, () => setAdmin(u.user_id, !u.is_admin))
-              }
-              accessibilityRole="button"
-              accessibilityLabel={`${u.is_admin ? "Bỏ Quản trị" : "Cấp Quản trị"} ${u.email}`}
-              accessibilityState={{ disabled }}
-            >
-              <Text style={styles.smallButtonText}>
-                {u.is_admin ? "Bỏ Quản trị" : "Cấp Quản trị"}
-              </Text>
-            </Pressable>
-          </>
+        {canLock && (
+          <Pressable
+            style={[styles.smallButton, disabled && styles.disabled]}
+            disabled={disabled}
+            onPress={() =>
+              act(u.user_id, () => setLocked(u.user_id, !u.is_locked))
+            }
+            accessibilityRole="button"
+            accessibilityLabel={`${u.is_locked ? "Mở khóa" : "Khóa"} ${u.email}`}
+            accessibilityState={{ disabled }}
+          >
+            <Text style={styles.smallButtonText}>
+              {u.is_locked ? "Mở khóa" : "Khóa"}
+            </Text>
+          </Pressable>
         )}
-        <Pressable
-          style={[styles.smallButton, disabled && styles.disabled]}
-          disabled={disabled}
-          onPress={() => setResetFor(resetFor === u.user_id ? null : u.user_id)}
-          accessibilityRole="button"
-          accessibilityLabel={`Đặt lại mật khẩu ${u.email}`}
-          accessibilityState={{ disabled }}
-        >
-          <Text style={styles.smallButtonText}>Đặt lại mật khẩu</Text>
-        </Pressable>
+        {canAdmin && (
+          <Pressable
+            style={[styles.smallButton, disabled && styles.disabled]}
+            disabled={disabled}
+            onPress={() =>
+              act(u.user_id, () => setAdmin(u.user_id, !u.is_admin))
+            }
+            accessibilityRole="button"
+            accessibilityLabel={`${u.is_admin ? "Bỏ Quản trị quán" : "Cấp Quản trị quán"} ${u.email}`}
+            accessibilityState={{ disabled }}
+          >
+            <Text style={styles.smallButtonText}>
+              {u.is_admin ? "Bỏ Quản trị quán" : "Cấp Quản trị quán"}
+            </Text>
+          </Pressable>
+        )}
+        {canReset && (
+          <Pressable
+            style={[styles.smallButton, disabled && styles.disabled]}
+            disabled={disabled}
+            onPress={() =>
+              setResetFor(resetFor === u.user_id ? null : u.user_id)
+            }
+            accessibilityRole="button"
+            accessibilityLabel={`Đặt lại mật khẩu ${u.email}`}
+            accessibilityState={{ disabled }}
+          >
+            <Text style={styles.smallButtonText}>Đặt lại mật khẩu</Text>
+          </Pressable>
+        )}
       </View>
     );
     const badges = (
       <View style={styles.badges}>
-        {u.is_admin && <Text style={styles.badge}>Quản trị</Text>}
+        {u.is_admin && <Text style={styles.badge}>Quản trị quán</Text>}
         {u.is_locked && (
           <Text style={[styles.badge, styles.badgeLocked]}>Đã khóa</Text>
         )}
@@ -178,14 +211,29 @@ export function UsersScreen({ currentUserId }: { currentUserId: string }) {
     );
   });
 
+  const empty = users.length === 0 && (
+    <Text style={styles.emptyText}>
+      Chi nhánh này chưa có Người dùng. Tạo tài khoản đầu tiên ở form &quot;Thêm
+      Người dùng&quot;.
+    </Text>
+  );
+  const newUserForm = (
+    <NewUserForm
+      disabled={!online}
+      onCreated={reload}
+      branchId={branchId}
+      allowAdmin={role === "owner"}
+    />
+  );
   if (!wide) {
     return (
       <ScrollView contentContainerStyle={styles.container}>
         {!online && (
-          <Text style={styles.error}>Mất mạng — không thay đổi được</Text>
+          <Text style={styles.error}>Mất mạng, chưa thay đổi được</Text>
         )}
+        {empty}
         {rows}
-        <NewUserForm disabled={!online} onCreated={reload} />
+        {newUserForm}
       </ScrollView>
     );
   }
@@ -194,10 +242,10 @@ export function UsersScreen({ currentUserId }: { currentUserId: string }) {
       <View style={styles.innerWide}>
         <PageHeader title="Người dùng" sub={`${users.length} tài khoản`} />
         {!online && (
-          <Text style={styles.error}>Mất mạng — không thay đổi được</Text>
+          <Text style={styles.error}>Mất mạng, chưa thay đổi được</Text>
         )}
-        <View style={styles.split}>
-          <View style={[styles.card, styles.tableCard]}>
+        <View style={split ? styles.split : styles.stack}>
+          <View style={[styles.card, split && styles.tableCard]}>
             <View style={[styles.trWide, styles.thWide]}>
               <Text style={[styles.th, styles.colEmail]}>EMAIL</Text>
               <Text style={[styles.th, styles.colState]}>VAI TRÒ</Text>
@@ -205,10 +253,13 @@ export function UsersScreen({ currentUserId }: { currentUserId: string }) {
                 THAO TÁC
               </Text>
             </View>
+            {empty && <View style={styles.trWide}>{empty}</View>}
             {rows}
           </View>
-          <View style={[styles.card, styles.formCard]}>
-            <NewUserForm disabled={!online} onCreated={reload} />
+          <View
+            style={[styles.card, split ? styles.formCard : styles.formWide]}
+          >
+            {newUserForm}
           </View>
         </View>
       </View>
@@ -219,9 +270,13 @@ export function UsersScreen({ currentUserId }: { currentUserId: string }) {
 function NewUserForm({
   disabled,
   onCreated,
+  branchId,
+  allowAdmin,
 }: {
   disabled: boolean;
   onCreated: () => Promise<void>;
+  branchId: string;
+  allowAdmin: boolean; // chỉ Quản trị cấp cao tạo được Quản trị
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -243,7 +298,8 @@ function NewUserForm({
     const { error } = await createUser(
       email.trim().toLowerCase(),
       password,
-      isAdmin
+      allowAdmin && isAdmin,
+      branchId
     );
     setBusy(false);
     if (error) {
@@ -267,6 +323,7 @@ function NewUserForm({
       <TextInput
         style={styles.input}
         placeholder="Email"
+        accessibilityLabel="Email Người dùng mới"
         autoCapitalize="none"
         keyboardType="email-address"
         value={email}
@@ -276,19 +333,23 @@ function NewUserForm({
       <TextInput
         style={styles.input}
         placeholder="Mật khẩu ban đầu"
+        accessibilityLabel="Mật khẩu ban đầu"
         secureTextEntry
         value={password}
         onChangeText={setPassword}
       />
       {errors.password && <Text style={styles.error}>{errors.password}</Text>}
-      <View style={styles.switchRow}>
-        <Switch
-          value={isAdmin}
-          onValueChange={setIsAdmin}
-          trackColor={switchTrack()}
-        />
-        <Text>Là Quản trị</Text>
-      </View>
+      {allowAdmin && (
+        <View style={styles.switchRow}>
+          <Switch
+            value={isAdmin}
+            onValueChange={setIsAdmin}
+            trackColor={switchTrack()}
+            accessibilityLabel="Là Quản trị quán"
+          />
+          <Text>Là Quản trị quán</Text>
+        </View>
+      )}
       {message && (
         <Text style={message.ok ? styles.ok : styles.error}>
           {message.text}
@@ -420,7 +481,9 @@ const styles = themedStyles((c: Palette) => ({
     overflow: "hidden",
   },
   tableCard: { flex: 1 },
+  stack: { gap: 20 },
   formCard: { width: 340, padding: 16 },
+  formWide: { padding: 16, maxWidth: 480 },
   trWide: {
     flexDirection: "row",
     alignItems: "center",
@@ -435,7 +498,7 @@ const styles = themedStyles((c: Palette) => ({
   th: { fontSize: 11, fontWeight: "700", letterSpacing: 1, color: c.muted },
   thRight: { textAlign: "right" },
   colEmail: { flex: 3, minWidth: 200 },
-  colState: { flex: 2 },
+  colState: { flex: 2, minWidth: 90 },
   colActions: { flex: 3, minWidth: 250, alignItems: "flex-end" },
   title: { fontSize: 18, fontWeight: "700", color: c.ink },
   input: {
@@ -457,4 +520,5 @@ const styles = themedStyles((c: Palette) => ({
   disabled: { opacity: 0.5 },
   error: { color: c.red },
   ok: { color: c.accentDeep },
+  emptyText: { color: c.muted, fontSize: 15 },
 }));
