@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canActOn,
+  deniedFor,
   messageForDbError,
   parseAdminRequest,
   validateNewUser,
@@ -155,6 +156,117 @@ describe("canActOn", () => {
       canActOn(UID, { action: "set_locked", user_id: other, locked: true })
     ).toBeNull();
     expect(canActOn(UID, { action: "list" })).toBeNull();
+  });
+});
+
+describe("branch_id và list_all", () => {
+  const BR = "33333333-3333-4333-8333-333333333333";
+  it("list/create nhận branch_id tùy chọn, list_all không tham số", () => {
+    expect(parseAdminRequest({ action: "list", branch_id: BR })).toEqual({
+      ok: true,
+      value: { action: "list", branch_id: BR },
+    });
+    expect(
+      parseAdminRequest({
+        action: "create",
+        email: "nv@example.test",
+        password: "12345678",
+        is_admin: false,
+        branch_id: BR,
+      })
+    ).toEqual({
+      ok: true,
+      value: {
+        action: "create",
+        email: "nv@example.test",
+        password: "12345678",
+        is_admin: false,
+        branch_id: BR,
+      },
+    });
+    expect(parseAdminRequest({ action: "list_all" })).toEqual({
+      ok: true,
+      value: { action: "list_all" },
+    });
+  });
+
+  it("từ chối branch_id sai", () => {
+    const bad = { ok: false, error: "Yêu cầu không hợp lệ" };
+    expect(parseAdminRequest({ action: "list", branch_id: "x" })).toEqual(bad);
+    expect(parseAdminRequest({ action: "list", branch_id: 1 })).toEqual(bad);
+  });
+});
+
+describe("deniedFor", () => {
+  const OWNER_ONLY = "Chỉ Quản trị cấp cao làm được việc này";
+  const create = (is_admin: boolean) =>
+    ({
+      action: "create",
+      email: "nv@example.test",
+      password: "12345678",
+      is_admin,
+    }) as const;
+
+  it("Quản trị quán: không cấp Quản trị, không xem mọi quán, không tạo Quản trị", () => {
+    expect(
+      deniedFor("branch_admin", {
+        action: "set_admin",
+        user_id: UID,
+        is_admin: true,
+      })
+    ).toBe(OWNER_ONLY);
+    expect(deniedFor("branch_admin", { action: "list_all" })).toBe(OWNER_ONLY);
+    expect(deniedFor("branch_admin", create(true))).toBe(OWNER_ONLY);
+    expect(deniedFor("branch_admin", create(false))).toBeNull();
+    expect(deniedFor("branch_admin", { action: "list" })).toBeNull();
+  });
+
+  it("Quản trị quán chỉ thao tác lên Nhân viên", () => {
+    const lock = { action: "set_locked", user_id: UID, locked: true } as const;
+    const staff = { is_admin: false, is_owner: false, is_self: false };
+    const MSG = "Quản trị quán chỉ quản lý được Nhân viên";
+    expect(deniedFor("branch_admin", lock, { ...staff, is_admin: true })).toBe(
+      MSG
+    );
+    // cấp cao mang is_admin=false (tự Chuyển quán, bị bỏ cờ) vẫn được bảo vệ
+    expect(deniedFor("branch_admin", lock, { ...staff, is_owner: true })).toBe(
+      MSG
+    );
+    expect(deniedFor("branch_admin", lock, staff)).toBeNull();
+  });
+
+  it("Quản trị quán tự đặt lại mật khẩu của mình được", () => {
+    const reset = {
+      action: "set_password",
+      user_id: UID,
+      password: "12345678",
+    } as const;
+    expect(
+      deniedFor("branch_admin", reset, {
+        is_admin: true,
+        is_owner: false,
+        is_self: true,
+      })
+    ).toBeNull();
+  });
+
+  it("Quản trị cấp cao làm được hết", () => {
+    expect(
+      deniedFor(
+        "owner",
+        { action: "set_admin", user_id: UID, is_admin: true },
+        { is_admin: false, is_owner: false, is_self: false }
+      )
+    ).toBeNull();
+    expect(deniedFor("owner", { action: "list_all" })).toBeNull();
+    expect(deniedFor("owner", create(true))).toBeNull();
+    expect(
+      deniedFor(
+        "owner",
+        { action: "set_locked", user_id: UID, locked: true },
+        { is_admin: true, is_owner: false, is_self: false }
+      )
+    ).toBeNull();
   });
 });
 

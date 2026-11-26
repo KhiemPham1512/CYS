@@ -54,9 +54,9 @@ import { UseScreen } from "./src/stock/UseScreen";
 import { ReadOrderScreen } from "./src/supplier/ReadOrderScreen";
 
 const LOCKED_MESSAGE = "Người dùng này đã bị khóa. Liên hệ Quản trị.";
-// RLS không phân biệt bị khóa với bị gỡ khỏi Chi nhánh.
+// RLS không phân biệt bị khóa, bị gỡ hay đã Chuyển quán.
 const NO_ACCESS_MESSAGE =
-  "Bạn không còn quyền vào Chi nhánh (bị khóa hoặc bị gỡ). Liên hệ Quản trị.";
+  "Bạn không còn ở Chi nhánh này (bị khóa, bị gỡ hoặc đã chuyển quán). Đăng nhập lại hoặc liên hệ Quản trị.";
 
 export default function App() {
   return (
@@ -378,17 +378,15 @@ function HomeScreen({
   online: boolean;
   onLocked: () => void;
 }) {
-  useLockWatch(userId, onLocked);
   const { theme, palette } = useTheme();
   const styles = useMemo(() => makeStyles(palette), [palette]);
   // undefined = đang tải; null = không có Chi nhánh (chưa là thành viên hoặc bị khóa).
   const [branch, setBranch] = useState<
     { branch_id: string; branch_name: string } | null | undefined
   >();
+  useLockWatch(userId, branch?.branch_id, onLocked);
   const [error, setError] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [roleLoaded, setRoleLoaded] = useState(false);
-  const [roleError, setRoleError] = useState(false);
   const [view, setView] = useState<HomeView>("stock");
   const [hubOpen, setHubOpen] = useState(false);
   const [devMode, setDevMode] = useState(false);
@@ -418,27 +416,28 @@ function HomeScreen({
   };
 
   useEffect(() => {
-    // shortcut: lấy Chi nhánh đầu tiên; khi một người thuộc nhiều Chi nhánh thì thêm bước chọn.
-    supabase
-      .from("branch_settings")
-      .select("branch_id, branch_name")
-      .order("branch_id")
-      .limit(1)
-      .maybeSingle()
-      .then(async ({ data, error }) => {
-        setError(!!error);
-        setBranch(data ?? null);
-        if (!data) return;
-        const { data: me, error: meError } = await supabase
-          .from("members")
-          .select("is_admin")
-          .eq("branch_id", data.branch_id)
-          .eq("user_id", userId)
-          .maybeSingle();
-        setIsAdmin(me?.is_admin ?? false);
-        setRoleError(!!meError); // lỗi đọc quyền ≠ không phải Quản trị: web báo lỗi thay vì chặn nhầm
-        setRoleLoaded(true);
-      });
+    // Quán = dòng members của chính mình (mỗi người đúng một quán). Không đọc branch_settings
+    // trước: Quản trị cấp cao đọc được mọi quán nên có thể vào nhầm quán.
+    void (async () => {
+      const { data: me, error: meError } = await supabase
+        .from("members")
+        .select("branch_id, is_admin")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (meError || !me) {
+        setError(!!meError);
+        setBranch(null);
+        return;
+      }
+      const { data, error } = await supabase
+        .from("branch_settings")
+        .select("branch_id, branch_name")
+        .eq("branch_id", me.branch_id)
+        .maybeSingle();
+      setIsAdmin(me.is_admin);
+      setError(!!error);
+      setBranch(data ?? null);
+    })();
   }, [userId]);
 
   const selectedTab: MainTabKey =
@@ -515,20 +514,8 @@ function HomeScreen({
 
   // Web: Quản trị vào bảng điều khiển; nhân viên và điện thoại dùng app.
   const onWeb = Platform.OS === "web";
-  if (
-    branch &&
-    onWeb &&
-    (!roleLoaded || roleError || adminWebView(true, isAdmin) === "console")
-  )
-    return (
-      <AdminWebGate
-        branch={branch}
-        roleLoaded={roleLoaded}
-        roleError={roleError}
-        userId={userId}
-        email={email}
-      />
-    );
+  if (branch && onWeb && adminWebView(true, isAdmin) === "console")
+    return <AdminWebGate branch={branch} userId={userId} email={email} />;
 
   if (branch) {
     return (

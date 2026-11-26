@@ -1,10 +1,12 @@
-// Edge Function: Quản trị quản lý Người dùng của Chi nhánh mình.
+// Edge Function: Quản trị quán quản lý Nhân viên của quán mình; Quản trị cấp cao quản lý mọi quán (ADR 0002).
 // Khóa secret chỉ có ở đây (biến môi trường mặc định của Supabase), không có trong app.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   BAN_FOREVER,
   UNBAN,
+  type CallerRole,
   canActOn,
+  deniedFor,
   messageForDbError,
   parseAdminRequest,
 } from "./logic.ts";
@@ -50,30 +52,29 @@ Deno.serve(async (req) => {
     auth: { persistSession: false },
   });
 
-  const { data: caller } = await admin
-    .from("members")
-    .select("branch_id")
-    .eq("user_id", user.id)
-    .eq("is_admin", true)
-    .eq("is_locked", false)
-    .order("branch_id")
-    .limit(1)
-    .maybeSingle();
-  if (!caller) return fail(403, "Chỉ Quản trị làm được việc này");
-  const branchId: string = caller.branch_id;
+  // Cấp cao hỏi bằng JWT của người gọi (is_owner chỉ trả lời về chính mình); lỗi = không phải cấp cao.
+  const [{ data: ownerFlag }, { data: me }] = await Promise.all([
+    userClient.rpc("is_owner"),
+    admin
+      .from("members")
+      .select("branch_id, is_admin")
+      .eq("user_id", user.id)
+      .eq("is_locked", false)
+      .maybeSingle(),
+  ]);
+  const role: CallerRole | null =
+    ownerFlag === true ? "owner" : me?.is_admin ? "branch_admin" : null;
+  if (!role) return fail(403, "Chỉ Quản trị làm được việc này");
 
   const parsed = parseAdminRequest(await req.json().catch(() => null));
   if (!parsed.ok) return fail(400, parsed.error);
   const request = parsed.value;
-  const denied = canActOn(user.id, request);
-  if (denied) return fail(400, denied);
+  const selfDenied = canActOn(user.id, request);
+  if (selfDenied) return fail(400, selfDenied);
+  const roleDenied = deniedFor(role, request);
+  if (roleDenied) return fail(403, roleDenied);
 
-  if (request.action === "list") {
-    const { data: members, error } = await admin
-      .from("members")
-      .select("user_id, is_admin, is_locked, created_at")
-      .eq("branch_id", branchId);
-    if (error) return fail(500, messageForDbError(error));
+  async function withEmails<T extends { user_id: string }>(members: T[]) {
     const users = await Promise.all(
       members.map(async (m) => {
         const { data, error } = await admin.auth.admin.getUserById(m.user_id);
@@ -81,11 +82,35 @@ Deno.serve(async (req) => {
         return { ...m, email: data.user?.email ?? "(không đọc được email)" };
       })
     );
-    users.sort((a, b) => a.email.localeCompare(b.email));
-    return json(200, { data: users });
+    return users.sort((a, b) => a.email.localeCompare(b.email));
+  }
+
+  if (request.action === "list_all") {
+    const { data: members, error } = await admin
+      .from("members")
+      .select("user_id, branch_id, is_admin, is_locked, created_at");
+    if (error) return fail(500, messageForDbError(error));
+    return json(200, { data: await withEmails(members) });
+  }
+
+  // Quán của list/create: cấp cao chọn (mặc định quán của mình), Quản trị quán luôn là quán mình.
+  const branchId: string | undefined =
+    role === "owner" && "branch_id" in request && request.branch_id
+      ? request.branch_id
+      : me?.branch_id;
+
+  if (request.action === "list") {
+    if (!branchId) return fail(400, "Chưa chọn Chi nhánh");
+    const { data: members, error } = await admin
+      .from("members")
+      .select("user_id, is_admin, is_locked, created_at")
+      .eq("branch_id", branchId);
+    if (error) return fail(500, messageForDbError(error));
+    return json(200, { data: await withEmails(members) });
   }
 
   if (request.action === "create") {
+    if (!branchId) return fail(400, "Chưa chọn Chi nhánh");
     const { data: created, error: createError } =
       await admin.auth.admin.createUser({
         email: request.email,
@@ -121,20 +146,40 @@ Deno.serve(async (req) => {
     return json(200, { data: { user_id: created.user.id } });
   }
 
-  // set_locked / set_admin / set_password: người đích phải thuộc Chi nhánh của Quản trị.
-  const { data: target } = await admin
+  // set_locked / set_admin / set_password: Quản trị quán chỉ với người trong quán mình; cấp cao mọi quán.
+  let targetQuery = admin
     .from("members")
-    .select("is_locked")
-    .eq("branch_id", branchId)
-    .eq("user_id", request.user_id)
-    .maybeSingle();
+    .select("branch_id, is_admin, is_locked")
+    .eq("user_id", request.user_id);
+  if (role === "branch_admin")
+    targetQuery = targetQuery.eq("branch_id", me!.branch_id);
+  const { data: target } = await targetQuery.maybeSingle();
   if (!target) return fail(404, "Không tìm thấy Người dùng trong Chi nhánh");
+  // Cấp cao có thể mang is_admin=false nên hỏi thẳng private.owners; lỗi thì từ chối (an toàn).
+  let targetIsOwner = false;
+  if (role === "branch_admin") {
+    const { data, error } = await admin.rpc("user_is_owner", {
+      p_user: request.user_id,
+    });
+    if (error) {
+      console.error("user_is_owner", request.user_id, error.message);
+      return fail(500, "Không kiểm tra được quyền. Thử lại sau.");
+    }
+    targetIsOwner = data === true;
+  }
+  const targetDenied = deniedFor(role, request, {
+    is_admin: target.is_admin,
+    is_owner: targetIsOwner,
+    is_self: request.user_id === user.id,
+  });
+  if (targetDenied) return fail(403, targetDenied);
+  const targetBranch: string = target.branch_id;
 
   if (request.action === "set_admin") {
     const { error } = await admin
       .from("members")
       .update({ is_admin: request.is_admin })
-      .eq("branch_id", branchId)
+      .eq("branch_id", targetBranch)
       .eq("user_id", request.user_id);
     if (error) return fail(409, messageForDbError(error));
     return json(200, { data: null });
@@ -157,11 +202,10 @@ Deno.serve(async (req) => {
   const { error: lockError } = await admin
     .from("members")
     .update({ is_locked: request.locked })
-    .eq("branch_id", branchId)
+    .eq("branch_id", targetBranch)
     .eq("user_id", request.user_id);
   if (lockError) return fail(409, messageForDbError(lockError));
-  // shortcut: ban áp dụng cho cả hệ thống Auth, đúng khi mỗi Người dùng chỉ thuộc một Chi nhánh;
-  // khi có nhiều Chi nhánh thì chỉ gỡ cấm khi người đó không còn bị khóa ở Chi nhánh nào.
+  // Ban áp dụng cho cả hệ thống Auth: đúng vì mỗi Người dùng thuộc đúng một Chi nhánh (unique members.user_id).
   const { error: banError } = await admin.auth.admin.updateUserById(
     request.user_id,
     { ban_duration: request.locked ? BAN_FOREVER : UNBAN }
@@ -170,7 +214,7 @@ Deno.serve(async (req) => {
     const { error: undoError } = await admin
       .from("members")
       .update({ is_locked: target.is_locked })
-      .eq("branch_id", branchId)
+      .eq("branch_id", targetBranch)
       .eq("user_id", request.user_id);
     if (undoError) {
       console.error(
