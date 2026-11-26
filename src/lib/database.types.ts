@@ -340,6 +340,10 @@ export type Database = {
         Args: { p_line: string };
         Returns: undefined;
       };
+      delete_placed_order: {
+        Args: { p_order: string };
+        Returns: undefined;
+      };
       audit_feed: {
         Args: {
           p_branch: string;

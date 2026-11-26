@@ -32,6 +32,7 @@ import { useSaveGuard } from "../lib/useSaveGuard";
 import { omitKeys } from "../lib/omitKeys";
 import { formatItemQty, parseQty } from "../stock/qty";
 import {
+  deleteOrder,
   deleteOrderLine,
   loadOrders,
   subscribeOrders,
@@ -194,6 +195,7 @@ export function ReceiveScreen({ branchId, isAdmin }: Props) {
           group: found.group,
           order: found.i,
           groupLines,
+          orders: block.orders,
         },
       ];
     });
@@ -393,6 +395,26 @@ export function ReceiveScreen({ branchId, isAdmin }: Props) {
     });
   }
 
+  // Xóa cả một đơn đã đặt (đặt trùng do bấm Đặt hàng nhiều lần); chỉ khi đơn chưa nhận món nào.
+  function handleDeleteOrder(
+    order: { id: string; placedAt: string; lines: number },
+    groupName: string
+  ) {
+    if (!online || busy.current) return;
+    confirmAction({
+      title: `Xóa đơn ${groupName} đặt lúc ${localTime(order.placedAt)}?`,
+      message: `Xóa cả ${order.lines} món của đơn này khỏi Hàng đang về, không hoàn lại được. Chưa nhận hàng thì mới xóa được.`,
+      confirmText: "Xóa đơn",
+      destructive: true,
+      onConfirm: () =>
+        void runSave(async () => {
+          const res = await deleteOrder(order.id);
+          setMessage(res.error ?? `Đã xóa đơn ${groupName}.`);
+          await fetchData();
+        }),
+    });
+  }
+
   function handleGroupReceive(
     blockKey: string,
     day: string,
@@ -519,61 +541,85 @@ export function ReceiveScreen({ branchId, isAdmin }: Props) {
         {groupedLines.list.length === 0 && (
           <Text style={styles.meta}>Không có hàng đang về.</Text>
         )}
-        {dayList.map(({ key: blockKey, day, group, groupLines }) => {
-          const errs = groupErrors[blockKey] ?? [];
-          return (
-            <View key={blockKey} style={styles.groupBlock}>
-              <Text style={styles.groupHeader}>{group.name}</Text>
-              {groupLines.map((line) => {
-                const item = itemsById.get(line.item_id);
-                const summary = formatEditedSummary(line, item);
-                return (
+        {dayList.map(
+          ({ key: blockKey, day, group, groupLines, orders: blockOrders }) => {
+            const errs = groupErrors[blockKey] ?? [];
+            return (
+              <View key={blockKey} style={styles.groupBlock}>
+                <Text style={styles.groupHeader}>{group.name}</Text>
+                {groupLines.map((line) => {
+                  const item = itemsById.get(line.item_id);
+                  const summary = formatEditedSummary(line, item);
+                  return (
+                    <Pressable
+                      key={line.id}
+                      style={styles.row}
+                      onPress={() => setEditingLineId(line.id)}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.name}>
+                        {item?.name ?? "?"}
+                        {item?.name_zh ? ` · ${item.name_zh}` : ""}
+                      </Text>
+                      <Text style={styles.metaInline}>
+                        Đã đặt: {formatItemQty(item, line.qty)}
+                        {line.parts.length > 1
+                          ? ` (gộp ${line.parts.length} đơn cùng ngày)`
+                          : ""}
+                      </Text>
+                      {summary && (
+                        <Text style={styles.summaryText}>{summary}</Text>
+                      )}
+                    </Pressable>
+                  );
+                })}
+                {errs.length > 0 && (
+                  <View style={styles.errorBox}>
+                    {errs.map((err, idx) => (
+                      <Text key={idx} style={styles.fieldError}>
+                        {err}
+                      </Text>
+                    ))}
+                  </View>
+                )}
+                {blockOrders.length > 1 && (
+                  <View>
+                    <Text style={styles.meta}>
+                      Có {blockOrders.length} đơn cùng ngày (gộp ở trên). Đặt
+                      trùng thì xóa bớt đơn:
+                    </Text>
+                    {blockOrders.map((o) => (
+                      <View key={o.id} style={styles.row}>
+                        <Text style={styles.metaInline}>
+                          Đặt lúc {localTime(o.placedAt)} · {o.lines} món
+                        </Text>
+                        <Pressable
+                          disabled={actionDisabled}
+                          onPress={() => handleDeleteOrder(o, group.name)}
+                          accessibilityRole="button"
+                        >
+                          <Text style={styles.deleteText}>Xóa đơn</Text>
+                        </Pressable>
+                      </View>
+                    ))}
+                  </View>
+                )}
+                <View style={styles.groupFooter}>
                   <Pressable
-                    key={line.id}
-                    style={styles.row}
-                    onPress={() => setEditingLineId(line.id)}
+                    style={[styles.primary, actionDisabled && styles.disabled]}
+                    disabled={actionDisabled}
+                    onPress={() =>
+                      handleGroupReceive(blockKey, day, group, groupLines)
+                    }
                     accessibilityRole="button"
                   >
-                    <Text style={styles.name}>
-                      {item?.name ?? "?"}
-                      {item?.name_zh ? ` · ${item.name_zh}` : ""}
-                    </Text>
-                    <Text style={styles.metaInline}>
-                      Đã đặt: {formatItemQty(item, line.qty)}
-                      {line.parts.length > 1
-                        ? ` (gộp ${line.parts.length} đơn cùng ngày)`
-                        : ""}
-                    </Text>
-                    {summary && (
-                      <Text style={styles.summaryText}>{summary}</Text>
-                    )}
+                    <Text style={styles.primaryText}>Đã nhận hàng</Text>
                   </Pressable>
-                );
-              })}
-              {errs.length > 0 && (
-                <View style={styles.errorBox}>
-                  {errs.map((err, idx) => (
-                    <Text key={idx} style={styles.fieldError}>
-                      {err}
-                    </Text>
-                  ))}
                 </View>
-              )}
-              <View style={styles.groupFooter}>
-                <Pressable
-                  style={[styles.primary, actionDisabled && styles.disabled]}
-                  disabled={actionDisabled}
-                  onPress={() =>
-                    handleGroupReceive(blockKey, day, group, groupLines)
-                  }
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.primaryText}>Đã nhận hàng</Text>
-                </Pressable>
               </View>
-            </View>
-          );
-        })}
+            );
+          }
+        )}
         {receivedList.length > 0 && (
           <>
             <Text style={styles.section}>

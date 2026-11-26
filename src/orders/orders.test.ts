@@ -169,6 +169,26 @@ describe("pendingBlocks (Nhận hàng tách theo ngày của đơn)", () => {
     expect(blocks[0].lines[0].parts.map((p) => p.id)).toEqual(["a", "b"]);
   });
 
+  it("liệt kê từng đơn tạo nên khối (cũ trước, đếm số dòng chưa nhận) để xóa đơn đặt trùng", () => {
+    const blocks = pendingBlocks(
+      [
+        { id: "x2", group_id: "g1", placed_at: "2026-11-22T14:30:00Z" },
+        { id: "x1", group_id: "g1", placed_at: d22 },
+      ],
+      [
+        line("a", "x1", "i1", 2),
+        line("b", "x2", "i1", 3),
+        line("c", "x2", "i2", 1),
+      ],
+      new Set(),
+      []
+    );
+    expect(blocks[0].orders).toEqual([
+      { id: "x1", placedAt: d22, lines: 1 },
+      { id: "x2", placedAt: "2026-11-22T14:30:00Z", lines: 2 },
+    ]);
+  });
+
   it("bỏ dòng đã nhận và đơn nháp", () => {
     const blocks = pendingBlocks(
       orders,

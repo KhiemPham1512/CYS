@@ -113,6 +113,21 @@ export async function deleteOrderLine(
   };
 }
 
+// Xóa cả một đơn ĐÃ ĐẶT khi chưa nhận món nào (mọi thành viên); hàm DB kiểm điều kiện và ghi Nhật ký.
+export async function deleteOrder(
+  orderId: string
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc("delete_placed_order", {
+    p_order: orderId,
+  });
+  if (!error) return { error: null };
+  return {
+    error: error.code
+      ? "Không xóa được (đơn có thể đã nhận hàng hoặc đã bị xóa)."
+      : NET_ERROR,
+  };
+}
+
 export function subscribeOrders(
   branchId: string,
   onChange: () => void
