@@ -52,7 +52,7 @@ _Tránh_: quy cách 1000
 Ở Tồn kho, Kiểm kho, Ghi dùng, số lượng không tự gộp lên thùng: nhập "6" thì hiện "6 bình", nhập "1T+3" thì hiện "1 thùng 3 cây". Khi số đã đổi (Ghi dùng, Nhận hàng...) thì hiện đơn vị lẻ. Màn đặt hàng và nhận hàng vẫn hiện theo thùng.
 
 **Đang dùng**:
-Đơn vị đã khui của một Nguyên vật liệu có hạn sau khi khui dài (hơn 7 ngày), được theo dõi để biết còn dùng được đến ngày nào. Mỗi lần Ghi dùng, hoặc Kiểm kho đếm ra ít hơn sổ, thêm một đơn vị (ngày khui = hôm nay); có thể khui sẵn nhiều đơn vị cùng lúc; Người dùng bấm "Hết" khi dùng xong đơn vị đó.
+Đơn vị đã khui của một Nguyên vật liệu được **Theo dõi Đang dùng**, để biết còn dùng được đến ngày nào. Công tắc này ở từng món trong Danh mục (chỉ hiện khi món có hạn sau khui); để mặc định thì món có hạn sau khui hơn 7 ngày được theo dõi, Quản trị bật cho món hạn ngắn mà xài ít hoặc tắt cho món không cần nhắc. Mỗi lần Ghi dùng, hoặc Kiểm kho đếm ra ít hơn sổ, thêm một đơn vị (ngày khui = hôm nay); có thể khui sẵn nhiều đơn vị cùng lúc; Người dùng bấm "Hết" khi dùng xong đơn vị đó.
 _Tránh_: đang mở, đã khui
 
 **Hàng đang về**:

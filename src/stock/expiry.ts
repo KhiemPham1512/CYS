@@ -1,4 +1,4 @@
-import type { Tables } from "../lib/database.types";
+import type { ShelfLifeUnit, Tables } from "../lib/database.types";
 import type { Lot } from "./ledger";
 
 export type ExpiryItem = Pick<
@@ -112,12 +112,24 @@ export function expiredLots(
   });
 }
 
-// Chỉ món có hạn sau khui dài (> 7 ngày; tháng luôn dài hơn) mới vào Đang dùng.
-// shortcut: mốc 7 ngày cố định theo ticket #10, đưa vào cấu hình khi quán cần đổi.
-export function tracksInUse(item: ExpiryItem): boolean {
-  const n = item.shelf_life_after_open;
-  if (!n) return false;
-  return item.shelf_life_after_open_unit === "month" || n > 7;
+// Quy tắc tự động: chỉ món có hạn sau khui dài (> 7 ngày; tháng luôn dài hơn) mới vào Đang dùng.
+// shortcut: mốc 7 ngày cố định theo ticket #10; Quản trị có thể ghi đè từng món bằng track_in_use.
+export function autoTracksInUse(
+  after: number | null,
+  unit: ShelfLifeUnit
+): boolean {
+  return Boolean(after && (unit === "month" || after > 7));
+}
+
+// Món vào Đang dùng khi có hạn sau khui và (track_in_use bật, hoặc để null thì theo quy tắc tự động).
+export function tracksInUse(
+  item: ExpiryItem & { track_in_use?: boolean | null }
+): boolean {
+  if (!item.shelf_life_after_open) return false;
+  return (
+    item.track_in_use ??
+    autoTracksInUse(item.shelf_life_after_open, item.shelf_life_after_open_unit)
+  );
 }
 
 export function inUseExpiry(openedOn: string, item: ExpiryItem): string | null {
@@ -133,7 +145,7 @@ export function inUseExpiry(openedOn: string, item: ExpiryItem): string | null {
 // Kiểm kho đếm ít hơn sổ = đã dùng: món có hạn sau khui dài vào Đang dùng (như Ghi dùng, mỗi món một đơn vị).
 export function openedByCount(
   rows: { item_id: string; qty: number; expected_qty: number }[],
-  items: Map<string, ExpiryItem>
+  items: Map<string, ExpiryItem & { track_in_use?: boolean | null }>
 ): string[] {
   return rows
     .filter((r) => r.qty < r.expected_qty)

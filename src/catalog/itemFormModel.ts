@@ -3,6 +3,7 @@ import type {
   Tables,
   TablesInsert,
 } from "../lib/database.types";
+import { autoTracksInUse } from "../stock/expiry";
 
 export type ItemFormValues = {
   name: string;
@@ -17,6 +18,7 @@ export type ItemFormValues = {
   shelf_life_after_open: string;
   shelf_life_after_open_unit: ShelfLifeUnit;
   track_mfg_date: boolean;
+  track_in_use: boolean | null;
   record_by_percent: boolean;
   skip_count: boolean;
 };
@@ -35,6 +37,7 @@ export function emptyForm(groupId = ""): ItemFormValues {
     shelf_life_after_open: "",
     shelf_life_after_open_unit: "day",
     track_mfg_date: false,
+    track_in_use: null,
     record_by_percent: false,
     skip_count: false,
   };
@@ -60,9 +63,19 @@ export function toFormValues(item: Tables<"items">): ItemFormValues {
         : String(item.shelf_life_after_open),
     shelf_life_after_open_unit: item.shelf_life_after_open_unit,
     track_mfg_date: item.track_mfg_date,
+    track_in_use: item.track_in_use,
     record_by_percent: item.record_by_percent,
     skip_count: item.skip_count,
   };
+}
+
+export function inUseSwitchValue(v: ItemFormValues): boolean {
+  if (v.track_in_use !== null) return v.track_in_use;
+  const after = parseOptionalPositiveInt(v.shelf_life_after_open);
+  return autoTracksInUse(
+    after.ok ? after.value : null,
+    v.shelf_life_after_open_unit
+  );
 }
 
 function parseOptionalPositiveInt(raw: string): {
@@ -126,6 +139,7 @@ export function parseItemForm(
       unit_zh,
       case_size: caseSize.value,
       track_mfg_date: v.track_mfg_date,
+      track_in_use: shelfLifeOpen.value === null ? null : v.track_in_use,
       shelf_life: shelfLife.value,
       shelf_life_unit: v.shelf_life_unit,
       shelf_life_from_receipt_days: shelfLifeReceipt.value,

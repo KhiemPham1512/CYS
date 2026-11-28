@@ -44,6 +44,44 @@ describe("describeChange", () => {
     expect(lines).toEqual(["Thời hạn: 6 tháng → 15 ngày"]);
   });
 
+  it("Theo dõi Đang dùng: null hiển thị 'Tự động', true/false hiển thị 'Có'/'Không'", () => {
+    expect(
+      describeChange(
+        entry({
+          old_data: { track_in_use: null },
+          new_data: { track_in_use: true },
+        })
+      )
+    ).toEqual(["Theo dõi Đang dùng: Tự động → Có"]);
+    expect(
+      describeChange(
+        entry({
+          old_data: { track_in_use: true },
+          new_data: { track_in_use: false },
+        })
+      )
+    ).toEqual(["Theo dõi Đang dùng: Có → Không"]);
+    expect(
+      describeChange(
+        entry({
+          old_data: { track_in_use: false },
+          new_data: { track_in_use: null },
+        })
+      )
+    ).toEqual(["Theo dõi Đang dùng: Không → Tự động"]);
+  });
+
+  it("trường bật/tắt khác thiếu giá trị vẫn hiện 'Không' (chỉ Theo dõi Đang dùng có 'Tự động')", () => {
+    expect(
+      describeChange(
+        entry({
+          old_data: { skip_count: undefined },
+          new_data: { skip_count: true },
+        })
+      )
+    ).toEqual(["Không cần kiểm kho: Không → Có"]);
+  });
+
   it("bỏ trường kỹ thuật (updated_at) và không đổi thì không có dòng nào", () => {
     expect(
       describeChange(
