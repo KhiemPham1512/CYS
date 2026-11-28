@@ -43,7 +43,8 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { TabBar } from "./src/ui/TabBar";
 import { AdminWebGate } from "./src/admin/AdminWebGate";
 import { DevScreen } from "./src/admin/DevScreen";
-import { ModeChooser } from "./src/admin/ModeChooser";
+import { BranchChooser, ModeChooser } from "./src/admin/ModeChooser";
+import { isOwner, listBranches, type Branch } from "./src/branches/api";
 import { adminWebView, type WebMode } from "./src/navigation/adminWeb";
 import { CatalogScreen } from "./src/catalog/CatalogScreen";
 import { CountScreen } from "./src/stock/CountScreen";
@@ -390,10 +391,12 @@ function HomeScreen({
   const { theme, palette } = useTheme();
   const styles = useMemo(() => makeStyles(palette), [palette]);
   // undefined = đang tải; null = không có Chi nhánh (chưa là thành viên hoặc bị khóa).
-  const [branch, setBranch] = useState<
-    { branch_id: string; branch_name: string } | null | undefined
-  >();
-  useLockWatch(userId, branch?.branch_id, onLocked);
+  const [ownBranch, setOwnBranch] = useState<Branch | null | undefined>();
+  useLockWatch(userId, ownBranch?.branch_id, onLocked);
+  // Quản trị cấp cao trên web: danh sách mọi quán (null = không phải cấp cao) và quán đang mở trong app tồn kho.
+  const [ownerBranches, setOwnerBranches] = useState<Branch[] | null>(null);
+  const [appBranch, setAppBranch] = useState<Branch | null>(null);
+  const branch = appBranch ?? ownBranch;
   const [error, setError] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [webChoice, setWebChoice] = useState<WebMode | null>(null); // chỉ Quản trị trên web dùng
@@ -436,7 +439,7 @@ function HomeScreen({
         .maybeSingle();
       if (meError || !me) {
         setError(!!meError);
-        setBranch(null);
+        setOwnBranch(null);
         return;
       }
       const { data, error } = await supabase
@@ -444,9 +447,15 @@ function HomeScreen({
         .select("branch_id, branch_name")
         .eq("branch_id", me.branch_id)
         .maybeSingle();
+      // Hỏi quyền cấp cao TRƯỚC khi hết màn chờ: không thì bấm "App tồn kho" sớm sẽ vào app rồi
+      // màn chọn Chi nhánh bật lên giữa chừng. Lỗi khi hỏi thì mở Chi nhánh của chính mình như trước.
+      if (Platform.OS === "web" && me.is_admin && (await isOwner()).owner) {
+        const list = await listBranches();
+        if (list.data) setOwnerBranches(list.data);
+      }
       setIsAdmin(me.is_admin);
       setError(!!error);
-      setBranch(data ?? null);
+      setOwnBranch(data ?? null);
     })();
   }, [userId]);
 
@@ -503,7 +512,12 @@ function HomeScreen({
             online={online}
             onSignOut={() => supabase.auth.signOut()}
             onOpenAdmin={
-              webChoice === "app" ? () => setWebChoice("console") : undefined
+              webChoice === "app"
+                ? () => {
+                    setAppBranch(null); // mở lại App tồn kho thì chọn quán lại
+                    setWebChoice("console");
+                  }
+                : undefined
             }
           />
         );
@@ -544,6 +558,19 @@ function HomeScreen({
         onOpenApp={() => setWebChoice("app")}
       />
     );
+  if (branch && webView === "app" && ownerBranches && !appBranch)
+    return (
+      <BranchChooser
+        branches={ownerBranches}
+        onPick={(b) => {
+          setView("stock");
+          setMounted(["stock"]); // màn giữ lại của quán trước không dựng lại cho quán mới
+          setAppBranch(b);
+        }}
+        onBack={() => setWebChoice(null)}
+        onSignOut={() => supabase.auth.signOut()}
+      />
+    );
 
   if (branch) {
     return (
@@ -581,7 +608,7 @@ function HomeScreen({
         {/* Màn đã mở được giữ lại (ẩn đi) để quay lại tức thì, không tải lại; chỉ màn có cập nhật thời gian thực. */}
         {mounted.map((k) => (
           <Pane
-            key={`${theme}-${k}`}
+            key={`${theme}-${branch.branch_id}-${k}`}
             active={k === view}
             style={styles.content}
           >
@@ -589,7 +616,11 @@ function HomeScreen({
           </Pane>
         ))}
         {!KEEP_ALIVE.has(view) && (
-          <Pane key={`fresh-${theme}-${view}`} active style={styles.content}>
+          <Pane
+            key={`fresh-${theme}-${branch.branch_id}-${view}`}
+            active
+            style={styles.content}
+          >
             {renderView(view)}
           </Pane>
         )}
