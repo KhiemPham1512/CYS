@@ -338,6 +338,10 @@ export function CountScreen({ branchId, onDone }: Props) {
 
   const saveDisabled =
     !online || saving || validation.rows.length === 0 || validation.hasError;
+  const errorIds = Object.keys(validation.errors);
+  const firstErrorItem = errorIds.length
+    ? (itemsById.get(errorIds[0]) ?? null)
+    : null;
 
   const editingItem = editingItemId
     ? (itemsById.get(editingItemId) ?? null)
@@ -457,6 +461,21 @@ export function CountScreen({ branchId, onDone }: Props) {
       />
 
       <View style={styles.footer}>
+        {firstErrorItem && (
+          // Lỗi chỉ hiện dưới từng món, món ở xa thì không thấy: báo ngay trên nút Lưu, bấm để mở món đó.
+          <Pressable
+            style={styles.linkButton}
+            onPress={() => setEditingItemId(firstErrorItem.id)}
+            accessibilityRole="button"
+          >
+            <Text style={styles.fieldError}>
+              Chưa lưu được: {errorIds.length} món nhập chưa đúng (
+              {errorIds.map((id) => itemsById.get(id)?.name ?? id).join(", ")}
+              ). Bấm để sửa {firstErrorItem.name}:{" "}
+              {validation.errors[firstErrorItem.id]}
+            </Text>
+          </Pressable>
+        )}
         <Pressable
           style={[styles.primaryButton, saveDisabled && styles.buttonDisabled]}
           disabled={saveDisabled}

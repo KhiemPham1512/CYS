@@ -78,6 +78,7 @@ _Tránh_: đổi hàng, hoàn hàng, return
 **Nhận hàng**:
 Lần một Người dùng ghi nhận hàng của một dòng Đơn đặt hàng đã về: phần nhận tốt vào Tồn kho thực tế thành Lô theo Ngày sản xuất, phần Hàng thiếu và Trả hàng hư vào Chờ nhà cung cấp. Mỗi dòng nhận một lần và hết Hàng đang về. Nhận nhầm thì **Quản trị gỡ nhận hàng** (nút ở mục "Đã nhận gần đây" của màn Nhận hàng): xóa dòng nhận khỏi sổ kho, dòng đơn quay lại Hàng đang về, ghi Nhật ký. Chỉ gỡ lần nhận trong 3 ngày; không gỡ khi lần nhận có Hàng thiếu/hư (đã vào Chờ nhà cung cấp) hoặc món đã được Kiểm kho/Điều chỉnh sau đó (số đếm tuyệt đối làm tồn lệch).
 Màn Nhận hàng chia **tab theo Ngày của đơn** ("Đơn ngày 24/11", ngày cũ nhất mở trước), trong mỗi tab chia theo Nhóm: hàng của đơn ngày nào nhận ở tab ngày đó, không gộp đơn khác ngày; chỉ đơn cùng ngày, cùng Nhóm mới gộp dòng cùng món.
+**Nhận theo thứ tự ngày** (chung mọi Nhóm, máy chủ cũng chặn): chỉ nhận đơn của Ngày cũ nhất còn chờ, và chỉ khi đã đặt đơn cho ngày sau (hàng đơn ngày D về sau khi đặt đơn D+1). Chưa có đơn ngày sau thì Nhân viên không nhận được; Quản trị vẫn nhận được (có hỏi xác nhận) khi hàng thật sự đã về.
 _Tránh_: nhập kho, nhập hàng
 
 **Đối chiếu đơn nhà cung cấp**:
