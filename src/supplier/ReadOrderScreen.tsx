@@ -7,7 +7,7 @@ import { themedStyles } from "../theme/themedStyles";
 import type { Palette } from "../theme/themes";
 import { Text } from "../ui/Text";
 import { Loading } from "../ui/Loading";
-import { loadCatalog } from "../catalog/api";
+import { loadCatalog, loadCatalogReadOnly } from "../catalog/api";
 import { compareGroups, compareItems } from "../catalog/sections";
 import type { Tables } from "../lib/database.types";
 import { useOnline } from "../lib/useOnline";
@@ -56,6 +56,7 @@ export function ReadOrderScreen({ userId, branchId }: Props) {
     () => new Set()
   );
   const [aliases, setAliases] = useState<Record<string, string>>({});
+  const [readOnly, setReadOnly] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
 
@@ -97,11 +98,12 @@ export function ReadOrderScreen({ userId, branchId }: Props) {
     const request = ++latestRequest.current;
     setLoadError(false);
     try {
-      const [catalog, ord, rec, al] = await Promise.all([
+      const [catalog, ord, rec, al, ro] = await Promise.all([
         loadCatalog(branchId),
         loadOrders(branchId),
         loadReceivingData(branchId),
         loadAliases(branchId),
+        loadCatalogReadOnly(branchId),
       ]);
       if (request !== latestRequest.current) return;
       setGroups([...catalog.groups].sort(compareGroups));
@@ -110,6 +112,7 @@ export function ReadOrderScreen({ userId, branchId }: Props) {
       setLines(ord.lines);
       setReceivedLineIds(rec.receivedLineIds);
       setAliases(al);
+      setReadOnly(ro);
     } catch {
       if (request === latestRequest.current) setLoadError(true);
     } finally {
@@ -241,6 +244,7 @@ export function ReadOrderScreen({ userId, branchId }: Props) {
     const key = aliasKey(line.name);
     const before = aliases[key];
     setAliases((a) => ({ ...a, [key]: itemId }));
+    if (readOnly) return; // quán theo: chỉ áp cho lần đọc này, không lưu (chỉ quán gốc dạy tên mới)
     const { error } = await saveAlias(branchId, line.name, itemId);
     if (!error) {
       setMessage(null);

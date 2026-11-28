@@ -7,7 +7,7 @@ import { Text } from "../ui/Text";
 import { Loading } from "../ui/Loading";
 import { saveItemEdits } from "../admin/api";
 import type { ShelfLifeUnit, Tables } from "../lib/database.types";
-import { loadCatalog } from "./api";
+import { loadCatalog, loadCatalogReadOnly } from "./api";
 import { diffItemEdits } from "./bulkEdit";
 import { toFormValues, type ItemFormValues } from "./itemFormModel";
 import { compareGroups, compareItems } from "./sections";
@@ -32,6 +32,7 @@ const widthOf = (k: string) => COLS.find((c) => c.key === k)?.width ?? 100;
 export function BulkEditScreen({ branchId }: Props) {
   const [groups, setGroups] = useState<Tables<"item_groups">[]>([]);
   const [items, setItems] = useState<Tables<"items">[]>([]);
+  const [readOnly, setReadOnly] = useState(false);
   const [edits, setEdits] = useState<Record<string, ItemFormValues>>({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -44,10 +45,14 @@ export function BulkEditScreen({ branchId }: Props) {
   const fetchData = useCallback(async () => {
     const request = ++latest.current;
     try {
-      const data = await loadCatalog(branchId);
+      const [data, ro] = await Promise.all([
+        loadCatalog(branchId),
+        loadCatalogReadOnly(branchId),
+      ]);
       if (request !== latest.current) return;
       setGroups([...data.groups].sort(compareGroups));
       setItems(data.items.filter((i) => !i.is_hidden));
+      setReadOnly(ro);
       setLoadError(false);
     } catch {
       if (request === latest.current) setLoadError(true);
@@ -121,6 +126,14 @@ export function BulkEditScreen({ branchId }: Props) {
         <Pressable style={styles.primary} onPress={() => void fetchData()}>
           <Text style={styles.primaryText}>Thử lại</Text>
         </Pressable>
+      </View>
+    );
+  if (readOnly)
+    return (
+      <View style={styles.center}>
+        <Text style={styles.barText}>
+          Danh mục quán này theo quán gốc. Sửa ở quán gốc, quán này tự cập nhật.
+        </Text>
       </View>
     );
 

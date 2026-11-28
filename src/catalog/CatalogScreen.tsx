@@ -16,7 +16,7 @@ import { Text } from "../ui/Text";
 import { Loading } from "../ui/Loading";
 import type { Tables } from "../lib/database.types";
 import { WIDE_LAYOUT } from "../navigation/adminWeb";
-import { loadCatalog, subscribeCatalog } from "./api";
+import { loadCatalog, loadCatalogReadOnly, subscribeCatalog } from "./api";
 import { ItemForm } from "./ItemForm";
 import { buildSections } from "./sections";
 
@@ -33,6 +33,7 @@ export function CatalogScreen({ branchId }: Props) {
   const wide = useWindowDimensions().width >= WIDE_LAYOUT;
   const [groups, setGroups] = useState<Tables<"item_groups">[]>([]);
   const [items, setItems] = useState<Tables<"items">[]>([]);
+  const [readOnly, setReadOnly] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -47,10 +48,14 @@ export function CatalogScreen({ branchId }: Props) {
     const request = ++latestRequest.current;
     setError(false);
     try {
-      const data = await loadCatalog(branchId);
+      const [data, ro] = await Promise.all([
+        loadCatalog(branchId),
+        loadCatalogReadOnly(branchId),
+      ]);
       if (request !== latestRequest.current) return;
       setGroups(data.groups);
       setItems(data.items);
+      setReadOnly(ro);
     } catch {
       if (request === latestRequest.current) setError(true);
     } finally {
@@ -83,6 +88,7 @@ export function CatalogScreen({ branchId }: Props) {
   }
 
   function openEdit(item: Tables<"items">) {
+    if (readOnly) return;
     setEditingItem(item);
     setFormVisible(true);
   }
@@ -142,15 +148,22 @@ export function CatalogScreen({ branchId }: Props) {
             />
             <Text style={styles.switchText}>Hiện món đã ẩn</Text>
           </View>
-          <Pressable
-            style={styles.addButton}
-            onPress={openCreate}
-            accessibilityRole="button"
-          >
-            <Text style={styles.addButtonText}>+ Thêm món</Text>
-          </Pressable>
+          {!readOnly && (
+            <Pressable
+              style={styles.addButton}
+              onPress={openCreate}
+              accessibilityRole="button"
+            >
+              <Text style={styles.addButtonText}>+ Thêm món</Text>
+            </Pressable>
+          )}
         </View>
       </View>
+      {readOnly && (
+        <Text style={styles.readOnlyNote}>
+          Danh mục quán này theo quán gốc. Sửa ở quán gốc, quán này tự cập nhật.
+        </Text>
+      )}
 
       {isCatalogEmpty ? (
         <View style={styles.center}>
@@ -186,11 +199,13 @@ export function CatalogScreen({ branchId }: Props) {
                     key={item.id}
                     style={({ pressed }) => [
                       styles.tr,
-                      pressed && styles.rowPressed,
+                      !readOnly && pressed && styles.rowPressed,
                     ]}
                     onPress={() => openEdit(item)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Sửa món ${item.name}`}
+                    accessibilityRole={readOnly ? undefined : "button"}
+                    accessibilityLabel={
+                      readOnly ? undefined : `Sửa món ${item.name}`
+                    }
                   >
                     <Text style={[styles.itemName, styles.colName]}>
                       {item.name}
@@ -236,7 +251,8 @@ export function CatalogScreen({ branchId }: Props) {
             <Pressable
               style={styles.itemRow}
               onPress={() => openEdit(item)}
-              accessibilityRole="button"
+              disabled={readOnly}
+              accessibilityRole={readOnly ? undefined : "button"}
             >
               <View style={styles.itemMain}>
                 <Text style={styles.itemName}>
@@ -264,17 +280,19 @@ export function CatalogScreen({ branchId }: Props) {
         />
       )}
 
-      <ItemForm
-        visible={formVisible}
-        groups={groups}
-        initial={editingItem}
-        branchId={branchId}
-        onClose={() => setFormVisible(false)}
-        onSaved={() => {
-          setFormVisible(false);
-          void fetchCatalog();
-        }}
-      />
+      {!readOnly && (
+        <ItemForm
+          visible={formVisible}
+          groups={groups}
+          initial={editingItem}
+          branchId={branchId}
+          onClose={() => setFormVisible(false)}
+          onSaved={() => {
+            setFormVisible(false);
+            void fetchCatalog();
+          }}
+        />
+      )}
     </View>
   );
 }
@@ -418,4 +436,10 @@ const styles = themedStyles((c: Palette) => ({
   },
   retryText: { color: c.onAccent, fontSize: 15, fontWeight: "600" },
   emptyText: { color: c.muted, textAlign: "center", fontSize: 15 },
+  readOnlyNote: {
+    color: c.muted,
+    fontSize: 13,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
 }));

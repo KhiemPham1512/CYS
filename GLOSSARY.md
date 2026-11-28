@@ -5,7 +5,7 @@ Theo dõi nguyên vật liệu của quán đồ uống: còn bao nhiêu, đã d
 ## Ngôn ngữ
 
 **Chi nhánh**:
-Một quán có kho riêng; mọi số liệu kho thuộc về đúng một Chi nhánh. Chi nhánh mới do Quản trị cấp cao tạo bằng cách chép từ một Chi nhánh mẫu: chép Nhóm, Danh mục, dữ liệu in và Tên nhà cung cấp; không chép tồn kho, Đơn đặt hàng, Nhận hàng hay Nhật ký thay đổi.
+Một quán có kho riêng; mọi số liệu kho thuộc về đúng một Chi nhánh. Chi nhánh mới do Quản trị cấp cao tạo bằng cách chép từ một Chi nhánh mẫu: chép Nhóm, Danh mục, dữ liệu in và Tên nhà cung cấp; không chép tồn kho, Đơn đặt hàng, Nhận hàng hay Nhật ký thay đổi. Một Chi nhánh là Chi nhánh gốc; mọi Chi nhánh khác theo Danh mục của Chi nhánh gốc (ADR 0003).
 _Tránh_: cửa hàng, store, điểm bán
 
 **Nguyên vật liệu**:
@@ -17,7 +17,7 @@ Cách phân loại Nguyên vật liệu (ví dụ: Đóng gói, Thạch & Toppin
 _Tránh_: danh mục con, category
 
 **Danh mục**:
-Toàn bộ Nguyên vật liệu mà một Chi nhánh quản lý.
+Toàn bộ Nguyên vật liệu mà một Chi nhánh quản lý. Chỉ sửa ở Chi nhánh gốc: mọi thêm/sửa/ẩn/sắp xếp Nhóm, món (kèm dữ liệu in) và Tên nhà cung cấp tự sang các Chi nhánh khác, nơi Danh mục chỉ đọc.
 _Tránh_: catalog, master data
 
 **Đơn vị tính**:
@@ -90,7 +90,7 @@ Số ảnh đơn nhà cung cấp mỗi Người dùng được gửi đọc tron
 _Tránh_: quota, rate limit
 
 **Tên nhà cung cấp**:
-Cách nhà cung cấp gọi một Nguyên vật liệu trên đơn của họ (kèm tên Trung, mô tả quy cách như "12 lon/thùng"); tên lạ chưa khớp thì hỏi một lần rồi nhớ cho các lần sau.
+Cách nhà cung cấp gọi một Nguyên vật liệu trên đơn của họ (kèm tên Trung, mô tả quy cách như "12 lon/thùng"); tên lạ chưa khớp thì hỏi một lần rồi nhớ cho các lần sau. Chỉ Chi nhánh gốc nhớ tên mới (các Chi nhánh khác nhận theo); ở Chi nhánh khác tên lạ phải chọn món mỗi lần.
 _Tránh_: tên ngoài, alias
 
 **Nhận bù**:

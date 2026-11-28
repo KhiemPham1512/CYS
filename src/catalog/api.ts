@@ -20,6 +20,17 @@ export async function loadCatalog(branchId: string): Promise<{
   };
 }
 
+export async function loadCatalogReadOnly(branchId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("branches")
+    .select("catalog_source")
+    .eq("id", branchId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data?.catalog_source != null;
+}
+
 export async function saveItem(
   branchId: string,
   id: string | null,
