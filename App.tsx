@@ -109,7 +109,7 @@ function Root() {
           Mất mạng — không lưu được thay đổi cho tới khi có mạng lại.
         </Text>
       )}
-      <UpdateBanner />
+      <UpdateBanner underBar={!online} />
       <View style={styles.body}>
         {session === undefined ? (
           <Loading />

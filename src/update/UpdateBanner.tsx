@@ -12,7 +12,8 @@ import {
 import type { LatestVersion } from "./version";
 
 // Android: có bản APK mới thì báo và cho tải + cài đè ngay trong app. Kiểm khi mở app và mỗi lần quay lại app.
-export function UpdateBanner() {
+// underBar: đang có thanh "Mất mạng" ở trên (đã chừa thanh trạng thái) thì không chừa thêm.
+export function UpdateBanner({ underBar = false }: { underBar?: boolean }) {
   const [latest, setLatest] = useState<LatestVersion | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +50,7 @@ export function UpdateBanner() {
 
   return (
     <View
-      style={[styles.bar, { paddingTop: top + 8 }]}
+      style={[styles.bar, { paddingTop: underBar ? 10 : top + 8 }]}
       accessibilityRole="alert"
     >
       <View style={styles.textCol}>
