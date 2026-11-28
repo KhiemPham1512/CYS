@@ -57,6 +57,7 @@ export async function downloadAndInstall(
     ).downloadAsync();
     if (!res || res.status !== 200) throw new Error(`HTTP ${res?.status}`);
   } catch {
+    cleanupDownloaded(); // file tải dở: xóa, không để chiếm bộ nhớ tới lần sau
     return { error: "Không tải được bản mới. Kiểm tra mạng rồi thử lại." };
   }
   for (const packageName of INSTALLERS) {
