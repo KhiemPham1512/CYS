@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { AppState, Platform, Pressable, StatusBar, View } from "react-native";
+import { AppState, Platform, Pressable, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { themedStyles } from "../theme/themedStyles";
 import type { Palette } from "../theme/themes";
 import { Text } from "../ui/Text";
@@ -11,10 +12,13 @@ import {
 import type { LatestVersion } from "./version";
 
 // Android: có bản APK mới thì báo và cho tải + cài đè ngay trong app. Kiểm khi mở app và mỗi lần quay lại app.
-export function UpdateBanner() {
+// underBar: đang có thanh "Mất mạng" ở trên (đã chừa thanh trạng thái) thì không chừa thêm.
+export function UpdateBanner({ underBar = false }: { underBar?: boolean }) {
   const [latest, setLatest] = useState<LatestVersion | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
+  const { top } = useSafeAreaInsets(); // thanh nằm trên cùng: chừa chỗ thanh trạng thái (StatusBar.currentHeight sai trên Samsung)
 
   useEffect(() => {
     if (Platform.OS !== "android") return;
@@ -38,19 +42,24 @@ export function UpdateBanner() {
   const download = async () => {
     setBusy(true);
     setError(null);
-    const res = await downloadAndInstall(latest);
+    setProgress(0);
+    const res = await downloadAndInstall(latest, setProgress);
     setBusy(false);
     setError(res.error); // huỷ cài thì thanh vẫn còn để bấm lại
   };
 
   return (
-    <View style={styles.bar} accessibilityRole="alert">
+    <View
+      style={[styles.bar, { paddingTop: underBar ? 10 : top + 8 }]}
+      accessibilityRole="alert"
+    >
       <View style={styles.textCol}>
         <Text style={styles.title}>Có bản mới {latest.versionName}</Text>
         {latest.notes ? <Text style={styles.notes}>{latest.notes}</Text> : null}
         <Text style={styles.notes}>
           Lần đầu Android hỏi cho phép cài từ nguồn này: bật cho phép, quay lại
-          rồi bấm Tải bản mới lần nữa.
+          rồi bấm Tải bản mới lần nữa. Khi máy đang quét/cài, chờ xong, đừng
+          thoát ra.
         </Text>
         {error ? <Text style={styles.error}>{error}</Text> : null}
       </View>
@@ -61,7 +70,7 @@ export function UpdateBanner() {
         accessibilityRole="button"
       >
         <Text style={styles.buttonText}>
-          {busy ? "Đang tải…" : "Tải bản mới"}
+          {busy ? `Đang tải ${Math.round(progress * 100)}%` : "Tải bản mới"}
         </Text>
       </Pressable>
     </View>
@@ -75,7 +84,6 @@ const styles = themedStyles((c: Palette) => ({
     gap: 12,
     paddingHorizontal: 16,
     paddingBottom: 10,
-    paddingTop: (StatusBar.currentHeight ?? 24) + 8, // thanh nằm trên cùng: chừa chỗ thanh trạng thái Android
     backgroundColor: c.accentSoft,
     borderBottomWidth: 1,
     borderBottomColor: c.line,
