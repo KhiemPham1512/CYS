@@ -238,3 +238,14 @@ export function draftGoneElsewhere(
   const old = orders.find((o) => o.id === shownDraftId);
   return !old || old.group_id === groupId;
 }
+
+// Nhận hàng theo thứ tự (máy chủ receive_order_line kiểm cùng luật): chỉ đơn ngày cũ nhất còn chờ, và chỉ khi
+// đã đặt đơn cho ngày sau (hàng đơn ngày D về sau khi đặt đơn D+1), tính chung mọi Nhóm. "noNext": chỉ Quản trị nhận.
+export function receiveLock(
+  day: string,
+  pendingDays: string[],
+  placedDays: string[]
+): "ok" | "older" | "noNext" {
+  if (pendingDays.some((d) => d < day)) return "older";
+  return placedDays.some((d) => d > day) ? "ok" : "noNext";
+}

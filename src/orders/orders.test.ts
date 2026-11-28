@@ -10,6 +10,7 @@ import {
   receivedBlocks,
   projectedQty,
   draftGoneElsewhere,
+  receiveLock,
   type Order,
   type OrderLine,
 } from "./orders";
@@ -346,5 +347,31 @@ describe("draftGoneElsewhere", () => {
   it("chưa có nháp hoặc nháp vẫn còn thì không tính", () => {
     expect(draftGoneElsewhere(null, null, [], "g1")).toBe(false);
     expect(draftGoneElsewhere("d1", g1, [g1], "g1")).toBe(false);
+  });
+});
+
+describe("receiveLock (nhận hàng theo thứ tự ngày)", () => {
+  const pending = ["2026-11-26", "2026-11-27"];
+  const placed = ["2026-11-26", "2026-11-27"];
+
+  it("còn đơn ngày trước chưa nhận thì khóa đơn ngày sau", () => {
+    expect(receiveLock("2026-11-27", pending, placed)).toBe("older");
+  });
+
+  it("đơn ngày cũ nhất nhận được khi đã đặt đơn ngày sau", () => {
+    expect(receiveLock("2026-11-26", pending, placed)).toBe("ok");
+  });
+
+  it("nhận xong ngày 26 thì đơn 27 khóa cho đến khi đặt đơn 28", () => {
+    expect(receiveLock("2026-11-27", ["2026-11-27"], placed)).toBe("noNext");
+    expect(
+      receiveLock("2026-11-27", ["2026-11-27"], [...placed, "2026-11-28"])
+    ).toBe("ok");
+  });
+
+  it("đơn ngày sau đã nhận (không còn chờ) vẫn tính là đã đặt", () => {
+    expect(
+      receiveLock("2026-11-27", ["2026-11-27"], ["2026-11-27", "2026-11-29"])
+    ).toBe("ok");
   });
 });

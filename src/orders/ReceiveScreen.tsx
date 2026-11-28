@@ -23,7 +23,9 @@ import {
 import { loadMovements, subscribeMovements } from "../stock/api";
 import { DayTabs, activeDayOf } from "../ui/DayTabs";
 import {
+  businessDay,
   pendingBlocks,
+  receiveLock,
   receivedBlocks,
   type ReceivedBlock,
   type ReceiptRow,
@@ -208,6 +210,16 @@ export function ReceiveScreen({ branchId, isAdmin }: Props) {
     [groupedLines]
   );
   const activeDay = activeDayOf(days, pickedDay);
+  const placedDays = useMemo(
+    () =>
+      orders.flatMap((o) =>
+        o.placed_at ? [businessDay(o.placed_at, countTimes)] : []
+      ),
+    [orders, countTimes]
+  );
+  const lockOf = (day: string) => receiveLock(day, days, placedDays);
+  const isLocked = (lock: ReturnType<typeof lockOf>) =>
+    lock === "older" || (lock === "noNext" && !isAdmin);
   const dayList = groupedLines.list.filter((e) => e.day === activeDay);
 
   const editingLine = editingLineId
@@ -400,6 +412,8 @@ export function ReceiveScreen({ branchId, isAdmin }: Props) {
     groupLines: MergedLine[]
   ) {
     if (!online || busy.current) return;
+    const lock = lockOf(day);
+    if (isLocked(lock)) return;
     setMessage(null);
     setGroupErrors((p) => omitKeys(p, [blockKey]));
 
@@ -473,6 +487,10 @@ export function ReceiveScreen({ branchId, isAdmin }: Props) {
 
     confirmAction({
       title: `Nhận ${plan.lines.length} món của ${group.name} (đơn ngày ${formatDayMonth(day)})?`,
+      message:
+        lock === "noNext"
+          ? "Đây là đơn mới nhất, chưa có đơn ngày sau. Chỉ nhận khi hàng đã thật sự về."
+          : undefined,
       confirmText: "Đã nhận hàng",
       onConfirm: () => void commitGroupReceive(blockKey, plan.lines, lineItems),
     });
@@ -521,6 +539,8 @@ export function ReceiveScreen({ branchId, isAdmin }: Props) {
         )}
         {dayList.map(({ key: blockKey, day, group, groupLines }) => {
           const errs = groupErrors[blockKey] ?? [];
+          const lock = lockOf(day);
+          const locked = isLocked(lock);
           return (
             <View key={blockKey} style={styles.groupBlock}>
               <Text style={styles.groupHeader}>{group.name}</Text>
@@ -560,9 +580,21 @@ export function ReceiveScreen({ branchId, isAdmin }: Props) {
                 </View>
               )}
               <View style={styles.groupFooter}>
+                {lock !== "ok" && (
+                  <Text style={styles.meta}>
+                    {lock === "older"
+                      ? `Nhận đơn ngày ${formatDayMonth(days[0] ?? day)} trước.`
+                      : isAdmin
+                        ? "Chưa có đơn ngày sau: Quản trị vẫn nhận được nếu hàng đã về."
+                        : "Chưa nhận được: đơn này nhận sau khi đã đặt đơn ngày kế tiếp. Hàng đã về thì nhờ Quản trị nhận."}
+                  </Text>
+                )}
                 <Pressable
-                  style={[styles.primary, actionDisabled && styles.disabled]}
-                  disabled={actionDisabled}
+                  style={[
+                    styles.primary,
+                    (actionDisabled || locked) && styles.disabled,
+                  ]}
+                  disabled={actionDisabled || locked}
                   onPress={() =>
                     handleGroupReceive(blockKey, day, group, groupLines)
                   }
