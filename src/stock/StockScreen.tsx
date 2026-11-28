@@ -2,6 +2,7 @@ import { SCRIM } from "../ui/overlay";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { debounce } from "../lib/debounce";
 import {
+  KeyboardAvoidingView,
   Modal,
   Pressable,
   ScrollView,
@@ -557,7 +558,7 @@ export function StockScreen({ branchId }: Props) {
         transparent
         onRequestClose={() => setSelectedItem(null)}
       >
-        <View style={styles.modalBackdrop}>
+        <KeyboardAvoidingView behavior="padding" style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <ScrollView contentContainerStyle={styles.modalContent}>
               {selectedItem && (
@@ -817,7 +818,7 @@ export function StockScreen({ branchId }: Props) {
               )}
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

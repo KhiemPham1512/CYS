@@ -1,5 +1,12 @@
 import { SCRIM } from "../ui/overlay";
-import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from "react-native";
 import { TextInput } from "../ui/TextInput";
 import { themedStyles } from "../theme/themedStyles";
 import type { Palette } from "../theme/themes";
@@ -39,7 +46,7 @@ export function ItemQtyModal({
       transparent
       onRequestClose={onDone}
     >
-      <View style={styles.modalBackdrop}>
+      <KeyboardAvoidingView behavior="padding" style={styles.modalBackdrop}>
         <View style={styles.modalCard}>
           <ScrollView keyboardShouldPersistTaps="handled">
             <View style={styles.modalContent}>
@@ -83,7 +90,7 @@ export function ItemQtyModal({
             </View>
           </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

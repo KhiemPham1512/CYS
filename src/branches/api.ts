@@ -34,6 +34,40 @@ export async function createBranch(name: string, templateId: string) {
   return { data, error: rpcError(error) };
 }
 
+export type BranchSheet = {
+  title?: string;
+  order_zh?: string;
+  stock_zh?: string;
+};
+
+export async function loadBranchSheet(branchId: string) {
+  const { data, error } = await supabase
+    .from("branch_settings")
+    .select("sheet")
+    .eq("branch_id", branchId)
+    .maybeSingle();
+  return {
+    sheet: (data?.sheet ?? {}) as BranchSheet,
+    error: error ? "Không tải được chữ trên tờ." : null,
+  };
+}
+
+// Chữ để trống: tờ dùng mặc định (tên quán viết hoa, không chữ Trung).
+export async function updateBranch(
+  branchId: string,
+  name: string,
+  sheet: Required<BranchSheet>
+) {
+  const { error } = await supabase.rpc("update_branch", {
+    p_branch: branchId,
+    p_name: name,
+    p_title: sheet.title,
+    p_order_zh: sheet.order_zh,
+    p_stock_zh: sheet.stock_zh,
+  });
+  return { error: rpcError(error) };
+}
+
 export async function moveMember(userId: string, toBranchId: string) {
   const { error } = await supabase.rpc("move_member", {
     p_user: userId,

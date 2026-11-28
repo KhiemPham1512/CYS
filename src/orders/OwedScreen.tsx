@@ -2,7 +2,14 @@ import { SCRIM } from "../ui/overlay";
 import { formatMfg, usesMfgDate } from "../stock/expiry";
 import { debounce } from "../lib/debounce";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from "react-native";
 import { TextInput } from "../ui/TextInput";
 import { themedStyles } from "../theme/themedStyles";
 import type { Palette } from "../theme/themes";
@@ -355,7 +362,7 @@ export function OwedScreen({ branchId }: Props) {
         transparent
         onRequestClose={() => setEditingItemId(null)}
       >
-        <View style={styles.modalBackdrop}>
+        <KeyboardAvoidingView behavior="padding" style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <ScrollView keyboardShouldPersistTaps="handled">
               {editingItem && (
@@ -427,7 +434,7 @@ export function OwedScreen({ branchId }: Props) {
               )}
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
