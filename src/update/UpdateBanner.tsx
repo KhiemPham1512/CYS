@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AppState, Platform, Pressable, View } from "react-native";
+import { AppState, Platform, Pressable, StatusBar, View } from "react-native";
 import { themedStyles } from "../theme/themedStyles";
 import type { Palette } from "../theme/themes";
 import { Text } from "../ui/Text";
@@ -74,7 +74,8 @@ const styles = themedStyles((c: Palette) => ({
     alignItems: "center",
     gap: 12,
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingBottom: 10,
+    paddingTop: (StatusBar.currentHeight ?? 24) + 8, // thanh nằm trên cùng: chừa chỗ thanh trạng thái Android
     backgroundColor: c.accentSoft,
     borderBottomWidth: 1,
     borderBottomColor: c.line,

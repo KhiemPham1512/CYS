@@ -46,7 +46,8 @@ export async function downloadAndInstall(
   }
   try {
     // Cài đè lên app cũ (cùng khóa ký) nên không mất nháp; lần đầu Android hỏi cho phép cài từ nguồn này.
-    await startActivityAsync("android.intent.action.VIEW", {
+    // INSTALL_PACKAGE (không phải VIEW): mở thẳng trình cài hệ thống, không hiện hộp "Mở bằng" có app lạ (TeraBox...).
+    await startActivityAsync("android.intent.action.INSTALL_PACKAGE", {
       data: file.contentUri,
       type: "application/vnd.android.package-archive",
       flags: 1, // FLAG_GRANT_READ_URI_PERMISSION: trình cài đọc được file trong cache của app
