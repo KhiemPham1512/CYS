@@ -7,6 +7,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { themedStyles } from "../theme/themedStyles";
 import type { Palette } from "../theme/themes";
 import { Text } from "../ui/Text";
@@ -28,9 +29,19 @@ export function DraftSheet({
 }) {
   const { width } = useWindowDimensions();
   const shot = useRef<ComponentRef<typeof View>>(null);
+  const { top, bottom } = useSafeAreaInsets();
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={styles.container}>
+    // Vẽ tràn trên mọi Android (15+ vốn bị ép vậy) rồi tự chừa thanh trạng thái và thanh điều hướng.
+    <Modal
+      visible={visible}
+      animationType="slide"
+      onRequestClose={onClose}
+      statusBarTranslucent
+      navigationBarTranslucent
+    >
+      <View
+        style={[styles.container, { paddingTop: top, paddingBottom: bottom }]}
+      >
         <ScrollView contentContainerStyle={styles.paper}>
           {model ? (
             <PaperSheet

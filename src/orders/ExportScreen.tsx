@@ -17,6 +17,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Loading } from "../ui/Loading";
 import { Text } from "../ui/Text";
 import { TextInput } from "../ui/TextInput";
@@ -65,6 +66,7 @@ export function ExportScreen({ branchId, branchName }: Props) {
   const [received, setReceived] = useState<Set<string>>(() => new Set());
   const [branchSheet, setBranchSheet] = useState<unknown>(null);
   const { width: screenW } = useWindowDimensions();
+  const { top, bottom } = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [kind, setKind] = useState<Kind>("order");
@@ -395,8 +397,16 @@ export function ExportScreen({ branchId, branchName }: Props) {
         visible={!!group}
         animationType="slide"
         onRequestClose={() => setTarget(null)}
+        // Vẽ tràn trên mọi Android (15+ vốn bị ép vậy) rồi tự chừa thanh trạng thái và thanh điều hướng.
+        statusBarTranslucent
+        navigationBarTranslucent
       >
-        <View style={styles.modal}>
+        <View
+          style={[
+            styles.modal,
+            { paddingTop: top + 12, paddingBottom: bottom },
+          ]}
+        >
           <ScrollView>
             {model ? (
               <View style={styles.paperWrap}>
