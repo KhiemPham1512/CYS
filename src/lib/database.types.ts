@@ -377,6 +377,16 @@ export type Database = {
         Args: { p_user: string; p_to: string };
         Returns: undefined;
       };
+      update_branch: {
+        Args: {
+          p_branch: string;
+          p_name: string;
+          p_title: string;
+          p_order_zh: string;
+          p_stock_zh: string;
+        };
+        Returns: undefined;
+      };
       receive_order_line: {
         Args: {
           p_line_id: string;

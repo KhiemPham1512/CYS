@@ -10,7 +10,13 @@ import { Text } from "../ui/Text";
 import { TextInput } from "../ui/TextInput";
 import { useOnline } from "../lib/useOnline";
 import { listAllUsers, setAdmin, type SystemUser } from "../users/api";
-import { createBranch, moveMember, type Branch } from "./api";
+import {
+  createBranch,
+  loadBranchSheet,
+  moveMember,
+  updateBranch,
+  type Branch,
+} from "./api";
 
 // Trang Hệ thống của Quản trị cấp cao: các Chi nhánh, tạo quán mới từ quán mẫu,
 // Người dùng mọi quán (Chuyển quán, bổ nhiệm Quản trị quán).
@@ -32,6 +38,7 @@ export function SystemScreen({
     null
   );
   const [moveFor, setMoveFor] = useState<string | null>(null); // người đang mở chọn quán đích
+  const [editFor, setEditFor] = useState<string | null>(null); // Chi nhánh đang mở form sửa
 
   const reload = useCallback(async () => {
     setLoadError(null);
@@ -79,11 +86,40 @@ export function SystemScreen({
     <View style={[styles.card, wide && styles.grow]}>
       <Text style={styles.cardTitle}>Chi nhánh</Text>
       {branches.map((b) => (
-        <View key={b.branch_id} style={styles.branchRow}>
-          <Text style={styles.branchName}>{b.branch_name}</Text>
-          <Text style={styles.muted}>
-            {users ? `${counts.get(b.branch_id) ?? 0} người` : ""}
-          </Text>
+        <View key={b.branch_id}>
+          <View style={styles.branchRow}>
+            <Text style={[styles.branchName, styles.grow]}>
+              {b.branch_name}
+            </Text>
+            <Text style={styles.muted}>
+              {users ? `${counts.get(b.branch_id) ?? 0} người` : ""}
+            </Text>
+            <Pressable
+              style={[
+                styles.smallButton,
+                editFor === b.branch_id && styles.smallButtonOn,
+              ]}
+              onPress={() =>
+                setEditFor(editFor === b.branch_id ? null : b.branch_id)
+              }
+              accessibilityRole="button"
+              accessibilityLabel={`Sửa ${b.branch_name}`}
+              accessibilityState={{ expanded: editFor === b.branch_id }}
+            >
+              <Text style={styles.smallButtonText}>Sửa</Text>
+            </Pressable>
+          </View>
+          {editFor === b.branch_id && (
+            <EditBranchForm
+              branch={b}
+              disabled={!online}
+              onClose={() => setEditFor(null)}
+              onSaved={async () => {
+                setEditFor(null);
+                await onBranchesChanged();
+              }}
+            />
+          )}
         </View>
       ))}
     </View>
@@ -342,6 +378,115 @@ function NewBranchForm({
   );
 }
 
+// Tên Chi nhánh + chữ trên tờ xuất ảnh của quán này (riêng từng quán, không theo Danh mục gốc).
+function EditBranchForm({
+  branch,
+  disabled,
+  onClose,
+  onSaved,
+}: {
+  branch: Branch;
+  disabled: boolean;
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const [name, setName] = useState(branch.branch_name);
+  const [title, setTitle] = useState("");
+  const [orderZh, setOrderZh] = useState("");
+  const [stockZh, setStockZh] = useState("");
+  const [loaded, setLoaded] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let live = true; // đóng form khi đang tải thì bỏ kết quả
+    void (async () => {
+      const { sheet, error } = await loadBranchSheet(branch.branch_id);
+      if (!live) return;
+      if (error) return setError(error);
+      setTitle(sheet.title ?? "");
+      setOrderZh(sheet.order_zh ?? "");
+      setStockZh(sheet.stock_zh ?? "");
+      setLoaded(true);
+    })();
+    return () => {
+      live = false;
+    };
+  }, [branch.branch_id]);
+
+  async function save() {
+    if (!name.trim()) return setError("Nhập tên quán");
+    setBusy(true);
+    setError(null);
+    const res = await updateBranch(branch.branch_id, name.trim(), {
+      title,
+      order_zh: orderZh,
+      stock_zh: stockZh,
+    });
+    setBusy(false);
+    if (res.error) return setError(res.error);
+    await onSaved();
+  }
+
+  // Xem trước đúng cách tờ ghép tiêu đề (src/orders/exportSheet.ts).
+  const shownTitle = title.trim() || name.trim().toUpperCase();
+  const off = disabled || busy || !loaded;
+  const field = (
+    label: string,
+    value: string,
+    set: (t: string) => void,
+    placeholder: string
+  ) => (
+    <>
+      <Text style={styles.label}>{label}</Text>
+      <TextInput
+        style={styles.input}
+        value={value}
+        onChangeText={set}
+        placeholder={placeholder}
+        accessibilityLabel={label}
+        maxLength={100}
+        editable={!off}
+      />
+    </>
+  );
+  return (
+    <View style={[styles.form, styles.editBox]}>
+      {field("Tên quán", name, setName, "Tên hiển thị của quán")}
+      {field(
+        "Tiêu đề trên tờ",
+        title,
+        setTitle,
+        `Để trống: ${name.trim().toUpperCase()}`
+      )}
+      {field("Chữ Trung tờ Đặt hàng", orderZh, setOrderZh, "Ví dụ: （訂貨單）")}
+      {field("Chữ Trung tờ Tồn kho", stockZh, setStockZh, "Ví dụ: （庫存表）")}
+      <Text style={styles.muted}>
+        {`ĐẶT HÀNG - ${shownTitle} ${orderZh.trim()}\nTỒN KHO MỖI NGÀY - ${shownTitle} ${stockZh.trim()}`}
+      </Text>
+      {error && <Text style={styles.error}>{error}</Text>}
+      <View style={styles.actions}>
+        <Pressable
+          style={[styles.button, styles.grow, off && styles.disabled]}
+          disabled={off}
+          onPress={() => void save()}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: off }}
+        >
+          <Text style={styles.buttonText}>{busy ? "Đang lưu…" : "Lưu"}</Text>
+        </Pressable>
+        <Pressable
+          style={styles.smallButton}
+          onPress={onClose}
+          accessibilityRole="button"
+        >
+          <Text style={styles.smallButtonText}>Hủy</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 const styles = themedStyles((c: Palette) => ({
   page: { padding: 16 },
   pageWide: { padding: 24 },
@@ -361,13 +506,14 @@ const styles = themedStyles((c: Palette) => ({
   cardTitle: { fontSize: 18, fontWeight: "700", color: c.ink },
   branchRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    gap: 12,
     alignItems: "center",
     minHeight: 44,
     borderBottomWidth: 1,
     borderBottomColor: c.line,
   },
   branchName: { fontSize: 16, fontWeight: "600", color: c.ink },
+  editBox: { paddingVertical: 12 },
   muted: { color: c.muted, fontSize: 14 },
   center: { alignItems: "center", gap: 12, paddingVertical: 24 },
   userRow: {
