@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  KeyboardAvoidingView,
   Modal,
   Pressable,
   ScrollView,
@@ -7,6 +8,7 @@ import {
   Switch,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TextInput } from "../ui/TextInput";
 import { switchTrack, themedStyles } from "../theme/themedStyles";
 import type { Palette } from "../theme/themes";
@@ -79,6 +81,7 @@ export function ItemForm({
   onSaved,
 }: Props) {
   const online = useOnline();
+  const { top, bottom } = useSafeAreaInsets();
   const sortedGroups = useMemo(
     () =>
       [...groups].sort(
@@ -158,9 +161,17 @@ export function ItemForm({
   const actionsDisabled = !online || busy;
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={styles.container}>
-        <View style={styles.header}>
+    // Vẽ tràn trên mọi Android (15+ vốn bị ép vậy) rồi tự chừa thanh trạng thái và thanh điều hướng.
+    <Modal
+      visible={visible}
+      animationType="slide"
+      onRequestClose={onClose}
+      statusBarTranslucent
+      navigationBarTranslucent
+    >
+      {/* Hộp vẽ tràn nên Android không tự co khi mở bàn phím: tự chừa chỗ để vẫn cuộn tới nút Lưu. */}
+      <KeyboardAvoidingView style={styles.container} behavior="padding">
+        <View style={[styles.header, { paddingTop: top + 12 }]}>
           <Text style={styles.headerTitle}>
             {initial ? "Sửa Nguyên vật liệu" : "Thêm Nguyên vật liệu"}
           </Text>
@@ -175,7 +186,10 @@ export function ItemForm({
 
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: 40 + bottom },
+          ]}
           keyboardShouldPersistTaps="handled"
         >
           <Text style={styles.label}>Tên *</Text>
@@ -404,7 +418,7 @@ export function ItemForm({
             </Pressable>
           </View>
         </ScrollView>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -416,7 +430,6 @@ const styles = themedStyles((c: Palette) => ({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingTop: 48,
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: c.line,
@@ -425,7 +438,7 @@ const styles = themedStyles((c: Palette) => ({
   cancelHeaderBtn: { minHeight: 44, justifyContent: "center", padding: 8 },
   cancelText: { color: c.accentDeep, fontSize: 16, fontWeight: "600" },
   scroll: { flex: 1 },
-  scrollContent: { padding: 16, gap: 10, paddingBottom: 40 },
+  scrollContent: { padding: 16, gap: 10 }, // paddingBottom tính theo thanh điều hướng ở chỗ dùng
   label: { fontSize: 14, fontWeight: "600", color: c.ink, marginTop: 4 },
   input: {
     borderWidth: 1,
