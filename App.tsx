@@ -38,6 +38,7 @@ import { ConfirmHost } from "./src/ui/ConfirmHost";
 import { MenuScreen } from "./src/ui/MenuScreen";
 import { fontFamily, useReduceMotion } from "./src/ui/motion";
 import { Splash, SPLASH_BG } from "./src/ui/Splash";
+import { UpdateBanner } from "./src/update/UpdateBanner";
 import { TabBar } from "./src/ui/TabBar";
 import { AdminWebGate } from "./src/admin/AdminWebGate";
 import { DevScreen } from "./src/admin/DevScreen";
@@ -105,6 +106,7 @@ function Root() {
           Mất mạng — không lưu được thay đổi cho tới khi có mạng lại.
         </Text>
       )}
+      <UpdateBanner />
       <View style={styles.body}>
         {session === undefined ? (
           <Loading />
