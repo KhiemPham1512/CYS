@@ -7,6 +7,11 @@ export type AuditEntry = {
 };
 
 const YES_NO = (v: unknown) => (v ? "Có" : "Không");
+// track_in_use: null = tự theo hạn sau khui; các trường bật/tắt khác thiếu giá trị vẫn là "Không".
+const yesNoFor = (key: string, v: unknown) =>
+  key === "track_in_use" && (v === null || v === undefined)
+    ? "Tự động"
+    : YES_NO(v);
 const DASH = "—";
 const UNIT_VI: Record<string, string> = { day: "ngày", month: "tháng" };
 
@@ -19,6 +24,7 @@ const FIELDS: Record<string, Record<string, string>> = {
     unit_zh: "Đơn vị tiếng Trung",
     case_size: "Quy cách thùng",
     track_mfg_date: "Theo dõi Ngày sản xuất",
+    track_in_use: "Theo dõi Đang dùng",
     shelf_life_from_receipt_days: "Hạn từ ngày nhập (ngày)",
     record_by_percent: "Ghi theo %",
     skip_count: "Không cần kiểm kho",
@@ -30,6 +36,7 @@ const FIELDS: Record<string, Record<string, string>> = {
 };
 const BOOLEAN_FIELDS = new Set([
   "track_mfg_date",
+  "track_in_use",
   "record_by_percent",
   "skip_count",
   "is_hidden",
@@ -124,7 +131,7 @@ export function describeChange(e: AuditEntry): string[] {
   for (const [key, label] of Object.entries(labels)) {
     if (same(key)) continue;
     const f = (d: Record<string, unknown>) =>
-      BOOLEAN_FIELDS.has(key) ? YES_NO(d[key]) : show(d[key]);
+      BOOLEAN_FIELDS.has(key) ? yesNoFor(key, d[key]) : show(d[key]);
     lines.push(`${label}: ${f(oldD)} → ${f(newD)}`);
   }
   // Dữ liệu in trên tờ (Xuất ảnh): chỉ báo đã đổi, không liệt kê nội dung.

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   addDuration,
+  autoTracksInUse,
   lastDay,
   expiredLots,
   formatDayMonth,
@@ -14,7 +15,9 @@ import {
   type ExpiryItem,
 } from "./expiry";
 
-const item = (over: Partial<ExpiryItem> = {}): ExpiryItem => ({
+const item = (
+  over: Partial<ExpiryItem & { track_in_use?: boolean | null }> = {}
+): ExpiryItem & { track_in_use?: boolean | null } => ({
   shelf_life: null,
   shelf_life_unit: "month",
   shelf_life_from_receipt_days: null,
@@ -112,6 +115,43 @@ describe("Đang dùng", () => {
         item({ shelf_life_after_open: 1, shelf_life_after_open_unit: "month" })
       )
     ).toBe(true);
+  });
+  it("track_in_use ghi đè quy tắc tự động, nhưng không có hạn sau khui thì luôn tắt", () => {
+    expect(autoTracksInUse(null, "day")).toBe(false);
+    expect(autoTracksInUse(7, "day")).toBe(false);
+    expect(autoTracksInUse(8, "day")).toBe(true);
+    expect(autoTracksInUse(1, "month")).toBe(true);
+
+    expect(
+      tracksInUse(item({ shelf_life_after_open: 30, track_in_use: false }))
+    ).toBe(false);
+    expect(
+      tracksInUse(item({ shelf_life_after_open: 7, track_in_use: true }))
+    ).toBe(true);
+    expect(
+      tracksInUse(item({ shelf_life_after_open: null, track_in_use: true }))
+    ).toBe(false);
+    expect(
+      tracksInUse(item({ shelf_life_after_open: 7, track_in_use: null }))
+    ).toBe(false);
+    expect(
+      tracksInUse(item({ shelf_life_after_open: 8, track_in_use: null }))
+    ).toBe(true);
+  });
+  it("openedByCount tôn trọng track_in_use", () => {
+    const map = new Map([
+      ["siro", item({ shelf_life_after_open: 30, track_in_use: false })],
+      ["sua", item({ shelf_life_after_open: 7, track_in_use: true })],
+    ]);
+    expect(
+      openedByCount(
+        [
+          { item_id: "siro", qty: 1, expected_qty: 2 },
+          { item_id: "sua", qty: 1, expected_qty: 2 },
+        ],
+        map
+      )
+    ).toEqual(["sua"]);
   });
   it("dùng được đến = ngày khui + hạn sau khui", () => {
     expect(inUseExpiry("2026-11-18", item({ shelf_life_after_open: 30 }))).toBe(

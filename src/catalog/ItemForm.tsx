@@ -16,6 +16,7 @@ import { useOnline } from "../lib/useOnline";
 import { saveItem, setHidden } from "./api";
 import {
   emptyForm,
+  inUseSwitchValue,
   type ItemFormValues,
   parseItemForm,
   toFormValues,
@@ -298,7 +299,10 @@ export function ItemForm({
             <TextInput
               style={[styles.input, styles.durationInput]}
               value={values.shelf_life_after_open}
-              onChangeText={(t) => setField("shelf_life_after_open", t)}
+              onChangeText={(t) => {
+                setField("shelf_life_after_open", t);
+                if (t.trim() === "") setField("track_in_use", null);
+              }}
               keyboardType="number-pad"
               placeholder="Ví dụ: 3"
             />
@@ -309,6 +313,23 @@ export function ItemForm({
           </View>
           {errors.shelf_life_after_open && (
             <Text style={styles.error}>{errors.shelf_life_after_open}</Text>
+          )}
+
+          {values.shelf_life_after_open.trim() !== "" && (
+            <View style={styles.switchRow}>
+              <View style={styles.switchTextCol}>
+                <Text style={styles.switchLabel}>Theo dõi Đang dùng</Text>
+                <Text style={styles.switchHint}>
+                  Khui ra thì vào Đang dùng để nhắc hạn. Mặc định bật khi hạn
+                  sau khui trên 7 ngày.
+                </Text>
+              </View>
+              <Switch
+                value={inUseSwitchValue(values)}
+                onValueChange={(val) => setField("track_in_use", val)}
+                trackColor={switchTrack()}
+              />
+            </View>
           )}
 
           <View style={styles.switchRow}>

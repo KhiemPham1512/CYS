@@ -21,6 +21,7 @@ const item = (over: Partial<Tables<"items">> = {}): Tables<"items"> => ({
   shelf_life_from_receipt_days: null,
   shelf_life_unit: "month",
   sort_order: 1,
+  track_in_use: null,
   track_mfg_date: false,
   unit: "Hộp",
   unit_zh: null,

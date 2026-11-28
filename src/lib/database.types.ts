@@ -87,6 +87,7 @@ export type Database = {
           shelf_life_from_receipt_days: number | null;
           skip_count: boolean;
           sort_order: number;
+          track_in_use: boolean | null; // null = tự theo hạn sau khui (> 7 ngày)
           track_mfg_date: boolean;
           unit: string;
           unit_zh: string | null;
@@ -110,6 +111,7 @@ export type Database = {
           shelf_life_from_receipt_days?: number | null;
           skip_count?: boolean;
           sort_order?: number;
+          track_in_use?: boolean | null;
           track_mfg_date?: boolean;
           unit: string;
           unit_zh?: string | null;
@@ -133,6 +135,7 @@ export type Database = {
           shelf_life_from_receipt_days?: number | null;
           skip_count?: boolean;
           sort_order?: number;
+          track_in_use?: boolean | null;
           track_mfg_date?: boolean;
           unit?: string;
           unit_zh?: string | null;
