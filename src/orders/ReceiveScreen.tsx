@@ -2,7 +2,14 @@ import { SCRIM } from "../ui/overlay";
 import { formatDayMonth, formatMfg, usesMfgDate } from "../stock/expiry";
 import { debounce } from "../lib/debounce";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from "react-native";
 import { confirmAction } from "../ui/confirm";
 import { TextInput } from "../ui/TextInput";
 import { themedStyles } from "../theme/themedStyles";
@@ -665,7 +672,7 @@ export function ReceiveScreen({ branchId, isAdmin }: Props) {
         transparent
         onRequestClose={() => setEditingLineId(null)}
       >
-        <View style={styles.modalBackdrop}>
+        <KeyboardAvoidingView behavior="padding" style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <ScrollView keyboardShouldPersistTaps="handled">
               {editingLine && (
@@ -762,7 +769,7 @@ export function ReceiveScreen({ branchId, isAdmin }: Props) {
               )}
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
