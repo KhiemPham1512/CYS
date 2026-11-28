@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Animated, Pressable, StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MAIN_TABS, type MainTabKey } from "../navigation/tabs";
 import { useTheme } from "../theme/ThemeContext";
 import { Icon } from "./icons";
@@ -16,10 +17,13 @@ export function TabBar({
   onSelect: (key: MainTabKey) => void;
 }) {
   const { theme, palette } = useTheme();
+  // Máy có thanh điều hướng 3 nút: app vẽ tràn ra sau thanh đó, nên đẩy TabBar lên đúng chiều cao thanh.
+  const { bottom } = useSafeAreaInsets();
   return (
     <View
       style={[
         styles.bar,
+        { marginBottom: styles.bar.marginBottom + bottom },
         { backgroundColor: palette.surface, borderColor: palette.line },
         theme === "pink" && { borderRadius: 26 },
       ]}

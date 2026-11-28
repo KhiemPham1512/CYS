@@ -39,6 +39,7 @@ import { MenuScreen } from "./src/ui/MenuScreen";
 import { fontFamily, useReduceMotion } from "./src/ui/motion";
 import { Splash, SPLASH_BG } from "./src/ui/Splash";
 import { UpdateBanner } from "./src/update/UpdateBanner";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { TabBar } from "./src/ui/TabBar";
 import { AdminWebGate } from "./src/admin/AdminWebGate";
 import { DevScreen } from "./src/admin/DevScreen";
@@ -62,9 +63,11 @@ const NO_ACCESS_MESSAGE =
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <Root />
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <Root />
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }
 

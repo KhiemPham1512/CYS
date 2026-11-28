@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 import { HUB_SECTIONS, type HubKey } from "../navigation/tabs";
 import { useTheme } from "../theme/ThemeContext";
@@ -29,6 +30,7 @@ export function HubSheet({
 }) {
   const { theme, palette } = useTheme();
   const reduce = useReduceMotion();
+  const { bottom } = useSafeAreaInsets(); // nằm trên TabBar, TabBar đã đẩy lên theo thanh điều hướng
   const progress = useRef(new Animated.Value(0)).current;
   const [mounted, setMounted] = useState(open);
 
@@ -85,6 +87,7 @@ export function HubSheet({
         style={[
           styles.sheet,
           {
+            bottom: styles.sheet.bottom + bottom,
             backgroundColor: palette.surface,
             borderRadius: theme === "pink" ? 30 : 26,
             opacity: reduce ? progress : 1,
@@ -149,6 +152,7 @@ export function HubSheet({
 // Vài trái tim nhỏ bay lên từ nút Hub (chủ đề Hồng nơ).
 function Hearts() {
   const { palette } = useTheme();
+  const { bottom } = useSafeAreaInsets();
   const hearts = useRef(
     [0, 1, 2, 3, 4].map((i) => ({
       v: new Animated.Value(0),
@@ -172,7 +176,10 @@ function Hearts() {
     return () => anims.forEach((a) => a.stop());
   }, [hearts]);
   return (
-    <View style={styles.hearts} pointerEvents="none">
+    <View
+      style={[styles.hearts, { bottom: styles.hearts.bottom + bottom }]}
+      pointerEvents="none"
+    >
       {hearts.map((h, i) => (
         <Animated.View
           key={i}
